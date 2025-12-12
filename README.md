@@ -1,7 +1,7 @@
-jquery.dgtable
-==============
+DGTable.js
+==========
 
-This is a table View for jQuery, which is meant to be high-performance, and allow simple user interactions with the UI, such as:
+This is a table View for vanilla JS, which is meant to be high-performance, and allow simple user interactions with the UI, such as:
 * Sorting
 * Sorting by more than one column
 * Moving columns
@@ -17,7 +17,11 @@ Other features implemented are:
 * Option to set a fixed width for the table so resizing (relative) columns will still make sure the table will not be less (and/or more) than the specified width.
 * Option to have both scrollbars inside the table. (set `width: DGTable.Width.SCROLL`)
 
-A few notes:
+`jquery.dgtable` users:
+* Older `jquery.dgtable` can either keep using `jquery.dgtable`, or migrate to this new version which is more lightweight. 
+* The new version's API is the same as the old one, except that does not have the `$el` property and it will not automatically clear jQuery data.
+
+My TODO list:
 * TODO: Have a simple and accurate API documentation here in the readme
 
 ## Dev environment
@@ -290,7 +294,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 * `createWebWorker({string} url) {Worker?}`: *Undocumented yet*
 * `unbindWebWorker({Worker} worker) {DGTable}`: *Undocumented yet*
 * `hideCellPreview() {DGTable}`: Hide any cell preview showing currently, or prevent showing a cell preview from within the `cellpreview` event.
-* `close()`: Destroy the table and free all of its memory.
+* `destroy()`: Destroy the table and free all of its memory.
 
 ## License
 

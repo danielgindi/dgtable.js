@@ -102,7 +102,7 @@ body {
 }
 
 .dgtable-row-alt {
-    background: rgba(0, 0, 0, 0.02);
+    background: #fafafa;
 }
 
 .dgtable-row:first-child {
@@ -117,7 +117,6 @@ body {
 .dgtable-cell, .dgtable-cell-preview {
     box-sizing: border-box;
     padding: 5px 4px 3px;
-    height: 100%;
     font-size: 16px;
     line-height: 19px;
 }
@@ -125,6 +124,7 @@ body {
 .dgtable-cell {
     float: left;
     border-left: solid 1px #ccc;
+    min-height: 100%;
 }
 
 .dgtable-wrapper.rtl .dgtable-cell {

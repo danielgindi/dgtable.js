@@ -1,6 +1,6 @@
 {
-  "name": "@danielgindi/dgtable.js",
-  "description": "High-performance table View for vanilla JS",
+  "name": "jquery.dgtable",
+  "description": "High-performance table View for jQuery",
   "version": "0.6.19",
   "main": "dist/lib.cjs.min.js",
   "module": "dist/lib.es6.min.js",
@@ -15,10 +15,7 @@
     "url": "git://github.com/danielgindi/dgtable.js.git"
   },
   "scripts": {
-    "build": "npm run lint && node ./scripts/build.js",
-    "lint": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || eslint -f codeframe ./",
-    "lint-fix": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || eslint -f codeframe --fix ./",
-    "prepare": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || husky",
+    "build": "npm run lint && node scripts/build.js",
     "prepublishOnly": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || npm run build"
   },
   "bugs": {
@@ -31,20 +28,15 @@
     }
   ],
   "dependencies": {
-    "@danielgindi/dom-utils": "^1.0.11",
-    "@danielgindi/virtual-list-helper": "^1.0.17"
+    "@danielgindi/dgtable.js": "^2.0.0",
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",
     "@babel/preset-env": "^7.28.5",
     "@babel/runtime": "^7.28.4",
     "@rollup/plugin-babel": "^6.1.0",
-    "@rollup/plugin-commonjs": "^28.0.9",
-    "@rollup/plugin-node-resolve": "^15.3.1",
     "@rollup/plugin-terser": "^0.4.4",
     "core-js": "^3.47.0",
-    "eslint": "^9.39.1",
-    "eslint-formatter-codeframe": "^7.32.2",
     "fs-extra": "^11.3.2",
     "globals": "^15",
     "husky": "^9.1.7",

@@ -3,7 +3,6 @@
 import Path from 'node:path';
 import { readFile, writeFile, rmdir, mkdir } from 'node:fs/promises';
 import { rollup } from 'rollup';
-import MagicString from 'magic-string';
 import { babel } from '@rollup/plugin-babel';
 import PluginTerser from '@rollup/plugin-terser';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
@@ -41,7 +40,7 @@ import { fileURLToPath } from 'node:url';
         babelTargets: '> 0.25%, not dead',
         minified: false,
         ecmaVersion: 6,
-        outputName: 'DGTable',
+        outputName: 'DGTableJQuery',
     }, {
         dest: 'dist/lib.umd.min.js',
         sourceMap: true,
@@ -50,7 +49,7 @@ import { fileURLToPath } from 'node:url';
         babelTargets: '> 0.25%, not dead',
         minified: true,
         ecmaVersion: 6,
-        outputName: 'DGTable',
+        outputName: 'DGTableJQuery',
     }, {
         dest: 'dist/lib.cjs.js',
         sourceMap: true,
@@ -73,7 +72,7 @@ import { fileURLToPath } from 'node:url';
         ecmaVersion: 6,
     }];
 
-    const inputFile = 'src/index.js';
+    const inputFile = 'index.js';
 
     for (let task of rollupTasks) {
         console.info('Generating ' + task.dest + '...');
@@ -123,23 +122,6 @@ import { fileURLToPath } from 'node:url';
             }));
         }
 
-        plugins.push({
-            name: 'banner',
-
-            renderChunk(code, chunk, _outputOptions = {}) {
-
-                const magicString = new MagicString(code);
-                magicString.prepend(banner);
-
-                return {
-                    code: magicString.toString(),
-                    map: magicString.generateMap({
-                        hires: true,
-                    }),
-                };
-            },
-        });
-
         const bundle = await rollup({
             preserveSymlinks: true,
             treeshake: true,
@@ -149,7 +131,7 @@ import { fileURLToPath } from 'node:url';
             },
             input: inputFile,
             plugins: plugins,
-            external: [/^@danielgindi\/dom-utils(\/|$)/, /^@danielgindi\/virtual-list-helper(\/|$)/],
+            external: ['jquery', 'jQuery'],
         });
 
         let generated = await bundle.generate({
@@ -157,11 +139,7 @@ import { fileURLToPath } from 'node:url';
             sourcemap: task.sourceMap ? 'hidden' : false,
             format: task.outputFormat,
             globals: {
-                '@danielgindi/dom-utils/lib/ScrollHelper.js': 'domUtilsScrollHelper',
-                '@danielgindi/dom-utils/lib/DomEventsSink.js': 'domUtilsDomEventsSink',
-                '@danielgindi/dom-utils/lib/DomCompat.js': 'domUtilsDomCompat',
-                '@danielgindi/dom-utils/lib/Css.js': 'domUtilsCss',
-                '@danielgindi/virtual-list-helper': 'VirtualListHelper',
+                jquery: 'jQuery',
             },
             exports: task.outputExports,
         });
