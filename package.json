@@ -32,7 +32,8 @@
   ],
   "dependencies": {
     "@danielgindi/dom-utils": "^1.0.11",
-    "@danielgindi/virtual-list-helper": "^1.0.17"
+    "@danielgindi/virtual-list-helper": "^1.0.17",
+    "mitt": "^3.0.1"
   },
   "devDependencies": {
     "@babel/core": "^7.28.5",

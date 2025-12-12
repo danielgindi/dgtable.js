@@ -23,6 +23,7 @@ import {
 import VirtualListHelper from '@danielgindi/virtual-list-helper';
 import ByColumnFilter from './by_column_filter.js';
 import DomEventsSink from '@danielgindi/dom-utils/lib/DomEventsSink.js';
+import mitt from 'mitt';
 
 const nativeIndexOf = Array.prototype.indexOf;
 
@@ -88,10 +89,8 @@ class DGTable {
          * This is for encapsulating private data */
         let p = this.p = {
             eventsSink: new DomEventsSink(),
+            mitt: mitt(),
         };
-
-        /** This is for encapsulating event callback */
-        p.events = {};
 
         /**
          * @public
@@ -442,10 +441,10 @@ class DGTable {
                 }
 
                 row.addEventListener('click', row[RowClickEventSymbol] = event => {
-                    this.trigger('rowclick', event, index, physicalRowIndex, row, rowData);
+                    this.emit('rowclick', event, index, physicalRowIndex, row, rowData);
                 });
 
-                this.trigger('rowcreate', index, physicalRowIndex, row, rowData);
+                this.emit('rowcreate', index, physicalRowIndex, row, rowData);
             },
 
             onItemUnrender: (row) => {
@@ -455,7 +454,7 @@ class DGTable {
 
                 this._unbindCellEventsForRow(row);
 
-                this.trigger('rowdestroy', row);
+                this.emit('rowdestroy', row);
             },
 
             onScrollHeightChange: height => {
@@ -471,80 +470,6 @@ class DGTable {
         p.virtualListHelper.setCount((p.filteredRows ?? p.rows).length);
 
         p.notifyRendererOfColumnsConfig();
-    }
-
-    /**
-     * Add an event listener
-     * @public
-     * @expose
-     * @param {string} eventName
-     * @param {Function} callback
-     * @returns {DGTable}
-     */
-    on(eventName, callback) {
-        let events = this.p.events;
-
-        if (typeof callback !== 'function')
-            return this;
-
-        if (!hasOwnProperty.call(events, eventName))
-            events[eventName] = [];
-
-        events[eventName].push({
-            cb: callback,
-            once: false,
-        });
-
-        return this;
-    }
-
-    /**
-     * Add an event listener for a one shot
-     * @public
-     * @expose
-     * @param {string} eventName
-     * @param {Function} callback
-     * @returns {DGTable}
-     */
-    once(eventName, callback) {
-        let events = this.p.events;
-
-        if (typeof callback !== 'function')
-            return this;
-
-        if (!hasOwnProperty.call(events, eventName))
-            events[eventName] = [];
-
-        events[eventName].push({
-            cb: callback,
-            once: true,
-        });
-
-        return this;
-    }
-
-    /**
-     * Remove an event listener
-     * @public
-     * @expose
-     * @param {string} eventName
-     * @param {Function} callback
-     * @returns {DGTable}
-     */
-    off(eventName, callback) {
-        let events = this.p.events;
-
-        if (!hasOwnProperty.call(events, eventName))
-            return this;
-
-        let callbacks = events[eventName];
-        for (let i = 0; i < callbacks.length; i++) {
-            let item = callbacks[i];
-            if (callback && item.cb !== callback) continue;
-            callbacks.splice(i--, 1);
-        }
-
-        return this;
     }
 
     trigger(eventName) {
@@ -564,6 +489,58 @@ class DGTable {
             }
         }
 
+        return this;
+    }
+
+    /**
+     * Register an event handler
+     * @param {(string|'*')?} event
+     * @param {function(any)} handler
+     * @returns {DGTable}
+     */
+    on(/**string|'*'*/event, /**Function?*/handler) {
+        this.p.mitt.on(event, handler);
+        return this;
+    }
+
+    /**
+     * Register a one time event handler
+     * @param {(string|'*')?} event
+     * @param {function(any)} handler
+     * @returns {DGTable}
+     */
+    once(/**string|'*'*/event, /**Function?*/handler) {
+        let wrapped = (value) => {
+            this.p.mitt.off(event, wrapped);
+            handler(value);
+        };
+        this.p.mitt.on(event, wrapped);
+        return this;
+    }
+
+    /**
+     * Remove an `handler` for `event`, all events for `event`, or all events completely.
+     * @param {(string|'*')?} event
+     * @param {function(any)} handler
+     * @returns {DGTable}
+     */
+    off(/**(string|'*')?*/event, /**Function?*/handler) {
+        if (!event && !event) {
+            this.p.mitt.all.clear();
+        } else {
+            this.p.mitt.off(event, handler);
+        }
+        return this;
+    }
+
+    /**
+     * Emit an event
+     * @param {string} event
+     * @param {any} value
+     * @returns {DGTable}
+     */
+    emit(/**string|'*'*/event, /**any?*/value) {
+        this.p.mitt.emit(event, value);
         return this;
     }
 
@@ -799,12 +776,12 @@ class DGTable {
                 setScrollHorz(p.header, lastScrollHorz);
             }
 
-            this.trigger('renderskeleton');
+            this.emit('renderskeleton');
         }
 
         p.virtualListHelper.render();
 
-        this.trigger('render');
+        this.emit('render');
         return this;
     }
 
@@ -982,7 +959,7 @@ class DGTable {
             p.visibleColumns = columns.getVisibleColumns();
             this._ensureVisibleColumns().clearAndRender(render);
 
-            this.trigger('addcolumn', column.name);
+            this.emit('addcolumn', column.name);
         }
         return this;
     }
@@ -1007,7 +984,7 @@ class DGTable {
             p.visibleColumns = columns.getVisibleColumns();
             this._ensureVisibleColumns().clearAndRender(render);
 
-            this.trigger('removecolumn', column);
+            this.emit('removecolumn', column);
         }
         return this;
     }
@@ -1097,14 +1074,14 @@ class DGTable {
 
             if (hadFilter || p.filteredRows) {
                 this.clearAndRender();
-                this.trigger('filter', args);
+                this.emit('filter', args);
             }
         }
         else {
             p.filterArgs = null;
             p.filteredRows = null;
             this.clearAndRender();
-            this.trigger('filterclear', {});
+            this.emit('filterclear', {});
         }
 
         return this;
@@ -1122,7 +1099,7 @@ class DGTable {
             p.filterArgs = null;
             p.filteredRows = null;
             this.clearAndRender();
-            this.trigger('filterclear', {});
+            this.emit('filterclear', {});
         }
 
         return this;
@@ -1233,7 +1210,7 @@ class DGTable {
                 }
             }
 
-            this.trigger('movecolumn', col.name, srcOrder, destOrder);
+            this.emit('movecolumn', col.name, srcOrder, destOrder);
         }
         return this;
     }
@@ -1318,7 +1295,7 @@ class DGTable {
         for (let i = 0; i < currentSort.length; i++) {
             sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
         }
-        this.trigger('sort', sorts, true /* direct sort */, comparator);
+        this.emit('sort', sorts, true /* direct sort */, comparator);
 
         return this;
     }
@@ -1356,7 +1333,7 @@ class DGTable {
             for (let i = 0; i < currentSort.length; i++) {
                 sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
             }
-            this.trigger('sort', sorts, false /* indirect sort */, comparator);
+            this.emit('sort', sorts, false /* indirect sort */, comparator);
         }
 
         return this;
@@ -1374,7 +1351,7 @@ class DGTable {
         if (p.visibleColumns.length === 0 && p.columns.length) {
             p.columns[0].visible = true;
             p.visibleColumns.push(p.columns[0]);
-            this.trigger('showcolumn', p.columns[0].name);
+            this.emit('showcolumn', p.columns[0].name);
         }
 
         return this;
@@ -1399,7 +1376,7 @@ class DGTable {
         if (col && !!col.visible !== visible) {
             col.visible = visible;
             p.visibleColumns = p.columns.getVisibleColumns();
-            this.trigger(visible ? 'showcolumn' : 'hidecolumn', column);
+            this.emit(visible ? 'showcolumn' : 'hidecolumn', column);
             this._ensureVisibleColumns();
             this.clearAndRender();
         }
@@ -1593,7 +1570,7 @@ class DGTable {
                 this.tableWidthChanged(true); // Calculate actual sizes
             }
 
-            this.trigger('columnwidth', col.name, oldWidth, newWidth);
+            this.emit('columnwidth', col.name, oldWidth, newWidth);
         }
         return this;
     }
@@ -2298,7 +2275,7 @@ class DGTable {
                 }
             }
 
-            this.trigger('addrows', data.length, false);
+            this.emit('addrows', data.length, false);
         }
         return this;
     }
@@ -2844,7 +2821,7 @@ class DGTable {
             let bounds = getElementOffset(headerCell);
             bounds['width'] = getElementWidth(headerCell, true, true, true);
             bounds['height'] = getElementHeight(headerCell, true, true, true);
-            this.trigger('headercontextmenu', headerCell['columnName'], event.pageX, event.pageY, bounds);
+            this.emit('headercontextmenu', headerCell['columnName'], event.pageX, event.pageY, bounds);
         }
         return this;
     }
@@ -3389,7 +3366,7 @@ class DGTable {
             }
         }
 
-        this.trigger('headerrowcreate', headerRow);
+        this.emit('headerrowcreate', headerRow);
 
         return this;
     }
@@ -3756,7 +3733,7 @@ class DGTable {
                 SelectionHelper.restoreSelection(previewCell, selection);
         } catch (ignored) { /* we're ok with this */ }
 
-        this.trigger(
+        this.emit(
             'cellpreview',
             previewCell.firstChild,
             physicalRowIndex == null ? null : physicalRowIndex,
@@ -3772,7 +3749,7 @@ class DGTable {
 
         if (physicalRowIndex != null) {
             previewCell.addEventListener('click', event => {
-                this.trigger('rowclick', event,
+                this.emit('rowclick', event,
                     rowEl['rowIndex'], physicalRowIndex,
                     rowEl, p.rows[physicalRowIndex]);
             });
@@ -3883,7 +3860,7 @@ class DGTable {
                     SelectionHelper.restoreSelection(origCell, selection);
             } catch (ignored) { /* we're ok with this */ }
 
-            this.trigger('cellpreviewdestroy', previewCell.firstChild, previewCell['physicalRowIndex'], previewCell['columnName'], origCell);
+            this.emit('cellpreviewdestroy', previewCell.firstChild, previewCell['physicalRowIndex'], previewCell['columnName'], origCell);
 
             delete origCell[PreviewCellSymbol];
             delete previewCell[OriginalCellSymbol];

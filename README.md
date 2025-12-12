@@ -19,7 +19,10 @@ Other features implemented are:
 
 `jquery.dgtable` users:
 * Older `jquery.dgtable` can either keep using `jquery.dgtable`, or migrate to this new version which is more lightweight. 
-* The new version's API is the same as the old one, except that does not have the `$el` property and it will not automatically clear jQuery data.
+* The new version's API is the same as the old one, except that:
+  * No `$el` property
+  * No auto-clear of jQuery data.
+  * There is now an `emit` method instead of `trigger`.
 
 My TODO list:
 * TODO: Have a simple and accurate API documentation here in the readme
