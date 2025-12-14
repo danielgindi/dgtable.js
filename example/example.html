@@ -350,15 +350,15 @@
             },
         });
 
-        table.on('rowcreate', function (rowIndex, physicalRowIndex, row, rowData) {
+        table.on('rowcreate', ({ rowIndex, rowEl, rowData }) => {
             if (rowData['last'] === 'Banks') {
-                row.querySelector('[data-column=last]').style.background = 'rgba(0, 210, 0, 0.8)';
+                rowEl.querySelector('[data-column=last]').style.background = 'rgba(0, 210, 0, 0.8)';
             }
 
             if (rowIndex % 7 === 6) {
-                row.style.height = '65px';
+                rowEl.style.height = '65px';
             } else {
-                row.style.height = '';
+                rowEl.style.height = '';
             }
         });
 
@@ -404,7 +404,7 @@
         });
 
         document.getElementById('rcmpbutton').addEventListener('click', () => {
-            table.setComparatorCallback(function(column, descending) {
+            table.setComparatorCallback((column, descending) => {
                 if (column === 'city') {
                     return (left, right) => Math.floor(Math.random() * 3) - 1
                 }

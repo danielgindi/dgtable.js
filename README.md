@@ -23,6 +23,8 @@ Other features implemented are:
   * No `$el` property
   * No auto-clear of jQuery data.
   * There is now an `emit` method instead of `trigger`.
+  * Event arguments are now always a single value/object.
+  * Props on DOM elements are now: `'columnName'` on a cell, `'index'/'vIndex'` on a row, `'columnName'/rowIndex'/'rowVIndex'` on a cellPreview
 
 My TODO list:
 * TODO: Have a simple and accurate API documentation here in the readme
@@ -116,67 +118,26 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 
 * `renderskeleton`: The table is re-drawing it's base elements, including headers. Will always be followed by a `render` event.
 * `render`: The table has finished rendering (after adding rows etc.).
-* `cellpreview`: We are about to show a cell preview.
-  * 1st argument: Preview's DOM element
-  * 2nd argument: Row's index - or null for header
-  * 3rd argument: Column's name
-  * 4th argument: Row's data - if applicable
-  * 5th argument: Cell's DOM element
+* `cellpreview`: We are about to show a cell preview - `{ el: Element, rowIndex: number|null, name: string, rowData: Object|null, cell: Element, cellEl: Element }`
   * At this stage you can prevent showing the preview, by calling `table.hideCellPreview`
-* `cellpreviewdestroy`: Cell preview element is about to be destroyed after hiding
-  * 1st argument: Preview's DOM element
-  * 2nd argument: Row's index
-  * 3rd argument: Column's name
-  * 4th argument: Cell's DOM element
+* `cellpreviewdestroy`: Cell preview element is about to be destroyed after hiding - `{ el: Element, name: string, filteredRowIndex: number|null, rowIndex: Object|null, cell: Element, cellEl: Element }`
   * You can use this event to release any resources that you may have used in `cellPreview` event.
-* `headerrowcreate`: The header row has just been created
-  * 1st argument: Row's DOM element
-* `headerrowdestroy`: Called just before removing the physical header row element from the table
-  * 1st argument: Row's DOM element
-* `rowcreate`: A row has just been created
-  * 1st argument: Row's index in the currently filtered data set
-  * 2nd argument: Row's index in the data set
-  * 3nd argument: Row's DOM element
-  * 4th argument: Row's data
-* `rowclick`: A row has just been created
-  * 1st argument: Native `MouseEvent`
-  * 2nd argument: Row's index in the currently filtered data set
-  * 3rd argument: Row's index in the data set
-  * 4th argument: Row's DOM element
-  * 5th argument: Row's data
-* `rowdestroy`: Called just before removing a physical row element from the table
-  * 1st argument: Row's DOM element
-* `addrows`: Data rows have been added to the table
-  * 1st argument: How many rows
-  * 2nd argument: Is this a replace? In other word, were the old rows removed?
-* `addcolumn`: A column was added
-  * 1st argument: The column's name
-* `removecolumn`: A column was removed
-  * 1st argument: The column's name
-* `movecolumn`: A column was moved
-  * 1st argument: The column's name
-  * 2nd argument: From index
-  * 3nd argument: To index
-* `showcolumn`: A column was shown
-  * 1st argument: The column's name
-* `hidecolumn`: A column was hidden
-  * 1st argument: The column's name
-* `columnwidth`: A column was resized
-  * 1st argument: The column's name
-  * 2nd argument: Old width
-  * 3nd argument: New width
-* `filter`: A filter was applied
-  * 1st argument: The options passed to the filter method
+* `headerrowcreate`: The header row has just been created - `Element`
+* `headerrowdestroy`: Called just before removing the header row DOM element from the table - `Element`
+* `rowcreate`: A row has just been created - `{ filteredRowIndex: number, rowIndex: number, rowEl: Element, rowData: Object }`
+* `rowclick`: A row has just been created - `{ event: MouseEvent, rowIndex: number, rowIndex: number, rowEl: Element, rowData: Object }`
+* `rowdestroy`: Called just before removing a row DOM element from the table - `Element`
+* `addrows`: Data rows have been added to the table - `({ count: number, clear: boolean })`
+* `addcolumn`: A column was added - `string` (the column's name)
+* `removecolumn`: A column was removed - `string` (the column's name)
+* `movecolumn`: A column was moved - `({ name: string, src: number, dest: number })`
+* `showcolumn`: A column was shown - `string` (the column's name)
+* `hidecolumn`: A column was hidden - `string` (the column's name)
+* `columnwidth`: A column was resized - `({ name: string, width: number|string, oldWidth: number|string })`
+* `filter`: A filter was applied - `any` - the arguments passed to the filter method
 * `filterclear`: A filter was cleared
-* `sort`: The data was sorted
-  * 1st argument: `Array` of sort constructs `[{ "column": "column's name", "descending": true/false }, ...]`
-  * 2nd argument: `boolean` that determines whether this is a primary sort or a resort (sort()/header click, vs resort(), addRows(), etc.). If `true`, this is a resort.
-  * 3rd argument: `Function` - the comparator that was used to sort.
-* `headercontextmenu`: A context menu should be shown for a header cell
-  * 1st argument: The column's name
-  * 2nd argument: pageX of the pointer event
-  * 3rd argument: pageY of the pointer event
-  * 4th argument: the bounds of the header cell on the page `{"left": offset().left, "top": offset().top, "width": outerWidth(), "height": outerHeight()}`
+* `sort`: The data was sorted - `{ sorts: { "column": "column's name", "descending": true|false }[], resort: true|undefined, comparator: Function }`
+* `headercontextmenu`: A context menu should be shown for a header cell - `({ name: string, pageX: number, pageY: number, bounds: { left: number, top: number, width: number, height: number } })`
 
 - Member functions:
 * `on(eventName, {Function?} callback)`: Adds an event listener
@@ -266,8 +227,8 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
   * **rowData**: Actual row data
   * **columnName**: Name of column
   * *returns*  string for the specified cell
-* `getDataForRow(row: number): Object`: Gets the row data for a specific row
-  * *returns* row data of the row at physical index **row**
+* `getDataForRow(rowIndex: number): Object`: Gets the row data for a specific row
+  * *returns* row data at the specified index, out of all rows (not filtered)
 * `getRowCount(): number`: Gets the number of rows
   * *returns* the number of rows
 * `getIndexForRow(row: Object): number`: Finds the index of the specified row
@@ -277,14 +238,14 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 * `getIndexForFilteredRow(row: Object): number`: Finds the index of the specified row within the filtered results
   * *returns* the index of the specified row
 * `getDataForFilteredRow(row: number): Object`: *Undocumented yet*
-* `getRowElement(physicalRowIndex: number): Element`: Returns the element of the specified row
-* `getRowYPos(physicalRowIndex: number): number?`: Returns the Y pos of the specified row
+* `getRowElement(rowIndex: number): Element`: Returns the element of the specified row (unfiltered index)
+* `getRowYPos(rowIndex: number): number?`: Returns the Y pos of the specified row (unfiltered index)
 * `tableWidthChanged() {DGTable}`: *Undocumented yet*
 * `tableHeightChanged() {DGTable}`: *Undocumented yet*
 * `addRows({Object[]} data, {number} at = -1, {boolean} resort = false, {boolean} render = true) {DGTable}`: Adds the specified rows at the specified position, and optionally resorts the data
-* `removeRow({number} physicalRowIndex, {boolean} render = true) {DGTable}`: Removes one row at the specified position
-* `removeRows({number} physicalRowIndex, {number} count, {boolean} render = true) {DGTable}`: Removes rows at the specified position
-* `refreshRow({number} physicalRowIndex) {DGTable}`: Refreshes the row specified
+* `removeRow({number} rowIndex, {boolean} render = true) {DGTable}`: Removes one row at the specified position
+* `removeRows({number} rowIndex, {number} count, {boolean} render = true) {DGTable}`: Removes rows at the specified position
+* `refreshRow({number} rowIndex) {DGTable}`: Refreshes the row specified
   * *returns* Self
 * `refreshAllVirtualRows() {DGTable}`: Refreshes all virtual rows
   * *returns* Self

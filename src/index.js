@@ -401,20 +401,20 @@ class DGTable {
             itemElementCreatorFn: () => {
                 return createElement('div');
             },
-            onItemRender: (row, index) => {
+            onItemRender: (row, virtualIndex) => {
                 const rows = p.filteredRows || p.rows,
                     isDataFiltered = !!p.filteredRows,
                     allowCellPreview = o.allowCellPreview;
 
                 row.className = rowClassName;
-                if ((index % 2) === 1)
+                if ((virtualIndex % 2) === 1)
                     row.className += ' ' + altRowClassName;
 
-                let rowData = rows[index];
-                let physicalRowIndex = isDataFiltered ? rowData['__i'] : index;
+                let rowData = rows[virtualIndex];
+                let rowIndex = isDataFiltered ? rowData['__i'] : virtualIndex;
 
-                row['rowIndex'] = index;
-                row['physicalRowIndex'] = physicalRowIndex;
+                row['vIndex'] = virtualIndex;
+                row['index'] = rowIndex;
 
                 for (let colIndex = 0; colIndex < colCount; colIndex++) {
                     let column = visibleColumns[colIndex];
@@ -435,10 +435,21 @@ class DGTable {
                 }
 
                 row.addEventListener('click', row[RowClickEventSymbol] = event => {
-                    this.emit('rowclick', event, index, physicalRowIndex, row, rowData);
+                    this.emit('rowclick', {
+                        event: event,
+                        filteredRowIndex: virtualIndex,
+                        rowIndex: rowIndex,
+                        rowEl: row,
+                        rowData: rowData,
+                    });
                 });
 
-                this.emit('rowcreate', index, physicalRowIndex, row, rowData);
+                this.emit('rowcreate', {
+                    filteredRowIndex: virtualIndex,
+                    rowIndex: rowIndex,
+                    rowEl: row,
+                    rowData: rowData,
+                });
             },
 
             onItemUnrender: (row) => {
@@ -530,7 +541,7 @@ class DGTable {
     /**
      * Emit an event
      * @param {string} event
-     * @param {any} value
+     * @param {any?} value
      * @returns {DGTable}
      */
     emit(/**string|'*'*/event, /**any?*/value) {
@@ -1204,7 +1215,7 @@ class DGTable {
                 }
             }
 
-            this.emit('movecolumn', col.name, srcOrder, destOrder);
+            this.emit('movecolumn', { name: col.name, src: srcOrder, dest: destOrder });
         }
         return this;
     }
@@ -1289,7 +1300,7 @@ class DGTable {
         for (let i = 0; i < currentSort.length; i++) {
             sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
         }
-        this.emit('sort', sorts, true /* direct sort */, comparator);
+        this.emit('sort', { sorts: sorts, comparator: comparator });
 
         return this;
     }
@@ -1327,7 +1338,7 @@ class DGTable {
             for (let i = 0; i < currentSort.length; i++) {
                 sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
             }
-            this.emit('sort', sorts, false /* indirect sort */, comparator);
+            this.emit('sort', { sorts: sorts, resort: true, comparator: comparator });
         }
 
         return this;
@@ -1564,7 +1575,7 @@ class DGTable {
                 this.tableWidthChanged(true); // Calculate actual sizes
             }
 
-            this.emit('columnwidth', col.name, oldWidth, newWidth);
+            this.emit('columnwidth', { name: col.name, width: newWidth, oldWidth: oldWidth });
         }
         return this;
     }
@@ -1751,7 +1762,7 @@ class DGTable {
     }
 
     /**
-     * Returns the physical row index for specific row
+     * Returns the actual row index for specific row (out of the full data set, not filtered)
      * @public
      * @expose
      * @param {Object} rowData - Row data to find
@@ -2269,7 +2280,7 @@ class DGTable {
                 }
             }
 
-            this.emit('addrows', data.length, false);
+            this.emit('addrows', { count: data.length, clear: false });
         }
         return this;
     }
@@ -2278,23 +2289,22 @@ class DGTable {
      * Removes a row from the table
      * @public
      * @expose
-     * @param {number} physicalRowIndex - index
+     * @param {number} rowIndex - index
      * @param {number} count - how many rows to remove
      * @param {boolean=true} render
      * @returns {DGTable} self
      */
-    removeRows(physicalRowIndex, count, render) {
+    removeRows(rowIndex, count, render) {
         let p = this._p;
 
         if (typeof count !== 'number' || count <= 0) return this;
 
-        if (physicalRowIndex < 0 || physicalRowIndex > p.rows.length - 1) return this;
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1) return this;
 
-        p.rows.splice(physicalRowIndex, count);
+        p.rows.splice(rowIndex, count);
         render = (render === undefined) ? true : !!render;
 
         if (p.filteredRows) {
-
             this._refilter();
 
             p.tableSkeletonNeedsRendering = true;
@@ -2305,7 +2315,7 @@ class DGTable {
             }
 
         } else if (render) {
-            p.virtualListHelper.removeItemsAt(count, physicalRowIndex);
+            p.virtualListHelper.removeItemsAt(count, rowIndex);
 
             if (this._o.virtualTable) {
                 this._updateVirtualHeight()
@@ -2326,36 +2336,38 @@ class DGTable {
      * Removes a row from the table
      * @public
      * @expose
-     * @param {number} physicalRowIndex - index
+     * @param {number} rowIndex - index
      * @param {boolean=true} render
      * @returns {DGTable} self
      */
-    removeRow(physicalRowIndex, render) {
-        return this.removeRows(physicalRowIndex, 1, render);
+    removeRow(rowIndex, render) {
+        return this.removeRows(rowIndex, 1, render);
     }
 
     /**
      * Refreshes the row specified
      * @public
      * @expose
-     * @param {number} physicalRowIndex index
+     * @param {number} rowIndex index
      * @param {boolean} render should render the changes immediately?
      * @returns {DGTable} self
      */
-    refreshRow(physicalRowIndex, render = true) {
+    refreshRow(rowIndex, render = true) {
         let p = this._p;
 
-        if (physicalRowIndex < 0 || physicalRowIndex > p.rows.length - 1) return this;
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
+            return this;
 
         // Find out if the row is in the rendered dataset
-        let rowIndex = -1;
-        if (p.filteredRows && (rowIndex = p.filteredRows.indexOf(p.rows[physicalRowIndex])) === -1) return this;
+        let filteredRowIndex = -1;
+        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
+            return this;
 
-        if (rowIndex === -1) {
-            rowIndex = physicalRowIndex;
+        if (filteredRowIndex === -1) {
+            filteredRowIndex = rowIndex;
         }
 
-        p.virtualListHelper.refreshItemAt(rowIndex);
+        p.virtualListHelper.refreshItemAt(filteredRowIndex);
 
         if (render)
             p.virtualListHelper.render();
@@ -2367,23 +2379,25 @@ class DGTable {
      * Get the DOM element for the specified row, if it exists
      * @public
      * @expose
-     * @param {number} physicalRowIndex index
+     * @param {number} rowIndex index
      * @returns {Element|null} row or null
      */
-    getRowElement(physicalRowIndex) {
+    getRowElement(rowIndex) {
         let p = this._p;
 
-        if (physicalRowIndex < 0 || physicalRowIndex > p.rows.length - 1) return null;
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
+            return null;
 
         // Find out if the row is in the rendered dataset
-        let rowIndex = -1;
-        if (p.filteredRows && (rowIndex = p.filteredRows.indexOf(p.rows[physicalRowIndex])) === -1) return this;
+        let filteredRowIndex = -1;
+        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
+            return null;
 
-        if (rowIndex === -1) {
-            rowIndex = physicalRowIndex;
+        if (filteredRowIndex === -1) {
+            filteredRowIndex = rowIndex;
         }
 
-        return p.virtualListHelper.getItemElementAt(rowIndex) || null;
+        return p.virtualListHelper.getItemElementAt(filteredRowIndex) || null;
     }
 
     /**
@@ -2418,7 +2432,7 @@ class DGTable {
             this._refilter();
         }
 
-        this.clearAndRender().trigger('addrows', data.length, true);
+        this.clearAndRender().trigger('addrows', { count: data.length, clear: true });
 
         return this;
     }
@@ -2814,7 +2828,12 @@ class DGTable {
             let bounds = getElementOffset(headerCell);
             bounds['width'] = getElementWidth(headerCell, true, true, true);
             bounds['height'] = getElementHeight(headerCell, true, true, true);
-            this.emit('headercontextmenu', headerCell['columnName'], event.pageX, event.pageY, bounds);
+            this.emit('headercontextmenu', {
+                name: headerCell['columnName'],
+                pageX: event.pageX,
+                pageY: event.pageY,
+                bounds: bounds,
+            });
         }
         return this;
     }
@@ -2974,7 +2993,7 @@ class DGTable {
                 commonAncestor = p.resizer.parentNode;
 
             const commonAncestorStyle = getComputedStyle(commonAncestor);
-            const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
+            const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
 
             let posCol = getElementOffset(selectedHeaderCell),
                 posRelative = getElementOffset(commonAncestor);
@@ -3325,8 +3344,6 @@ class DGTable {
         let tableClassName = o.tableClassName,
             headerCellClassName = tableClassName + '-header-cell',
             headerRow = p.headerRow;
-
-        let preventDefault = event => { event.preventDefault(); };
 
         // Create header cells
         for (let i = 0; i < p.visibleColumns.length; i++) {
@@ -3714,8 +3731,8 @@ class DGTable {
             this._disableCssSelect(previewCell);
         }
 
-        previewCell['rowIndex'] = rowEl['rowIndex'];
-        let physicalRowIndex = previewCell['physicalRowIndex'] = rowEl['physicalRowIndex'];
+        previewCell['rowVIndex'] = rowEl['vIndex'];
+        let rowIndex = previewCell['rowIndex'] = rowEl['index'];
         previewCell['columnName'] = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)].name;
 
         try {
@@ -3725,12 +3742,14 @@ class DGTable {
         } catch (ignored) { /* we're ok with this */ }
 
         this.emit(
-            'cellpreview',
-            previewCell.firstChild,
-            physicalRowIndex == null ? null : physicalRowIndex,
-            previewCell['columnName'],
-            physicalRowIndex == null ? null : p.rows[physicalRowIndex],
-            el,
+            'cellpreview', {
+                el: previewCell.firstElementChild,
+                name: previewCell['columnName'],
+                rowIndex: rowIndex,
+                rowData: rowIndex == null ? null : p.rows[rowIndex],
+                cell: el,
+                cellEl: elInner,
+            },
         );
 
         if (p.abortCellPreview) {
@@ -3738,11 +3757,15 @@ class DGTable {
             return;
         }
 
-        if (physicalRowIndex != null) {
+        if (rowIndex != null) {
             previewCell.addEventListener('click', event => {
-                this.emit('rowclick', event,
-                    rowEl['rowIndex'], physicalRowIndex,
-                    rowEl, p.rows[physicalRowIndex]);
+                this.emit('rowclick', {
+                    event: event,
+                    filteredRowIndex: rowEl['vIndex'],
+                    rowIndex: rowIndex,
+                    rowEl: rowEl,
+                    rowData: p.rows[rowIndex],
+                });
             });
         }
 
@@ -3851,7 +3874,14 @@ class DGTable {
                     SelectionHelper.restoreSelection(origCell, selection);
             } catch (ignored) { /* we're ok with this */ }
 
-            this.emit('cellpreviewdestroy', previewCell.firstChild, previewCell['physicalRowIndex'], previewCell['columnName'], origCell);
+            this.emit('cellpreviewdestroy', {
+                el: previewCell.firstChild,
+                name: previewCell['columnName'],
+                rowIndex: previewCell['rowIndex'],
+                rowData: previewCell['rowIndex'] == null ? null : p.rows[previewCell['rowIndex']],
+                cell: origCell,
+                cellEl: origCell.firstChild,
+            });
 
             delete origCell[PreviewCellSymbol];
             delete previewCell[OriginalCellSymbol];
