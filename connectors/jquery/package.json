@@ -1,7 +1,7 @@
 {
   "name": "jquery.dgtable",
   "description": "High-performance table View for jQuery",
-  "version": "0.6.19",
+  "version": "2.0.0",
   "main": "dist/lib.cjs.min.js",
   "module": "dist/lib.es6.min.js",
   "broswer": "dist/lib.umd.min.js",
