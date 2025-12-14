@@ -82,14 +82,16 @@ class DGTable {
          * @private
          * @type {DGTable.Options}
          * */
-        let o = this.o = {};
+        let o = this._o = {};
 
         /**
          * @private
          * This is for encapsulating private data */
-        let p = this.p = {
+        let p = this._p = {
             eventsSink: new DomEventsSink(),
             mitt: mitt(),
+            /** @type {boolean} */
+            tableSkeletonNeedsRendering: true,
         };
 
         /**
@@ -102,15 +104,7 @@ class DGTable {
             this.el.classList.add(options.className || 'dgtable-wrapper');
         }
 
-        p.onMouseMoveResizeAreaBound = this._onMouseMoveResizeArea.bind(this);
-        p.onEndDragColumnHeaderBound = this._onEndDragColumnHeader.bind(this);
-
-        p.eventsSink.add(this.el, 'dragend', p.onEndDragColumnHeaderBound);
-
-        /**
-         * @private
-         * @field {boolean} _tableSkeletonNeedsRendering */
-        p.tableSkeletonNeedsRendering = true;
+        p.eventsSink.add(this.el, 'dragend.colresize', this._onEndDragColumnHeader.bind(this));
 
         /**
          * @private
@@ -298,7 +292,7 @@ class DGTable {
     }
 
     _setupHovers() {
-        const p = this.p;
+        const p = this._p;
 
         /*
          Setup hover mechanism.
@@ -377,7 +371,7 @@ class DGTable {
     }
 
     _setupVirtualTable() {
-        const p = this.p, o = this.o;
+        const p = this._p, o = this._o;
 
         const tableClassName = o.tableClassName,
             rowClassName = tableClassName + '-row',
@@ -473,7 +467,7 @@ class DGTable {
     }
 
     trigger(eventName) {
-        const p = this.p;
+        const p = this._p;
         if (!p) return;
 
         let events = p.events;
@@ -499,7 +493,7 @@ class DGTable {
      * @returns {DGTable}
      */
     on(/**string|'*'*/event, /**Function?*/handler) {
-        this.p.mitt.on(event, handler);
+        this._p.mitt.on(event, handler);
         return this;
     }
 
@@ -511,10 +505,10 @@ class DGTable {
      */
     once(/**string|'*'*/event, /**Function?*/handler) {
         let wrapped = (value) => {
-            this.p.mitt.off(event, wrapped);
+            this._p.mitt.off(event, wrapped);
             handler(value);
         };
-        this.p.mitt.on(event, wrapped);
+        this._p.mitt.on(event, wrapped);
         return this;
     }
 
@@ -526,9 +520,9 @@ class DGTable {
      */
     off(/**(string|'*')?*/event, /**Function?*/handler) {
         if (!event && !event) {
-            this.p.mitt.all.clear();
+            this._p.mitt.all.clear();
         } else {
-            this.p.mitt.off(event, handler);
+            this._p.mitt.off(event, handler);
         }
         return this;
     }
@@ -540,7 +534,7 @@ class DGTable {
      * @returns {DGTable}
      */
     emit(/**string|'*'*/event, /**any?*/value) {
-        this.p.mitt.emit(event, value);
+        this._p.mitt.emit(event, value);
         return this;
     }
 
@@ -587,7 +581,7 @@ class DGTable {
      */
     _initColumnFromData(columnData) {
 
-        let parsedWidth = this._parseColumnWidth(columnData.width, columnData.ignoreMin ? 0 : this.o.minColumnWidth);
+        let parsedWidth = this._parseColumnWidth(columnData.width, columnData.ignoreMin ? 0 : this._o.minColumnWidth);
 
         let col = {
             name: columnData.name,
@@ -598,7 +592,7 @@ class DGTable {
             sortable: columnData.sortable === undefined ? true : columnData.sortable,
             movable: columnData.movable === undefined ? true : columnData.movable,
             visible: columnData.visible === undefined ? true : columnData.visible,
-            cellClasses: columnData.cellClasses === undefined ? this.o.cellClasses : columnData.cellClasses,
+            cellClasses: columnData.cellClasses === undefined ? this._o.cellClasses : columnData.cellClasses,
             ignoreMin: columnData.ignoreMin === undefined ? false : !!columnData.ignoreMin,
         };
 
@@ -621,7 +615,7 @@ class DGTable {
      * @expose
      */
     destroy() {
-        let p = this.p || {},
+        let p = this._p || {},
             el = this.el;
 
         if (this.__removed) {
@@ -688,7 +682,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     _unbindCellEventsForTable() {
-        const p = this.p;
+        const p = this._p;
 
         if (p.headerRow) {
             for (let i = 0, rows = p.headerRow.childNodes, rowCount = rows.length; i < rowCount; i++) {
@@ -708,7 +702,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     _unbindCellEventsForRow(rowToClean) {
-        const p = this.p;
+        const p = this._p;
         for (let i = 0, cells = rowToClean.childNodes, cellCount = cells.length; i < cellCount; i++) {
             p._unbindCellHoverIn(cells[i]);
         }
@@ -721,7 +715,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     render() {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
 
         if (!this.el.offsetParent) {
             if (!p._deferredRender) {
@@ -793,7 +787,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     clearAndRender(render) {
-        let p = this.p;
+        let p = this._p;
 
         p.tableSkeletonNeedsRendering = true;
         p.notifyRendererOfColumnsConfig?.();
@@ -811,9 +805,9 @@ class DGTable {
      * @returns {number} calculated width
      */
     _calculateTbodyWidth() {
-        const p = this.p;
+        const p = this._p;
 
-        let tableClassName = this.o.tableClassName,
+        let tableClassName = this._o.tableClassName,
             rowClassName = tableClassName + '-row',
             cellClassName = tableClassName + '-cell',
             visibleColumns = p.visibleColumns,
@@ -893,7 +887,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setColumns(columns, render) {
-        const p = this.p;
+        const p = this._p;
 
         columns = columns || [];
 
@@ -934,7 +928,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     addColumn(columnData, before, render) {
-        const p = this.p;
+        const p = this._p;
         let columns = p.columns;
 
         if (columnData && !columns.get(columnData.name)) {
@@ -973,7 +967,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     removeColumn(column, render) {
-        const p = this.p;
+        const p = this._p;
         let columns = p.columns;
 
         let colIdx = columns.indexOf(column);
@@ -1005,7 +999,7 @@ class DGTable {
         /**
          * @private
          * @field {Function} cellFormatter */
-        this.o.cellFormatter = formatter;
+        this._o.cellFormatter = formatter;
 
         return this;
     }
@@ -1021,7 +1015,7 @@ class DGTable {
         /**
          * @private
          * @field {Function} headerCellFormatter */
-        this.o.headerCellFormatter = formatter || function (val) {
+        this._o.headerCellFormatter = formatter || function (val) {
             return (typeof val === 'string') ? htmlEncode(val) : val;
         };
 
@@ -1037,7 +1031,7 @@ class DGTable {
     setFilter(filterFunc) {
         /** @private
          * @field {Function} filter */
-        this.o.filter = filterFunc;
+        this._o.filter = filterFunc;
         return this;
     }
 
@@ -1048,9 +1042,9 @@ class DGTable {
      * @returns {DGTable} self
      */
     filter(args) {
-        const p = this.p;
+        const p = this._p;
 
-        let filterFunc = this.o.filter || ByColumnFilter;
+        let filterFunc = this._o.filter || ByColumnFilter;
 
         // Deprecated use of older by-column filter
         if (typeof arguments[0] === 'string' && typeof arguments[1] === 'string') {
@@ -1093,7 +1087,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     clearFilter() {
-        const p = this.p;
+        const p = this._p;
 
         if (p.filteredRows) {
             p.filterArgs = null;
@@ -1110,10 +1104,10 @@ class DGTable {
      * @returns {DGTable} self
      */
     _refilter() {
-        const p = this.p;
+        const p = this._p;
 
         if (p.filteredRows && p.filterArgs) {
-            let filterFunc = this.o.filter || ByColumnFilter;
+            let filterFunc = this._o.filter || ByColumnFilter;
             p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
         }
         return this;
@@ -1128,7 +1122,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setColumnLabel(column, label) {
-        const p = this.p;
+        const p = this._p;
 
         let col = p.columns.get(column);
         if (col) {
@@ -1157,7 +1151,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     moveColumn(src, dest, visibleOnly = true) {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
 
         let columns = p.columns,
             col, destCol;
@@ -1225,7 +1219,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     sort(column, descending, add) {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
 
         let columns = p.columns,
             col = columns.get(column);
@@ -1307,7 +1301,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     resort() {
-        const p = this.p;
+        const p = this._p;
         let columns = p.columns;
 
         let currentSort = p.rows.sortColumn;
@@ -1346,7 +1340,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     _ensureVisibleColumns() {
-        const p = this.p;
+        const p = this._p;
 
         if (p.visibleColumns.length === 0 && p.columns.length) {
             p.columns[0].visible = true;
@@ -1366,7 +1360,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setColumnVisible(column, visible) {
-        const p = this.p;
+        const p = this._p;
 
         let col = p.columns.get(column);
 
@@ -1390,7 +1384,7 @@ class DGTable {
      * @returns {boolean} true if visible
      */
     isColumnVisible(column) {
-        const p = this.p;
+        const p = this._p;
         let col = p.columns.get(column);
         if (col) {
             return col.visible;
@@ -1406,7 +1400,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setMinColumnWidth(minColumnWidth) {
-        let o = this.o;
+        let o = this._o;
         minColumnWidth = Math.max(minColumnWidth, 0);
         if (o.minColumnWidth !== minColumnWidth) {
             o.minColumnWidth = minColumnWidth;
@@ -1422,7 +1416,7 @@ class DGTable {
      * @returns {number} Minimum column width
      */
     getMinColumnWidth() {
-        return this.o.minColumnWidth;
+        return this._o.minColumnWidth;
     }
 
     /**
@@ -1433,7 +1427,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setSortableColumns(sortableColumns) {
-        const p = this.p, o = this.o;
+        const p = this._p, o = this._o;
         if (o.sortableColumns !== sortableColumns) {
             o.sortableColumns = sortableColumns;
             if (p.table) {
@@ -1454,7 +1448,7 @@ class DGTable {
      * @returns {number} How many sortable columns are allowed?
      */
     getSortableColumns() {
-        return this.o.sortableColumns;
+        return this._o.sortableColumns;
     }
 
     /**
@@ -1464,7 +1458,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setMovableColumns(movableColumns) {
-        let o = this.o;
+        let o = this._o;
         //noinspection PointlessBooleanExpressionJS
         movableColumns = movableColumns === undefined ? true : !!movableColumns;
         if (o.movableColumns !== movableColumns) {
@@ -1479,7 +1473,7 @@ class DGTable {
      * @returns {boolean} are the columns movable?
      */
     getMovableColumns() {
-        return this.o.movableColumns;
+        return this._o.movableColumns;
     }
 
     /**
@@ -1489,7 +1483,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setResizableColumns(resizableColumns) {
-        let o = this.o;
+        let o = this._o;
         //noinspection PointlessBooleanExpressionJS
         resizableColumns = resizableColumns === undefined ? true : !!resizableColumns;
         if (o.resizableColumns !== resizableColumns) {
@@ -1504,7 +1498,7 @@ class DGTable {
      * @returns {boolean} are the columns resizable?
      */
     getResizableColumns() {
-        return this.o.resizableColumns;
+        return this._o.resizableColumns;
     }
 
     /**
@@ -1515,7 +1509,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setOnComparatorRequired(comparatorCallback) {
-        let o = this.o;
+        let o = this._o;
         if (o.onComparatorRequired !== comparatorCallback) {
             o.onComparatorRequired = comparatorCallback;
         }
@@ -1535,7 +1529,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setCustomSortingProvider(customSortingProvider) {
-        let o = this.o;
+        let o = this._o;
         if (o.customSortingProvider !== customSortingProvider) {
             o.customSortingProvider = customSortingProvider;
         }
@@ -1552,11 +1546,11 @@ class DGTable {
      */
     setColumnWidth(column, width) {
 
-        const p = this.p;
+        const p = this._p;
 
         let col = p.columns.get(column);
 
-        let parsedWidth = this._parseColumnWidth(width, col.ignoreMin ? 0 : this.o.minColumnWidth);
+        let parsedWidth = this._parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
 
         if (col) {
             let oldWidth = this._serializeColumnWidth(col);
@@ -1582,7 +1576,7 @@ class DGTable {
      * @returns {string|null} the serialized width of the specified column, or null if column not found
      */
     getColumnWidth(column) {
-        const p = this.p;
+        const p = this._p;
 
         let col = p.columns.get(column);
         if (col) {
@@ -1598,7 +1592,7 @@ class DGTable {
      * @returns {SERIALIZED_COLUMN|null} configuration for all columns
      */
     getColumnConfig(column) {
-        const p = this.p;
+        const p = this._p;
         let col = p.columns.get(column);
         if (col) {
             return {
@@ -1618,7 +1612,7 @@ class DGTable {
      * @returns {Object} configuration for all columns
      */
     getColumnsConfig() {
-        const p = this.p;
+        const p = this._p;
 
         let config = {};
         for (let i = 0; i < p.columns.length; i++) {
@@ -1634,7 +1628,7 @@ class DGTable {
      * @returns {Array.<SERIALIZED_COLUMN_SORT>} configuration for all columns
      */
     getSortedColumns() {
-        const p = this.p;
+        const p = this._p;
 
         let sorted = [];
         for (let i = 0; i < p.rows.sortColumn.length; i++) {
@@ -1653,7 +1647,7 @@ class DGTable {
      * @returns {string|null} HTML string for the specified cell
      */
     getHtmlForRowCell(rowIndex, columnName) {
-        const p = this.p;
+        const p = this._p;
 
         if (rowIndex < 0 || rowIndex > p.rows.length - 1) return null;
         let column = p.columns.get(columnName);
@@ -1672,7 +1666,7 @@ class DGTable {
      * @returns {string|null} HTML string for the specified cell
      */
     getHtmlForRowDataCell(rowData, columnName) {
-        const p = this.p;
+        const p = this._p;
 
         let column = p.columns.get(columnName);
         if (!column) return null;
@@ -1696,7 +1690,7 @@ class DGTable {
             colValue = colValue && colValue[dataPath[dataPathIndex]];
         }
 
-        const formatter = this.o.cellFormatter;
+        const formatter = this._o.cellFormatter;
         let content;
 
         if (formatter[IsSafeSymbol]) {
@@ -1726,7 +1720,7 @@ class DGTable {
      * @returns {number|null} Y pos
      */
     getRowYPos(rowIndex) {
-        const p = this.p;
+        const p = this._p;
 
         return p.virtualListHelper.getItemPosition(rowIndex) || null;
     }
@@ -1739,7 +1733,7 @@ class DGTable {
      * @returns {Object} Row data
      */
     getDataForRow(row) {
-        const p = this.p;
+        const p = this._p;
 
         if (row < 0 || row > p.rows.length - 1) return null;
         return p.rows[row];
@@ -1752,7 +1746,7 @@ class DGTable {
      * @returns {number} Row count
      */
     getRowCount() {
-        const p = this.p;
+        const p = this._p;
         return p.rows ? p.rows.length : 0;
     }
 
@@ -1764,7 +1758,7 @@ class DGTable {
      * @returns {number} Row index
      */
     getIndexForRow(rowData) {
-        const p = this.p;
+        const p = this._p;
         return p.rows.indexOf(rowData);
     }
 
@@ -1775,7 +1769,7 @@ class DGTable {
      * @returns {number} Filtered row count
      */
     getFilteredRowCount() {
-        const p = this.p;
+        const p = this._p;
         return (p.filteredRows || p.rows).length;
     }
 
@@ -1787,7 +1781,7 @@ class DGTable {
      * @returns {number} Row index
      */
     getIndexForFilteredRow(rowData) {
-        const p = this.p;
+        const p = this._p;
         return (p.filteredRows || p.rows).indexOf(rowData);
     }
 
@@ -1799,7 +1793,7 @@ class DGTable {
      * @returns {Object} Row data
      */
     getDataForFilteredRow(row) {
-        const p = this.p;
+        const p = this._p;
         if (row < 0 || row > (p.filteredRows || p.rows).length - 1) return null;
         return (p.filteredRows || p.rows)[row];
     }
@@ -1811,7 +1805,7 @@ class DGTable {
      * @returns {Element} Row element
      */
     getHeaderRowElement() {
-        return this.p.headerRow;
+        return this._p.headerRow;
     }
 
     /**
@@ -1841,7 +1835,7 @@ class DGTable {
      * @returns {number} width
      */
     _calculateWidthAvailableForColumns() {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
 
         // Changing display mode briefly, to prevent taking in account the  parent's scrollbar width when we are the cause for it
         let oldDisplay, lastScrollTop, lastScrollLeft;
@@ -1918,7 +1912,7 @@ class DGTable {
     }
 
     _getTextWidth(text) {
-        let tableClassName = this.o.tableClassName;
+        let tableClassName = this._o.tableClassName;
 
         const tableWrapper = createElement('div');
         tableWrapper.className = this.el.className;
@@ -1960,8 +1954,8 @@ class DGTable {
      */
     tableWidthChanged(forceUpdate, renderColumns) {
 
-        let o = this.o,
-            p = this.p,
+        let o = this._o,
+            p = this._p,
             detectedWidth = this._calculateWidthAvailableForColumns(),
             sizeLeft = detectedWidth,
             relatives = 0;
@@ -2184,8 +2178,8 @@ class DGTable {
      * @returns {DGTable} self
      */
     tableHeightChanged() {
-        let o = this.o,
-            p = this.p;
+        let o = this._o,
+            p = this._p;
 
         if (!p.table) {
             return this;
@@ -2225,7 +2219,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     addRows(data, at, resort, render) {
-        let p = this.p;
+        let p = this._p;
 
         if (typeof at === 'boolean') {
             render = resort;
@@ -2262,7 +2256,7 @@ class DGTable {
             } else if (render) {
                 p.virtualListHelper.addItemsAt(data.length, at);
 
-                if (this.o.virtualTable) {
+                if (this._o.virtualTable) {
                     this._updateVirtualHeight()
                         ._updateLastCellWidthFromScrollbar() // Detect vertical scrollbar height
                         .render()
@@ -2290,7 +2284,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     removeRows(physicalRowIndex, count, render) {
-        let p = this.p;
+        let p = this._p;
 
         if (typeof count !== 'number' || count <= 0) return this;
 
@@ -2313,7 +2307,7 @@ class DGTable {
         } else if (render) {
             p.virtualListHelper.removeItemsAt(count, physicalRowIndex);
 
-            if (this.o.virtualTable) {
+            if (this._o.virtualTable) {
                 this._updateVirtualHeight()
                     ._updateLastCellWidthFromScrollbar()
                     .render()
@@ -2349,7 +2343,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     refreshRow(physicalRowIndex, render = true) {
-        let p = this.p;
+        let p = this._p;
 
         if (physicalRowIndex < 0 || physicalRowIndex > p.rows.length - 1) return this;
 
@@ -2377,7 +2371,7 @@ class DGTable {
      * @returns {Element|null} row or null
      */
     getRowElement(physicalRowIndex) {
-        let p = this.p;
+        let p = this._p;
 
         if (physicalRowIndex < 0 || physicalRowIndex > p.rows.length - 1) return null;
 
@@ -2399,7 +2393,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     refreshAllVirtualRows() {
-        const p = this.p;
+        const p = this._p;
         p.virtualListHelper.invalidate().render();
         return this;
     }
@@ -2413,7 +2407,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     setRows(data, resort) {
-        let p = this.p;
+        let p = this._p;
 
         // this.scrollTop = this.$el.find('.table').scrollTop();
         p.rows.reset(data);
@@ -2479,7 +2473,7 @@ class DGTable {
      */
     createWebWorker(url, start, resort) {
         if (this.isWorkerSupported()) {
-            let     p = this.p;
+            let     p = this._p;
 
             let worker = new Worker(url);
             let listener = (evt) => {
@@ -2510,7 +2504,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     unbindWebWorker(worker) {
-        let p = this.p;
+        let p = this._p;
 
         if (p.workerListeners) {
             for (let j = 0; j < p.workerListeners.length; j++) {
@@ -2543,20 +2537,19 @@ class DGTable {
      * @returns {DGTable} self
      */
     cancelColumnResize() {
-        const p = this.p;
+        const p = this._p;
 
         if (p.resizer) {
             p.resizer.remove();
             p.resizer = null;
-            p.eventsSink.remove(document, 'mousemove.dgtable', p.onMouseMoveResizeAreaBound)
-                .remove(document, 'mouseup.dgtable', p.onEndDragColumnHeaderBound);
+            p.eventsSink.remove(document, '.colresize');
         }
 
         return this;
     }
 
     _onTableScrolledHorizontally() {
-        const p = this.p;
+        const p = this._p;
 
         p.header.scrollLeft = p.table.scrollLeft;
     }
@@ -2568,7 +2561,7 @@ class DGTable {
      * @returns {string|null} name of the column which the mouse is over, or null if the mouse is not in resize position
      */
     _getColumnByResizePosition(event) {
-        let o = this.o,
+        let o = this._o,
             rtl = this._isTableRtl();
 
         let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
@@ -2606,7 +2599,7 @@ class DGTable {
      * @param {TouchEvent} event
      */
     _onTouchStartColumnHeader(event) {
-        const p = this.p;
+        const p = this._p;
 
         if (p.currentTouchId) return;
 
@@ -2722,8 +2715,8 @@ class DGTable {
     _onMouseDownColumnHeader(event) {
         if (event.button !== 0) return this; // Only treat left-clicks
 
-        let o = this.o,
-            p = this.p,
+        let o = this._o,
+            p = this._p,
             col = this._getColumnByResizePosition(event);
 
         if (col) {
@@ -2786,8 +2779,8 @@ class DGTable {
             catch (ignored) { /* we're ok with this */ }
 
             p.eventsSink
-                .add(document, 'mousemove.dgtable', p.onMouseMoveResizeAreaBound)
-                .add(document, 'mouseup.dgtable', p.onEndDragColumnHeaderBound);
+                .add(document, 'mousemove.colresize', this._onMouseMoveResizeArea.bind(this))
+                .add(document, 'mouseup.colresize', this._onEndDragColumnHeader.bind(this));
 
             event.preventDefault();
         }
@@ -2797,8 +2790,8 @@ class DGTable {
      * @param {MouseEvent} event event
      */
     _onMouseMoveColumnHeader(event) {
-        let o = this.o,
-            p = this.p;
+        let o = this._o,
+            p = this._p;
 
         if (o.resizableColumns) {
             let col = this._getColumnByResizePosition(event);
@@ -2816,7 +2809,7 @@ class DGTable {
      */
     _onMouseUpColumnHeader(event) {
         if (event.button === 2) {
-            let o = this.o;
+            let o = this._o;
             let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
             let bounds = getElementOffset(headerCell);
             bounds['width'] = getElementWidth(headerCell, true, true, true);
@@ -2831,7 +2824,7 @@ class DGTable {
      * @param {MouseEvent} event event
      */
     _onMouseLeaveColumnHeader(event) {
-        let o = this.o;
+        let o = this._o;
         let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
         headerCell.style.cursor = '';
     }
@@ -2845,8 +2838,8 @@ class DGTable {
             return;
 
         if (!this._getColumnByResizePosition(event)) {
-            let o = this.o,
-                p = this.p;
+            let o = this._o,
+                p = this._p;
 
             let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
             if (o.sortableColumns) {
@@ -2881,8 +2874,8 @@ class DGTable {
      * @param {DragEvent} event event
      */
     _onStartDragColumnHeader(event) {
-        let o = this.o,
-            p = this.p;
+        let o = this._o,
+            p = this._p;
 
         if (o.movableColumns) {
             let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
@@ -2907,7 +2900,7 @@ class DGTable {
      */
     _onMouseMoveResizeArea(event) {
 
-        let p = this.p;
+        let p = this._p;
 
         let column = p.columns.get(p.resizer['columnName']);
         let rtl = this._isTableRtl();
@@ -2933,7 +2926,7 @@ class DGTable {
 
         if (rtl) {
             minX += getElementWidth(selectedHeaderCell, true, true, true);
-            minX -= column.ignoreMin ? 0 : this.o.minColumnWidth;
+            minX -= column.ignoreMin ? 0 : this._o.minColumnWidth;
 
             if (!isBoxing) {
                 minX -= Math.ceil((parseFloat(selectedHeaderCellStyle.borderLeftWidth) || 0) / 2);
@@ -2944,7 +2937,7 @@ class DGTable {
                 actualX = minX;
             }
         } else {
-            minX += column.ignoreMin ? 0 : this.o.minColumnWidth;
+            minX += column.ignoreMin ? 0 : this._o.minColumnWidth;
 
             if (!isBoxing) {
                 minX += Math.ceil((parseFloat(selectedHeaderCellStyle.borderRightWidth) || 0) / 2);
@@ -2965,15 +2958,13 @@ class DGTable {
      */
     _onEndDragColumnHeader(event) {
 
-        let o = this.o,
-            p = this.p;
+        let o = this._o,
+            p = this._p;
 
         if (!p.resizer) {
             event.target.style.opacity = null;
         } else {
-            p.eventsSink
-                .remove(document, 'mousemove.dgtable', p.onMouseMoveResizeAreaBound)
-                .remove(document, 'mouseup.dgtable', p.onEndDragColumnHeaderBound);
+            p.eventsSink.remove(document, '.colresize');
 
             let column = p.columns.get(p.resizer['columnName']);
             let rtl = this._isTableRtl();
@@ -3010,7 +3001,7 @@ class DGTable {
 
                 baseX += getElementWidth(selectedHeaderCell, true, true, true);
 
-                minX = baseX - (column.ignoreMin ? 0 : this.o.minColumnWidth);
+                minX = baseX - (column.ignoreMin ? 0 : this._o.minColumnWidth);
                 if (actualX > minX) {
                     actualX = minX;
                 }
@@ -3025,7 +3016,7 @@ class DGTable {
                     actualX -= column.arrowProposedWidth || 0; // Sort-arrow width
                 }
 
-                minX = baseX + (column.ignoreMin ? 0 : this.o.minColumnWidth);
+                minX = baseX + (column.ignoreMin ? 0 : this._o.minColumnWidth);
                 if (actualX < minX) {
                     actualX = minX;
                 }
@@ -3091,8 +3082,8 @@ class DGTable {
      * @param {DragEvent} event event
      */
     _onDragEnterColumnHeader(event) {
-        let o = this.o,
-            p = this.p;
+        let o = this._o,
+            p = this._p;
 
         if (o.movableColumns) {
             let dataTransferred = event.dataTransfer.getData('text');
@@ -3128,7 +3119,7 @@ class DGTable {
      * @param {DragEvent} event event
      */
     _onDragLeaveColumnHeader(event) {
-        let o = this.o;
+        let o = this._o;
         let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
         if (!event.relatedTarget.contains(headerCell.firstChild)) {
             headerCell.classList.remove('drag-over');
@@ -3142,8 +3133,8 @@ class DGTable {
     _onDropColumnHeader(event) {
         event.preventDefault();
 
-        let o = this.o,
-            p = this.p;
+        let o = this._o,
+            p = this._p;
 
         let dataTransferred = JSON.parse(event.dataTransfer.getData('text'));
         let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
@@ -3164,10 +3155,10 @@ class DGTable {
      * @returns {DGTable} self
      */
     _clearSortArrows() {
-        let p = this.p;
+        let p = this._p;
 
         if (p.table) {
-            let tableClassName = this.o.tableClassName;
+            let tableClassName = this._o.tableClassName;
             let sortedColumns = scopedSelectorAll(p.headerRow, `>div.${tableClassName}-header-cell.sorted`);
             let arrows = Array.prototype.slice.call(sortedColumns, 0).map((el) => scopedSelector(el, '>div>.sort-arrow')).filter((el) => !!el);
             for (const arrow of arrows) {
@@ -3191,7 +3182,7 @@ class DGTable {
      * @returns {boolean} self
      */
     _showSortArrow(column, descending) {
-        let p = this.p;
+        let p = this._p;
 
         let col = p.columns.get(column);
         if (!col) return false;
@@ -3204,7 +3195,7 @@ class DGTable {
             col.element.firstChild.insertBefore(arrow, col.element.firstChild.firstChild);
         }
 
-        if (col.widthMode !== ColumnWidthMode.RELATIVE && this.o.adjustColumnWidthForSortArrow) {
+        if (col.widthMode !== ColumnWidthMode.RELATIVE && this._o.adjustColumnWidthForSortArrow) {
             col.arrowProposedWidth = arrow.scrollWidth +
                 (parseFloat(getComputedStyle(arrow).marginRight) || 0) +
                 (parseFloat(getComputedStyle(arrow).marginLeft) || 0);
@@ -3219,9 +3210,9 @@ class DGTable {
      * @returns {DGTable} self
      */
     _resizeColumnElements(cellIndex) {
-        let p = this.p;
+        let p = this._p;
 
-        const headerCells = p.headerRow.querySelectorAll(`div.${this.o.tableClassName}-header-cell`);
+        const headerCells = p.headerRow.querySelectorAll(`div.${this._o.tableClassName}-header-cell`);
         const headerCell = headerCells[cellIndex];
         let col = p.columns.get(headerCell['columnName']);
 
@@ -3244,7 +3235,7 @@ class DGTable {
      * @returns {DGTable} self
      * */
     _destroyHeaderCells() {
-        let p = this.p;
+        let p = this._p;
 
         if (p.headerRow) {
             p.headerRow = null;
@@ -3257,8 +3248,8 @@ class DGTable {
      * @returns {DGTable} self
      */
     _renderSkeletonBase() {
-        let p = this.p,
-            o = this.o;
+        let p = this._p,
+            o = this._o;
 
         // Clean up old elements
 
@@ -3325,8 +3316,8 @@ class DGTable {
      * @returns {DGTable} self
      */
     _renderSkeletonHeaderCells() {
-        let p = this.p,
-            o = this.o;
+        let p = this._p,
+            o = this._o;
 
         let allowCellPreview = o.allowCellPreview,
             allowHeaderCellPreview = o.allowHeaderCellPreview;
@@ -3376,8 +3367,8 @@ class DGTable {
      * @returns {DGTable} self
      */
     _renderSkeletonBody() {
-        let p = this.p,
-            o = this.o;
+        let p = this._p,
+            o = this._o;
 
         let tableClassName = o.tableClassName;
 
@@ -3492,7 +3483,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     _updateVirtualHeight() {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
 
         if (!p.tbody)
             return this;
@@ -3514,7 +3505,7 @@ class DGTable {
      */
     _updateLastCellWidthFromScrollbar(force) {
 
-        const p = this.p;
+        const p = this._p;
 
         // Calculate scrollbar's width and reduce from lat column's width
         let scrollbarWidth = p.table.offsetWidth - p.table.clientWidth;
@@ -3553,7 +3544,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     _updateTableWidth(parentSizeMayHaveChanged) {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
         let width = this._calculateTbodyWidth();
 
         p.tbody.style.minWidth = width + 'px';
@@ -3592,7 +3583,7 @@ class DGTable {
      * @returns {boolean}
      */
     _isTableRtl() {
-        return getComputedStyle(this.p.table).direction === 'rtl';
+        return getComputedStyle(this._p.table).direction === 'rtl';
     }
 
     /**
@@ -3626,7 +3617,7 @@ class DGTable {
      * @param {HTMLElement} el
      */
     _cellMouseOverEvent(el) {
-        const o = this.o, p = this.p;
+        const o = this._o, p = this._p;
 
         let elInner = el.firstElementChild;
 
@@ -3840,7 +3831,7 @@ class DGTable {
      * @returns {DGTable} self
      */
     hideCellPreview() {
-        const p = this.p;
+        const p = this._p;
 
         if (p.cellPreviewCell) {
             let previewCell = p.cellPreviewCell;

@@ -10,18 +10,18 @@ export class DGTableJQuery extends DGTable {
             .on('remove', () => this.destroy());
 
         this.on('headerrowdestroy', () => {
-            const headerRow = this.p?.headerRow;
+            const headerRow = this._p?.headerRow;
             if (!headerRow) return;
 
-            jQuery(headerRow).find(`div.${this.o.tableClassName}-header-cell`).remove();
+            jQuery(headerRow).find(`div.${this._o.tableClassName}-header-cell`).remove();
         });
     }
 
     destroy() {
-        if (this.p?.table)
-            jQuery(this.p.table).empty();
-        if (this.p?.tbody)
-            jQuery(this.p.tbody).empty();
+        if (this._p?.table)
+            jQuery(this._p.table).empty();
+        if (this._p?.tbody)
+            jQuery(this._p.tbody).empty();
         return super.destroy();
     }
 }
