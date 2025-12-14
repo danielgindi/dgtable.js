@@ -11,7 +11,9 @@ import { fileURLToPath } from 'node:url';
 
 (async () => {
 
-    await rmdir('./dist', { recursive: true });
+    try {
+        await rmdir('./dist', { recursive: true });
+    } catch (ignored) { /* ignored */ }
     await mkdir('./dist');
 
     const rollupTasks = [{

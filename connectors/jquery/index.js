@@ -1,7 +1,7 @@
-import jQuery from 'connectors/jquery/index';
+import jQuery from 'jquery';
 import DGTable from '@danielgindi/dgtable.js';
 
-export class DGTableJQuery extends DGTable {
+export default class DGTableJQuery extends DGTable {
     constructor(options) {
         super(options);
 
