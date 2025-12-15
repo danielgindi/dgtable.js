@@ -24,6 +24,7 @@ export default [
             "!tests/**/*_helpers.js",
             "!test/**/*_helpers.js",
             "dist/**/*",
+            "connectors/jquery/dist/**/*",
             "example/**/*",
         ],
     },
