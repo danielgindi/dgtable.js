@@ -1886,6 +1886,8 @@ class DGTable {
         header.className = `${tableClassName}-header`;
         thisWrapper.appendChild(header);
         let headerRow = createElement('div');
+        headerRow.index = null;
+        headerRow.vIndex = null;
         headerRow.className = `${tableClassName}-header-row`;
         header.appendChild(headerRow);
         for (let i = 0; i < p.visibleColumns.length; i++) {
@@ -3745,7 +3747,7 @@ class DGTable {
             'cellpreview', {
                 el: previewCell.firstElementChild,
                 name: previewCell['columnName'],
-                rowIndex: rowIndex,
+                rowIndex: rowIndex ?? null,
                 rowData: rowIndex == null ? null : p.rows[rowIndex],
                 cell: el,
                 cellEl: elInner,
@@ -3877,7 +3879,7 @@ class DGTable {
             this.emit('cellpreviewdestroy', {
                 el: previewCell.firstChild,
                 name: previewCell['columnName'],
-                rowIndex: previewCell['rowIndex'],
+                rowIndex: previewCell['rowIndex'] ?? null,
                 rowData: previewCell['rowIndex'] == null ? null : p.rows[previewCell['rowIndex']],
                 cell: origCell,
                 cellEl: origCell.firstChild,
