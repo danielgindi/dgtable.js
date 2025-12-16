@@ -477,26 +477,6 @@ class DGTable {
         p.notifyRendererOfColumnsConfig();
     }
 
-    trigger(eventName) {
-        const p = this._p;
-        if (!p) return;
-
-        let events = p.events;
-
-        if (hasOwnProperty.call(events, eventName)) {
-            let callbacks = events[eventName];
-            for (let i = 0; i < callbacks.length; i++) {
-                let item = callbacks[i];
-                if (item.once) {
-                    callbacks.splice(i--, 1);
-                }
-                item.cb.apply(this, Array.prototype.slice.call(arguments, 1));
-            }
-        }
-
-        return this;
-    }
-
     /**
      * Register an event handler
      * @param {(string|'*')?} event
@@ -2434,7 +2414,7 @@ class DGTable {
             this._refilter();
         }
 
-        this.clearAndRender().trigger('addrows', { count: data.length, clear: true });
+        this.clearAndRender().emit('addrows', { count: data.length, clear: true });
 
         return this;
     }
