@@ -2831,7 +2831,7 @@ class DGTable {
             bounds['width'] = getElementWidth(headerCell, true, true, true);
             bounds['height'] = getElementHeight(headerCell, true, true, true);
             this.emit('headercontextmenu', {
-                name: headerCell['columnName'],
+                columnName: headerCell['columnName'],
                 pageX: event.pageX,
                 pageY: event.pageY,
                 bounds: bounds,

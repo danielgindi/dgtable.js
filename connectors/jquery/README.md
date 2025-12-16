@@ -137,7 +137,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 * `filter`: A filter was applied - `any` - the arguments passed to the filter method
 * `filterclear`: A filter was cleared
 * `sort`: The data was sorted - `{ sorts: { "column": "column's name", "descending": true|false }[], resort: true|undefined, comparator: Function }`
-* `headercontextmenu`: A context menu should be shown for a header cell - `({ name: string, pageX: number, pageY: number, bounds: { left: number, top: number, width: number, height: number } })`
+* `headercontextmenu`: A context menu should be shown for a header cell - `({ columnName: string, pageX: number, pageY: number, bounds: { left: number, top: number, width: number, height: number } })`
 
 - Member functions:
 * `on(eventName, {Function?} callback)`: Adds an event listener
