@@ -3647,6 +3647,9 @@ class DGTable {
         const elStyle = getComputedStyle(el);
         const elInnerStyle = getComputedStyle(elInner);
 
+        let rtl = elStyle.float === 'right';
+        let prop = rtl ? 'right' : 'left';
+
         let paddingL = parseFloat(elStyle.paddingLeft) || 0,
             paddingR = parseFloat(elStyle.paddingRight) || 0,
             paddingT = parseFloat(elStyle.paddingTop) || 0,
@@ -3758,8 +3761,6 @@ class DGTable {
 
         let offset = getElementOffset(el);
         let parentOffset = getElementOffset(parent);
-        let rtl = elStyle.float === 'right';
-        let prop = rtl ? 'right' : 'left';
 
         // Handle RTL, go from the other side
         if (rtl) {
