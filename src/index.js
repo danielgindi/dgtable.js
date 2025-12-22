@@ -3676,7 +3676,7 @@ class DGTable {
         let css = {
             'box-sizing': borderBox ? 'border-box' : 'content-box',
             'width': requiredWidth,
-            'min-height': Math.max(getElementHeight(el), parseFloat(elStyle.minHeight) || 0) + 'px',
+            'min-height': Math.max(getElementHeight(el), /%/.test(elStyle.minHeight) ? 0 : (parseFloat(elStyle.minHeight) || 0)) + 'px',
             'padding-left': paddingL,
             'padding-right': paddingR,
             'padding-top': paddingT,
@@ -3684,7 +3684,7 @@ class DGTable {
             'overflow': 'hidden',
             'position': 'absolute',
             'z-index': '-1',
-            'left': '0',
+            [prop]: '0',
             'top': '0',
             'cursor': elStyle.cursor,
         };
