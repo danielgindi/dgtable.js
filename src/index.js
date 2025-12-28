@@ -36,6 +36,7 @@ const HoverOutEventSymbol = Symbol('hover_out');
 const RowClickEventSymbol = Symbol('row_click');
 const PreviewCellSymbol = Symbol('preview_cell');
 const OriginalCellSymbol = Symbol('cell');
+const RelatedTouch = Symbol('related_touch');
 
 function webkitRenderBugfix(el) {
     // BUGFIX: WebKit has a bug where it does not relayout, and this affects us because scrollbars
@@ -104,7 +105,7 @@ class DGTable {
             this.el.classList.add(options.className || 'dgtable-wrapper');
         }
 
-        p.eventsSink.add(this.el, 'dragend.colresize', this._onEndDragColumnHeader.bind(this));
+        p.eventsSink.add(this.el, 'dragend.colresize', this._onDragEndColumnHeader.bind(this));
 
         /**
          * @private
@@ -2553,7 +2554,7 @@ class DGTable {
     /**previousElementSibling
      * Reverse-calculate the column to resize from mouse position
      * @private
-     * @param {MouseEvent} event mouse event
+     * @param {MouseEvent|TouchEvent} event mouse event
      * @returns {string|null} name of the column which the mouse is over, or null if the mouse is not in resize position
      */
     _getColumnByResizePosition(event) {
@@ -2572,7 +2573,8 @@ class DGTable {
 
         let firstCol = !previousElementSibling;
 
-        let mouseX = (event.pageX || event.clientX) - getElementOffset(headerCell).left;
+        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
+        let mouseX = (positionHost.pageX || positionHost.clientX) - getElementOffset(headerCell).left;
 
         if (rtl) {
             if (!firstCol && getElementWidth(headerCell, true, true, true) - mouseX <= o.resizeAreaWidth / 2) {
@@ -2616,37 +2618,8 @@ class DGTable {
             clearTimeout(tapAndHoldTimeout);
         };
 
-        const fakeEventKeys = [
-            'target',
-            'clientX', 'clientY',
-            'offsetX', 'offsetY',
-            'screenX', 'screenY',
-            'pageX', 'pageY',
-            'button',
-            'buttons',
-            'which',
-            'srcElement',
-            'toElement',
-            'relatedTarget',
-            'ctrlKey', 'shiftKey', 'altKey', 'metaKey'];
-        let fakeMouseEvent = (name, ...args) => {
-            const dict = {};
-            for (const k of fakeEventKeys)
-                dict[k] = event[k];
-
-            for (const obj of args) {
-                for (const key of fakeEventKeys) {
-                    if (obj[key] != null)
-                        dict[key] = obj[key];
-                }
-            }
-
-            return new MouseEvent(name, event);
-        };
-
-        cellEl.dispatchEvent(
-            fakeMouseEvent('mousedown', event.changedTouches[0], { button: 0, target: event.target }),
-        );
+        event[RelatedTouch] = event.changedTouches[0];
+        this._onMouseDownColumnHeader(event);
 
         tapAndHoldTimeout = setTimeout(() => {
             unbind();
@@ -2667,16 +2640,13 @@ class DGTable {
 
             if (distanceTravelled < distanceTreshold) {
                 this.cancelColumnResize();
-
-                cellEl.dispatchEvent(
-                    fakeMouseEvent('mouseup', event.changedTouches[0], { button: 2, target: event.target }),
-                );
+                this._triggerColumnHeaderContextMenu(event);
             }
 
         }, 500);
 
         p.eventsSink
-            .add(cellEl, 'touchend.colheader', (event) => {
+            .add(cellEl, 'touchend.colheader', (/**TouchEvent*/event) => {
                 let touch = find(event.changedTouches, (touch) => touch.identifier === p.currentTouchId);
                 if (!touch) return;
 
@@ -2690,18 +2660,13 @@ class DGTable {
                 let distanceTravelled = Math.sqrt(Math.pow(Math.abs(currentPos.x - startPos.x), 2) + Math.pow(Math.abs(currentPos.y - startPos.y), 2));
 
                 if (distanceTravelled < distanceTreshold || p.resizer) {
-                    cellEl.dispatchEvent(
-                        fakeMouseEvent('mouseup', touch, { 0: 2, target: event.target }),
-                    );
-
-                    cellEl.dispatchEvent(
-                        fakeMouseEvent('click', touch, { button: 0, target: event.target }),
-                    );
+                    event[RelatedTouch] = touch;
+                    this._onSortOnColumnHeaderEvent(event);
                 }
 
             })
             .add(cellEl, 'touchcancel.colheader', unbind)
-            .add(cellEl, 'touchmove.colheader', (event) => {
+            .add(cellEl, 'touchmove.colheader', (/**TouchEvent*/event) => {
                 let touch = find(event.changedTouches, (touch) => touch.identifier === p.currentTouchId);
                 if (!touch) return;
 
@@ -2711,18 +2676,18 @@ class DGTable {
                 if (p.resizer) {
                     event.preventDefault();
 
-                    cellEl.dispatchEvent(
-                        fakeMouseEvent('mousemove', touch, { target: event.target }),
-                    );
+                    event[RelatedTouch] = touch;
+                    this._onMouseMoveColumnHeader(event);
                 }
             });
     }
 
     /**
-     * @param {MouseEvent} event
+     * @param {MouseEvent|TouchEvent} event
      */
     _onMouseDownColumnHeader(event) {
-        if (event.button !== 0) return this; // Only treat left-clicks
+        if (event.type === 'mousedown' && event.button !== 0)
+            return;
 
         let o = this._o,
             p = this._p,
@@ -2789,48 +2754,61 @@ class DGTable {
 
             p.eventsSink
                 .add(document, 'mousemove.colresize', this._onMouseMoveResizeArea.bind(this))
-                .add(document, 'mouseup.colresize', this._onEndDragColumnHeader.bind(this));
+                .add(document, 'touchmove.colresize', this._onMouseMoveResizeArea.bind(this))
+                .add(document, 'mouseup.colresize', this._onResizerPointerUpColumnHeader.bind(this))
+                .add(document, 'touchend.colresize', this._onResizerPointerUpColumnHeader.bind(this));
 
             event.preventDefault();
         }
     }
 
     /**
-     * @param {MouseEvent} event event
+     * @param {MouseEvent|TouchEvent} event event
      */
     _onMouseMoveColumnHeader(event) {
-        let o = this._o,
+        const o = this._o,
             p = this._p;
 
-        if (o.resizableColumns) {
-            let col = this._getColumnByResizePosition(event);
-            let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-            if (!col || !p.columns.get(col).resizable) {
-                headerCell.style.cursor = '';
-            } else {
-                headerCell.style.cursor = 'e-resize';
-            }
+        if (!o.resizableColumns)
+            return;
+
+        let col = this._getColumnByResizePosition(event);
+        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
+        if (!col || !p.columns.get(col).resizable) {
+            headerCell.style.cursor = '';
+        } else {
+            headerCell.style.cursor = 'e-resize';
         }
     }
 
     /**
-     * @param {MouseEvent} event
+     * @param {MouseEvent|TouchEvent} event
      */
     _onMouseUpColumnHeader(event) {
-        if (event.button === 2) {
-            let o = this._o;
-            let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-            let bounds = getElementOffset(headerCell);
-            bounds['width'] = getElementWidth(headerCell, true, true, true);
-            bounds['height'] = getElementHeight(headerCell, true, true, true);
-            this.emit('headercontextmenu', {
-                columnName: headerCell['columnName'],
-                pageX: event.pageX,
-                pageY: event.pageY,
-                bounds: bounds,
-            });
-        }
-        return this;
+        if (event.button !== 2)
+            return;
+
+        this._triggerColumnHeaderContextMenu(event);
+    }
+
+    /**
+     * @param {MouseEvent|TouchEvent} event
+     */
+    _triggerColumnHeaderContextMenu(event) {
+        const o = this._o;
+
+        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
+
+        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
+        let bounds = getElementOffset(headerCell);
+        bounds['width'] = getElementWidth(headerCell, true, true, true);
+        bounds['height'] = getElementHeight(headerCell, true, true, true);
+        this.emit('headercontextmenu', {
+            columnName: headerCell['columnName'],
+            pageX: positionHost.pageX,
+            pageY: positionHost.pageY,
+            bounds: bounds,
+        });
     }
 
     /**
@@ -2845,40 +2823,42 @@ class DGTable {
 
     /**
      * @private
-     * @param {MouseEvent} event event
+     * @param {MouseEvent|TouchEvent} event event
      */
-    _onClickColumnHeader(event) {
+    _onSortOnColumnHeaderEvent(event) {
         if (isInputElementEvent(event))
             return;
 
-        if (!this._getColumnByResizePosition(event)) {
-            let o = this._o,
-                p = this._p;
+        if (this._getColumnByResizePosition(event))
+            return;
 
-            let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-            if (o.sortableColumns) {
-                let column = p.columns.get(headerCell['columnName']);
-                let currentSort = p.rows.sortColumn;
-                if (column && column.sortable) {
-                    let shouldAdd = true;
+        const o = this._o,
+            p = this._p;
 
-                    let lastSort = currentSort.length ? currentSort[currentSort.length - 1] : null;
+        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
+        if (!o.sortableColumns)
+            return;
 
-                    if (lastSort && lastSort.column === column.name) {
-                        if (!lastSort.descending || !o.allowCancelSort) {
-                            lastSort.descending = !lastSort.descending;
-                        } else {
-                            shouldAdd = false;
-                            currentSort.splice(currentSort.length - 1, 1);
-                        }
-                    }
+        let column = p.columns.get(headerCell['columnName']);
+        let currentSort = p.rows.sortColumn;
+        if (column && column.sortable) {
+            let shouldAdd = true;
 
-                    if (shouldAdd) {
-                        this.sort(column.name, undefined, true).render();
-                    } else {
-                        this.sort(); // just refresh current situation
-                    }
+            let lastSort = currentSort.length ? currentSort[currentSort.length - 1] : null;
+
+            if (lastSort && lastSort.column === column.name) {
+                if (!lastSort.descending || !o.allowCancelSort) {
+                    lastSort.descending = !lastSort.descending;
+                } else {
+                    shouldAdd = false;
+                    currentSort.splice(currentSort.length - 1, 1);
                 }
+            }
+
+            if (shouldAdd) {
+                this.sort(column.name, undefined, true).render();
+            } else {
+                this.sort(); // just refresh current situation
             }
         }
     }
@@ -2910,7 +2890,7 @@ class DGTable {
 
     /**
      * @private
-     * @param {MouseEvent} event event
+     * @param {MouseEvent|TouchEvent} event event
      */
     _onMouseMoveResizeArea(event) {
 
@@ -2933,7 +2913,8 @@ class DGTable {
 
         let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
 
-        let actualX = event.pageX - posRelative.left;
+        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
+        let actualX = positionHost.pageX - posRelative.left;
         let minX = posCol.left;
 
         minX -= Math.ceil(resizerWidth / 2);
@@ -2970,125 +2951,136 @@ class DGTable {
      * @private
      * @param {DragEvent} event event
      */
-    _onEndDragColumnHeader(event) {
-
-        let o = this._o,
-            p = this._p;
+    _onDragEndColumnHeader(event) {
+        let p = this._p;
 
         if (!p.resizer) {
             event.target.style.opacity = null;
-        } else {
-            p.eventsSink.remove(document, '.colresize');
-
-            let column = p.columns.get(p.resizer['columnName']);
-            let rtl = this._isTableRtl();
-
-            let selectedHeaderCell = column.element,
-                selectedHeaderCellInner = selectedHeaderCell.firstChild,
-                commonAncestor = p.resizer.parentNode;
-
-            const commonAncestorStyle = getComputedStyle(commonAncestor);
-            const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
-
-            let posCol = getElementOffset(selectedHeaderCell),
-                posRelative = getElementOffset(commonAncestor);
-            posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
-            posCol.left -= posRelative.left;
-            let resizerWidth = getElementWidth(p.resizer, true, true, true);
-
-            let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
-
-            let actualX = event.pageX - posRelative.left;
-            let baseX = posCol.left, minX = posCol.left;
-            let width = 0;
-
-            baseX -= Math.ceil(resizerWidth / 2);
-
-            if (rtl) {
-                if (!isBoxing) {
-                    actualX += this._horizontalPadding(selectedHeaderCell);
-                    const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
-                    actualX += parseFloat(innerComputedStyle.borderLeftWidth) || 0;
-                    actualX += parseFloat(innerComputedStyle.borderRightWidth) || 0;
-                    actualX += column.arrowProposedWidth || 0; // Sort-arrow width
-                }
-
-                baseX += getElementWidth(selectedHeaderCell, true, true, true);
-
-                minX = baseX - (column.ignoreMin ? 0 : this._o.minColumnWidth);
-                if (actualX > minX) {
-                    actualX = minX;
-                }
-
-                width = baseX - actualX;
-            } else {
-                if (!isBoxing) {
-                    actualX -= this._horizontalPadding(selectedHeaderCell);
-                    const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
-                    actualX -= parseFloat(innerComputedStyle.borderLeftWidth) || 0;
-                    actualX -= parseFloat(innerComputedStyle.borderRightWidth) || 0;
-                    actualX -= column.arrowProposedWidth || 0; // Sort-arrow width
-                }
-
-                minX = baseX + (column.ignoreMin ? 0 : this._o.minColumnWidth);
-                if (actualX < minX) {
-                    actualX = minX;
-                }
-
-                width = actualX - baseX;
-            }
-
-            p.resizer.remove();
-            p.resizer = null;
-
-            let sizeToSet = width;
-
-            if (column.widthMode === ColumnWidthMode.RELATIVE) {
-                let sizeLeft = this._calculateWidthAvailableForColumns();
-                //sizeLeft -= p.table.offsetWidth - p.table.clientWidth;
-
-                let totalRelativePercentage = 0;
-                let relatives = 0;
-
-                for (let i = 0; i < p.visibleColumns.length; i++) {
-                    let col = p.visibleColumns[i];
-                    if (col.name === column.name) continue;
-
-                    if (col.widthMode === ColumnWidthMode.RELATIVE) {
-                        totalRelativePercentage += col.width;
-                        relatives++;
-                    } else {
-                        sizeLeft -= col.actualWidth;
-                    }
-                }
-
-                sizeLeft = Math.max(1, sizeLeft);
-                if (sizeLeft === 1)
-                    sizeLeft = p.table.clientWidth;
-                sizeToSet = width / sizeLeft;
-
-                if (relatives > 0) {
-                    // When there's more than one relative overall,
-                    //   we can do relative enlarging/shrinking.
-                    // Otherwise, we can end up having a 0 width.
-
-                    let unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
-
-                    totalRelativePercentage += sizeToSet;
-
-                    // Account for relative widths scaling later
-                    if ((totalRelativePercentage < 1 && o.relativeWidthGrowsToFillWidth) ||
-                        (totalRelativePercentage > 1 && o.relativeWidthShrinksToFillWidth)) {
-                        sizeToSet = unNormalizedSizeToSet;
-                    }
-                }
-
-                sizeToSet *= 100;
-                sizeToSet += '%';
-            }
-
-            this.setColumnWidth(column.name, sizeToSet);
         }
+    }
+
+    /**
+     * @private
+     * @param {MouseEvent|TouchEvent} event event
+     */
+    _onResizerPointerUpColumnHeader(event) {
+        let o = this._o,
+            p = this._p;
+
+        if (!p.resizer)
+            return;
+
+        p.eventsSink.remove(document, '.colresize');
+
+        let column = p.columns.get(p.resizer['columnName']);
+        let rtl = this._isTableRtl();
+
+        let selectedHeaderCell = column.element,
+            selectedHeaderCellInner = selectedHeaderCell.firstChild,
+            commonAncestor = p.resizer.parentNode;
+
+        const commonAncestorStyle = getComputedStyle(commonAncestor);
+        const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
+
+        let posCol = getElementOffset(selectedHeaderCell),
+            posRelative = getElementOffset(commonAncestor);
+        posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
+        posCol.left -= posRelative.left;
+        let resizerWidth = getElementWidth(p.resizer, true, true, true);
+
+        let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
+
+        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
+        let actualX = positionHost.pageX - posRelative.left;
+        let baseX = posCol.left, minX = posCol.left;
+        let width = 0;
+
+        baseX -= Math.ceil(resizerWidth / 2);
+
+        if (rtl) {
+            if (!isBoxing) {
+                actualX += this._horizontalPadding(selectedHeaderCell);
+                const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
+                actualX += parseFloat(innerComputedStyle.borderLeftWidth) || 0;
+                actualX += parseFloat(innerComputedStyle.borderRightWidth) || 0;
+                actualX += column.arrowProposedWidth || 0; // Sort-arrow width
+            }
+
+            baseX += getElementWidth(selectedHeaderCell, true, true, true);
+
+            minX = baseX - (column.ignoreMin ? 0 : this._o.minColumnWidth);
+            if (actualX > minX) {
+                actualX = minX;
+            }
+
+            width = baseX - actualX;
+        } else {
+            if (!isBoxing) {
+                actualX -= this._horizontalPadding(selectedHeaderCell);
+                const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
+                actualX -= parseFloat(innerComputedStyle.borderLeftWidth) || 0;
+                actualX -= parseFloat(innerComputedStyle.borderRightWidth) || 0;
+                actualX -= column.arrowProposedWidth || 0; // Sort-arrow width
+            }
+
+            minX = baseX + (column.ignoreMin ? 0 : this._o.minColumnWidth);
+            if (actualX < minX) {
+                actualX = minX;
+            }
+
+            width = actualX - baseX;
+        }
+
+        p.resizer.remove();
+        p.resizer = null;
+
+        let sizeToSet = width;
+
+        if (column.widthMode === ColumnWidthMode.RELATIVE) {
+            let sizeLeft = this._calculateWidthAvailableForColumns();
+            //sizeLeft -= p.table.offsetWidth - p.table.clientWidth;
+
+            let totalRelativePercentage = 0;
+            let relatives = 0;
+
+            for (let i = 0; i < p.visibleColumns.length; i++) {
+                let col = p.visibleColumns[i];
+                if (col.name === column.name) continue;
+
+                if (col.widthMode === ColumnWidthMode.RELATIVE) {
+                    totalRelativePercentage += col.width;
+                    relatives++;
+                } else {
+                    sizeLeft -= col.actualWidth;
+                }
+            }
+
+            sizeLeft = Math.max(1, sizeLeft);
+            if (sizeLeft === 1)
+                sizeLeft = p.table.clientWidth;
+            sizeToSet = width / sizeLeft;
+
+            if (relatives > 0) {
+                // When there's more than one relative overall,
+                //   we can do relative enlarging/shrinking.
+                // Otherwise, we can end up having a 0 width.
+
+                let unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
+
+                totalRelativePercentage += sizeToSet;
+
+                // Account for relative widths scaling later
+                if ((totalRelativePercentage < 1 && o.relativeWidthGrowsToFillWidth) ||
+                    (totalRelativePercentage > 1 && o.relativeWidthShrinksToFillWidth)) {
+                    sizeToSet = unNormalizedSizeToSet;
+                }
+            }
+
+            sizeToSet *= 100;
+            sizeToSet += '%';
+        }
+
+        this.setColumnWidth(column.name, sizeToSet);
     }
 
     /**
@@ -3317,7 +3309,7 @@ class DGTable {
         columnEl.addEventListener('mouseleave', this._onMouseLeaveColumnHeader.bind(this));
         columnEl.addEventListener('touchstart', this._onTouchStartColumnHeader.bind(this));
         columnEl.addEventListener('dragstart', this._onStartDragColumnHeader.bind(this));
-        columnEl.addEventListener('click', this._onClickColumnHeader.bind(this));
+        columnEl.addEventListener('click', this._onSortOnColumnHeaderEvent.bind(this));
         columnEl.addEventListener('contextmenu', event => { event.preventDefault(); });
         inner.addEventListener('dragenter', this._onDragEnterColumnHeader.bind(this));
         inner.addEventListener('dragover', this._onDragOverColumnHeader.bind(this));
