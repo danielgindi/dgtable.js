@@ -2616,13 +2616,26 @@ class DGTable {
             clearTimeout(tapAndHoldTimeout);
         };
 
+        const fakeEventKeys = [
+            'target',
+            'clientX', 'clientY',
+            'offsetX', 'offsetY',
+            'screenX', 'screenY',
+            'pageX', 'pageY',
+            'button',
+            'buttons',
+            'which',
+            'srcElement',
+            'toElement',
+            'relatedTarget',
+            'ctrlKey', 'shiftKey', 'altKey', 'metaKey'];
         let fakeMouseEvent = (name, ...args) => {
             const dict = {};
-            for (const k of event)
+            for (const k of fakeEventKeys)
                 dict[k] = event[k];
 
             for (const obj of args) {
-                for (const key of ['target', 'clientX', 'clientY', 'offsetX', 'offsetY', 'screenX', 'screenY', 'pageX', 'pageY', 'which']) {
+                for (const key of fakeEventKeys) {
                     if (obj[key] != null)
                         dict[key] = obj[key];
                 }
