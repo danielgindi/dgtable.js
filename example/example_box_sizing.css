@@ -1,0 +1,9 @@
+.dgtable-header-cell,
+.dgtable-cell,
+.dgtable-cell-preview{
+    box-sizing: border-box;
+}
+
+.dgtable-header-cell > div, .dgtable-cell-preview.header > div {
+    margin: -1px;
+}

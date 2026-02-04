@@ -74,6 +74,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
   * **sortable**: `boolean=true` Is this column sortable?
   * **movable**: `boolean=true` Is this column movable?
   * **visible**: `boolean=true` Is this column visible?
+  * **sticky **: `'start'|'end'|false` Is this column sticky?
   * **cellClasses**: `string` Classes to add to the DOM element of this cell
   * **ignoreMin**: `boolean=false` Should this column ignore the minimum width specified for the table columns?
 * **height**: `number` Suggested height for the table

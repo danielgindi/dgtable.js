@@ -18,7 +18,6 @@ body {
 .dgtable {
     border-top: solid 1px #ccc;
     max-width: 100%;
-    background-color: transparent;
 }
 
 .dgtable-header {
@@ -29,6 +28,7 @@ body {
 
 .dgtable-header-row {
     height: 26px;
+    background-color: inherit;
 }
 
 .dgtable-header-cell, .dgtable-cell-preview.header {
@@ -42,9 +42,25 @@ body {
     text-align: left;
 }
 
+.dgtable-wrapper .dgtable-header-cell.is-sticky-left,
+.dgtable-wrapper .dgtable-cell.is-sticky-left {
+    box-shadow: 3px 0 6px rgba(0, 0, 0, .1);
+}
+
+.dgtable-wrapper .dgtable-header-cell.is-sticky-right,
+.dgtable-wrapper .dgtable-cell.is-sticky-right {
+    box-shadow: -3px 0 6px rgba(0, 0, 0, .1);
+}
+
+.dgtable-wrapper .dgtable-header-cell.is-sticky-left.is-sticky-right,
+.dgtable-wrapper .dgtable-cell.is-sticky-left.is-sticky-right {
+    box-shadow: 0 0 6px rgba(0, 0, 0, .1);
+}
+
 .dgtable-header-cell {
     float: left;
     border-left: solid 1px #ccc;
+    background-color: inherit;
 }
 
 .dgtable-header-cell:first-child {
@@ -101,10 +117,11 @@ body {
 .dgtable-row {
     border-top: solid 1px #ccc;
     height: 28px;
+    background-color: #fff;
 }
 
 .dgtable-row-alt {
-    background: #fafafa;
+    background-color: #fafafa;
 }
 
 .dgtable-row:first-child {
@@ -127,6 +144,7 @@ body {
     float: left;
     border-left: solid 1px #ccc;
     min-height: 100%;
+    background-color: inherit;
 }
 
 .dgtable-wrapper.rtl .dgtable-cell {

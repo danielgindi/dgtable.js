@@ -377,7 +377,8 @@ class DGTable {
         const tableClassName = o.tableClassName,
             rowClassName = tableClassName + '-row',
             altRowClassName = tableClassName + '-row-alt',
-            cellClassName = tableClassName + '-cell';
+            cellClassName = tableClassName + '-cell',
+            stickyClassName = tableClassName + '-sticky';
 
         let visibleColumns = p.visibleColumns,
             colCount = visibleColumns.length;
@@ -391,6 +392,8 @@ class DGTable {
                 column._finalWidth = (column.actualWidthConsideringScrollbarWidth || column.actualWidth);
             }
         };
+
+        const isRtl = this._isTableRtl();
 
         p.virtualListHelper = new VirtualListHelper({
             list: p.table,
@@ -406,6 +409,8 @@ class DGTable {
                 const rows = p.filteredRows || p.rows,
                     isDataFiltered = !!p.filteredRows,
                     allowCellPreview = o.allowCellPreview;
+
+                const isStickyColumns = p.isStickyColumns;
 
                 row.className = rowClassName;
                 if ((virtualIndex % 2) === 1)
@@ -424,7 +429,21 @@ class DGTable {
                     cell.setAttribute('data-column', column.name);
                     cell.className = cellClassName;
                     cell.style.width = column._finalWidth + 'px';
-                    if (column.cellClasses) cell.className += ' ' + column.cellClasses;
+                    if (column.cellClasses)
+                        cell.className += ' ' + column.cellClasses;
+
+                    if (column.stickyPos) {
+                        cell.className += ' ' + stickyClassName;
+                        cell.style.position = 'sticky';
+                        cell.style[column.stickyPos.direction] = column.stickyPos.offset + 'px';
+
+                        const isStickySide = isStickyColumns?.get(colIndex);
+                        if (isStickySide === 'left')
+                            cell.classList.add('is-sticky-left');
+                        else if (isStickySide === 'right')
+                            cell.classList.add('is-sticky-right');
+                    }
+
                     if (allowCellPreview) {
                         p._bindCellHoverIn(cell);
                     }
@@ -586,6 +605,7 @@ class DGTable {
             visible: columnData.visible === undefined ? true : columnData.visible,
             cellClasses: columnData.cellClasses === undefined ? this._o.cellClasses : columnData.cellClasses,
             ignoreMin: columnData.ignoreMin === undefined ? false : !!columnData.ignoreMin,
+            sticky: columnData.sticky === undefined ? null : columnData.sticky,
         };
 
         col.dataPath = columnData.dataPath === undefined ? col.name : columnData.dataPath;
@@ -2549,6 +2569,119 @@ class DGTable {
         const p = this._p;
 
         p.header.scrollLeft = p.table.scrollLeft;
+
+        this._syncHorizontalStickies();
+    }
+
+    _syncHorizontalStickies() {
+        const p = this._p;
+
+        const stickiesLeft = p.stickiesLeft;
+        const stickiesRight = p.stickiesRight;
+
+        const oldStickiesSetLeft = p.stickiesSetLeft;
+        const oldStickiesSetRight = p.stickiesSetRight;
+        const stickiesSetLeft = p.stickiesSetLeft = new Set();
+        const stickiesSetRight = p.stickiesSetRight = new Set();
+
+        // Early exit before creating Sets
+        if (stickiesLeft?.length || !stickiesRight?.length) {
+            const scrollLeft = p.table.scrollLeft;
+
+            // Skip if scroll unchanged
+            if (scrollLeft === p.lastStickyScrollLeft) return;
+            p.lastStickyScrollLeft = scrollLeft;
+
+            const allHeaderCells = p.headerRow.children; // Use HTMLCollection directly
+            const tolerance = 1.5;
+
+            const processStickies = (stickies, isLeft, indicesSet) => {
+                if (!stickies || !stickies.length) return;
+
+                let stackSize = 0;
+
+                for (const sticky of stickies) {
+                    const el = sticky[0];
+                    const block = sticky.slice(1);
+
+                    const first = block[0];
+                    const last = block[block.length - 1];
+
+                    if (!el || !el.getBoundingClientRect) continue;
+
+                    const sRect = el.getBoundingClientRect();
+
+                    let overlapsFollowing = false;
+                    if (first && last) {
+                        const fRect = first.getBoundingClientRect();
+                        const lRect = last.getBoundingClientRect();
+
+                        if (isLeft) {
+                            overlapsFollowing = (sRect.right - tolerance) > fRect.left && (sRect.left + tolerance) < lRect.right;
+                        } else {
+                            overlapsFollowing = (sRect.left + tolerance) < lRect.right && (sRect.right - tolerance) > fRect.left;
+                        }
+                    }
+
+                    el.classList.toggle(isLeft ? 'is-sticky-left' : 'is-sticky-right', overlapsFollowing);
+
+                    if (overlapsFollowing) {
+                        indicesSet.add(nativeIndexOf.call(allHeaderCells, el));
+                    }
+
+                    stackSize += sRect.width || el.offsetWidth || 0;
+                }
+            };
+
+            processStickies(stickiesLeft, true, stickiesSetLeft);
+            processStickies(stickiesRight, false, stickiesSetRight);
+        }
+
+        // Compute changes with direct iteration
+        const newStickies = [];
+        const removeStickies = [];
+
+        for (const idx of stickiesSetLeft)
+            if (!oldStickiesSetLeft?.has(idx))
+                newStickies.push({ index: idx, left: true });
+
+        for (const idx of stickiesSetRight)
+            if (!oldStickiesSetRight?.has(idx))
+                newStickies.push({ index: idx, right: true });
+
+        if (oldStickiesSetLeft) {
+            for (const idx of oldStickiesSetLeft)
+                if (!stickiesSetLeft.has(idx))
+                    removeStickies.push({ index: idx, left: true });
+        }
+
+        if (oldStickiesSetRight) {
+            for (const idx of oldStickiesSetRight)
+                if (!stickiesSetRight.has(idx))
+                    removeStickies.push({ index: idx, right: true });
+        }
+
+        if (!newStickies.length && !removeStickies.length)
+            return;
+
+        // Apply to body rows
+        let rowEl = p.tbody.firstElementChild;
+        while (rowEl) {
+            const children = rowEl.children;
+
+            for (const sticky of removeStickies)
+                children[sticky.index]?.classList.remove(sticky.left ? 'is-sticky-left' : 'is-sticky-right');
+
+            for (const sticky of newStickies)
+                children[sticky.index]?.classList.add(sticky.left ? 'is-sticky-left' : 'is-sticky-right');
+
+            rowEl = rowEl.nextElementSibling;
+        }
+
+        // Update stickyColumns map
+        p.isStickyColumns = new Map();
+        for (const idx of stickiesSetLeft) p.isStickyColumns.set(idx, 'left');
+        for (const idx of stickiesSetRight) p.isStickyColumns.set(idx, 'right');
     }
 
     /**previousElementSibling
@@ -3346,12 +3479,14 @@ class DGTable {
                 cell['columnName'] = column.name;
                 cell.setAttribute('data-column', column.name);
 
+                // Insides - should always be the first child of the cell
                 let cellInside = createElement('div');
                 cellInside.innerHTML = o.headerCellFormatter(column.label, column.name);
                 cell.appendChild(cellInside);
                 if (allowCellPreview && allowHeaderCellPreview) {
                     p._bindCellHoverIn(cell);
                 }
+
                 headerRow.appendChild(cell);
 
                 p.visibleColumns[i].element = cell;
@@ -3361,9 +3496,100 @@ class DGTable {
             }
         }
 
+        this._updateStickyColumnPositions();
+
         this.emit('headerrowcreate', headerRow);
 
         return this;
+    }
+
+    _updateStickyColumnPositions() {
+        const p = this._p,
+            o = this._o;
+
+        const tableClassName = o.tableClassName,
+            stickyClassName = tableClassName + '-sticky',
+            headerRow = p.headerRow;
+
+        const isRtl = this._isTableRtl();
+        const scrollbarWidth = p.scrollbarWidth ?? 0;
+
+        let stickColLeft = 0;
+        let stickColRight = 0;
+        let boxSizing = null;
+
+        const stickiesLeft = [];
+        const stickiesRight = [];
+        let stickyLeftGroup = null;
+        let stickyRightGroup = [];
+
+        for (let currentCellEl = headerRow.firstElementChild; currentCellEl; currentCellEl = currentCellEl.nextElementSibling) {
+            const columnName = currentCellEl.getAttribute('data-column');
+            if (!columnName)
+                continue;
+            const column = p.columns.get(columnName);
+            if (!column)
+                continue;
+
+            if (column.sticky === 'start' || column.sticky === 'end') {
+                currentCellEl.className += ' ' + stickyClassName;
+                currentCellEl.style.position = 'sticky';
+
+                let colFullWidth = column.actualWidth;
+
+                let computedStyle = null;
+                if (boxSizing === null) {
+                    computedStyle = getComputedStyle(currentCellEl);
+                    boxSizing = computedStyle.boxSizing;
+                }
+
+                if (boxSizing === 'content-box') {
+                    if (computedStyle === null)
+                        computedStyle = getComputedStyle(currentCellEl);
+                    colFullWidth += (parseFloat(computedStyle.paddingLeft) || 0) +
+                        (parseFloat(computedStyle.paddingRight) || 0) +
+                        (parseFloat(computedStyle.borderLeftWidth) || 0) +
+                        (parseFloat(computedStyle.borderRightWidth) || 0);
+                }
+
+                const isLeft = column.sticky === 'start' && !isRtl || column.sticky === 'end' && isRtl;
+
+                if (isLeft) {
+                    column.stickyPos = { direction: 'left', offset: stickColLeft };
+                    currentCellEl.style.left = stickColLeft + 'px';
+                    stickColLeft += colFullWidth;
+
+                    // reset the right group, as we are only interested in those which are next to the right sticky
+                    stickyRightGroup.length = 0;
+
+                    stickyLeftGroup = [currentCellEl];
+                    stickiesLeft.push(stickyLeftGroup);
+                } else {
+                    column.stickyPos = { direction: 'right', offset: stickColRight };
+                    currentCellEl.style.right = (stickColRight + scrollbarWidth) + 'px';
+                    stickColRight += colFullWidth;
+
+                    stickiesRight.push([currentCellEl, ...stickyRightGroup]);
+                    stickyRightGroup.length = 0;
+                }
+            } else {
+                delete column.stickyPos;
+                stickyLeftGroup?.push(currentCellEl);
+                stickyRightGroup?.push(currentCellEl);
+
+                if (currentCellEl.style.position === 'sticky') {
+                    currentCellEl.classList.remove(stickyClassName);
+                    currentCellEl.style.position = '';
+                    currentCellEl.style.left = '';
+                    currentCellEl.style.right = '';
+                }
+            }
+        }
+
+        p.stickiesLeft = stickiesLeft;
+        p.stickiesRight = stickiesRight;
+
+        this._syncHorizontalStickies();
     }
 
     /**
@@ -3534,6 +3760,8 @@ class DGTable {
 
                 p.headerRow.childNodes[lastColIndex].style.width = lastColWidth;
             }
+
+            this._updateStickyColumnPositions();
 
             p.notifyRendererOfColumnsConfig?.();
         }
@@ -3950,6 +4178,7 @@ DGTable.Width = {
  * @property {boolean|null|undefined} [visible=true]
  * @property {string|null|undefined} [cellClasses]
  * @property {boolean|null|undefined} [ignoreMin=false]
+ * @property {'start'|'end'|false|null|undefined} [sticky=false]
  * */
 
 /**

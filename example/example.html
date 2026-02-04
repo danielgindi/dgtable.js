@@ -3,7 +3,8 @@
 <head>
     <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
     <title>DGTable.js Example</title>
-    <link rel="stylesheet" href="example_borders.css">
+    <link rel="stylesheet" href="example.css">
+    <link rel="stylesheet" href="example_box_sizing.css">
     <script type="text/javascript" src="../node_modules/@danielgindi/dom-utils/dist/lib.umd.js"></script>
     <script type="text/javascript" src="../node_modules/@danielgindi/virtual-list-helper/dist/virtual-list-helper.umd.js"></script>
     <script>
@@ -334,7 +335,7 @@
     <script>
         const table = new DGTable({
             columns: [
-                { name: 'first', label: 'Locked column', movable: false, resizable: false, width: '10%' },
+                { name: 'first', label: 'Locked column', movable: false, sticky: 'start', width: '10%' },
                 { name: 'last', label: 'Test data', width: '30%' },
                 { name: 'address', label: 'More', width: '30%' },
                 { name: 'city', label: 'Example', width: '40%' },
