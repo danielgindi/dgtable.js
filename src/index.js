@@ -2,60 +2,84 @@
 
 'use strict';
 
-import { find, htmlEncode } from './util.js';
+import {  htmlEncode } from './util.js';
 import RowCollection from './row_collection.js';
 import ColumnCollection from './column_collection.js';
-import SelectionHelper from './SelectionHelper.js';
 import {
     getScrollHorz,
     setScrollHorz,
 } from '@danielgindi/dom-utils/lib/ScrollHelper.js';
 import {
-    getElementWidth,
     getElementHeight,
-    setElementWidth,
-    getElementOffset,
-    setCssProps,
 } from '@danielgindi/dom-utils/lib/Css.js';
-import {
-    scopedSelector, scopedSelectorAll,
-} from '@danielgindi/dom-utils/lib/DomCompat.js';
-import VirtualListHelper from '@danielgindi/virtual-list-helper';
+import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
 import ByColumnFilter from './by_column_filter.js';
 import DomEventsSink from '@danielgindi/dom-utils/lib/DomEventsSink.js';
 import mitt from 'mitt';
 
-const nativeIndexOf = Array.prototype.indexOf;
+// Constants
+import {
+    IsSafeSymbol,
+    HoverInEventSymbol,
+    HoverOutEventSymbol,
+    PreviewCellSymbol,
+    OriginalCellSymbol,
+    ColumnWidthMode,
+    Width,
+} from './constants.js';
 
-let createElement = document.createElement.bind(document);
+// Helpers
+import {
+    getTextWidth,
+    calculateWidthAvailableForColumns,
+    calculateTbodyWidth,
+    serializeColumnWidth,
+} from './helpers.js';
+
+// Cell Preview
+import {
+    cellMouseOverEvent,
+    cellMouseOutEvent,
+    hideCellPreview,
+} from './cell_preview.js';
+
+// Column Resize
+import {
+    cancelColumnResize,
+    onMouseDownColumnHeader as resizeOnMouseDownColumnHeader,
+} from './column_resize.js';
+
+// Header Events
+import {
+    onTouchStartColumnHeader,
+    onMouseMoveColumnHeader,
+    onMouseUpColumnHeader,
+    onMouseLeaveColumnHeader,
+    onSortOnColumnHeaderEvent,
+    onStartDragColumnHeader,
+    onDragEndColumnHeader,
+    onDragEnterColumnHeader,
+    onDragOverColumnHeader,
+    onDragLeaveColumnHeader,
+    onDropColumnHeader,
+} from './header_events.js';
+
+// Rendering
+import {
+    renderSkeletonBase,
+    renderSkeletonBody,
+    renderSkeletonHeaderCells,
+    destroyHeaderCells,
+    updateVirtualHeight,
+    updateLastCellWidthFromScrollbar,
+    updateTableWidth,
+    syncHorizontalStickies,
+    resizeColumnElements,
+    clearSortArrows,
+    showSortArrow,
+} from './rendering.js';
+
 const hasOwnProperty = Object.prototype.hasOwnProperty;
-
-const IsSafeSymbol = Symbol('safe');
-const HoverInEventSymbol = Symbol('hover_in');
-const HoverOutEventSymbol = Symbol('hover_out');
-const RowClickEventSymbol = Symbol('row_click');
-const PreviewCellSymbol = Symbol('preview_cell');
-const OriginalCellSymbol = Symbol('cell');
-const RelatedTouch = Symbol('related_touch');
-
-function webkitRenderBugfix(el) {
-    // BUGFIX: WebKit has a bug where it does not relayout, and this affects us because scrollbars
-    //   are still calculated even though they are not there yet. This is the last resort.
-    let oldDisplay = el.style.display;
-    el.style.display = 'none';
-    //noinspection BadExpressionStatementJS
-    el.offsetHeight; // No need to store this anywhere, the reference is enough
-    el.style.display = oldDisplay;
-    return el;
-}
-
-function relativizeElement(el) {
-    if (!['relative', 'absolute', 'fixed'].includes(getComputedStyle(el).position)) {
-        el.style.position = 'relative';
-    }
-}
-
-const isInputElementEvent = event => /^(?:INPUT|TEXTAREA|BUTTON|SELECT)$/.test(event.target.tagName);
 
 // noinspection JSUnusedGlobalSymbols
 class DGTable {
@@ -105,7 +129,7 @@ class DGTable {
             this.el.classList.add(options.className || 'dgtable-wrapper');
         }
 
-        p.eventsSink.add(this.el, 'dragend.colresize', this._onDragEndColumnHeader.bind(this));
+        p.eventsSink.add(this.el, 'dragend.colresize', (e) => onDragEndColumnHeader(this, e));
 
         /**
          * @private
@@ -215,7 +239,7 @@ class DGTable {
         /**
          * @private
          * @field {boolean} width */
-        o.width = options.width === undefined ? DGTable.Width.NONE : options.width;
+        o.width = options.width === undefined ? Width.NONE : options.width;
 
         /**
          * @private
@@ -295,11 +319,6 @@ class DGTable {
     _setupHovers() {
         const p = this._p;
 
-        /*
-         Setup hover mechanism.
-         We need this to be high performance, as there may be MANY cells to call this on, on creation and destruction.
-         */
-
         /**
          * @param {MouseEvent} event
          * @this {HTMLElement}
@@ -312,7 +331,7 @@ class DGTable {
             if (cell[PreviewCellSymbol] &&
                 (target === cell[PreviewCellSymbol] || cell[PreviewCellSymbol].contains(target)))
                 return;
-            this._cellMouseOverEvent(cell);
+            cellMouseOverEvent(this, cell);
         };
 
         /**
@@ -327,7 +346,7 @@ class DGTable {
             if (cell[PreviewCellSymbol] &&
                 (target === cell[PreviewCellSymbol] || cell[PreviewCellSymbol].contains(target)))
                 return;
-            this._cellMouseOutEvent(cell);
+            cellMouseOutEvent(this, cell);
         };
 
         /**
@@ -371,181 +390,96 @@ class DGTable {
         };
     }
 
-    _setupVirtualTable() {
-        const p = this._p, o = this._o;
+    _onMouseDownColumnHeader(event) {
+        return resizeOnMouseDownColumnHeader(this, event);
+    }
 
-        const tableClassName = o.tableClassName,
-            rowClassName = tableClassName + '-row',
-            altRowClassName = tableClassName + '-row-alt',
-            cellClassName = tableClassName + '-cell',
-            stickyClassName = tableClassName + '-sticky';
+    _onMouseMoveColumnHeader(event) {
+        onMouseMoveColumnHeader(this, event);
+    }
 
-        let visibleColumns = p.visibleColumns,
-            colCount = visibleColumns.length;
+    _onMouseUpColumnHeader(event) {
+        onMouseUpColumnHeader(this, event);
+    }
 
-        p.notifyRendererOfColumnsConfig = () => {
-            visibleColumns = p.visibleColumns;
-            colCount = visibleColumns.length;
+    _onMouseLeaveColumnHeader(event) {
+        onMouseLeaveColumnHeader(this, event);
+    }
 
-            for (let colIndex = 0, column; colIndex < colCount; colIndex++) {
-                column = visibleColumns[colIndex];
-                column._finalWidth = (column.actualWidthConsideringScrollbarWidth || column.actualWidth);
+    _onTouchStartColumnHeader(event) {
+        onTouchStartColumnHeader(this, event);
+    }
+
+    _onSortOnColumnHeaderEvent(event) {
+        onSortOnColumnHeaderEvent(this, event);
+    }
+
+    _onStartDragColumnHeader(event) {
+        return onStartDragColumnHeader(this, event);
+    }
+
+    _onDragEndColumnHeader(event) {
+        onDragEndColumnHeader(this, event);
+    }
+
+    _onDragEnterColumnHeader(event) {
+        onDragEnterColumnHeader(this, event);
+    }
+
+    _onDragOverColumnHeader(event) {
+        onDragOverColumnHeader(this, event);
+    }
+
+    _onDragLeaveColumnHeader(event) {
+        onDragLeaveColumnHeader(this, event);
+    }
+
+    _onDropColumnHeader(event) {
+        onDropColumnHeader(this, event);
+    }
+
+    _onTableScrolledHorizontally() {
+        const p = this._p;
+        p.header.scrollLeft = p.table.scrollLeft;
+        syncHorizontalStickies(this);
+    }
+
+    _bindHeaderColumnEvents(columnEl) {
+        const inner = columnEl.firstChild;
+        columnEl.addEventListener('mousedown', this._onMouseDownColumnHeader.bind(this));
+        columnEl.addEventListener('mousemove', this._onMouseMoveColumnHeader.bind(this));
+        columnEl.addEventListener('mouseup', this._onMouseUpColumnHeader.bind(this));
+        columnEl.addEventListener('mouseleave', this._onMouseLeaveColumnHeader.bind(this));
+        columnEl.addEventListener('touchstart', this._onTouchStartColumnHeader.bind(this));
+        columnEl.addEventListener('dragstart', this._onStartDragColumnHeader.bind(this));
+        columnEl.addEventListener('click', this._onSortOnColumnHeaderEvent.bind(this));
+        columnEl.addEventListener('contextmenu', event => { event.preventDefault(); });
+        inner.addEventListener('dragenter', this._onDragEnterColumnHeader.bind(this));
+        inner.addEventListener('dragover', this._onDragOverColumnHeader.bind(this));
+        inner.addEventListener('dragleave', this._onDragLeaveColumnHeader.bind(this));
+        inner.addEventListener('drop', this._onDropColumnHeader.bind(this));
+    }
+
+    _unbindCellEventsForTable() {
+        const p = this._p;
+
+        if (p.headerRow) {
+            for (let i = 0, rows = p.headerRow.childNodes, rowCount = rows.length; i < rowCount; i++) {
+                let rowToClean = rows[i];
+                for (let j = 0, cells = rowToClean.childNodes, cellCount = cells.length; j < cellCount; j++) {
+                    p._unbindCellHoverIn(cells[j]);
+                }
             }
-        };
-
-        const isRtl = this._isTableRtl();
-
-        p.virtualListHelper = new VirtualListHelper({
-            list: p.table,
-            itemsParent: p.tbody,
-            autoVirtualWrapperWidth: false,
-            virtual: o.virtualTable,
-            buffer: o.rowsBufferSize,
-            estimatedItemHeight: o.estimatedRowHeight ? o.estimatedRowHeight : (p.virtualRowHeight || 40),
-            itemElementCreatorFn: () => {
-                return createElement('div');
-            },
-            onItemRender: (row, virtualIndex) => {
-                const rows = p.filteredRows || p.rows,
-                    isDataFiltered = !!p.filteredRows,
-                    allowCellPreview = o.allowCellPreview;
-
-                const isStickyColumns = p.isStickyColumns;
-
-                row.className = rowClassName;
-                if ((virtualIndex % 2) === 1)
-                    row.className += ' ' + altRowClassName;
-
-                let rowData = rows[virtualIndex];
-                let rowIndex = isDataFiltered ? rowData['__i'] : virtualIndex;
-
-                row['vIndex'] = virtualIndex;
-                row['index'] = rowIndex;
-
-                for (let colIndex = 0; colIndex < colCount; colIndex++) {
-                    let column = visibleColumns[colIndex];
-                    let cell = createElement('div');
-                    cell['columnName'] = column.name;
-                    cell.setAttribute('data-column', column.name);
-                    cell.className = cellClassName;
-                    cell.style.width = column._finalWidth + 'px';
-                    if (column.cellClasses)
-                        cell.className += ' ' + column.cellClasses;
-
-                    if (column.stickyPos) {
-                        cell.className += ' ' + stickyClassName;
-                        cell.style.position = 'sticky';
-                        cell.style[column.stickyPos.direction] = column.stickyPos.offset + 'px';
-
-                        const isStickySide = isStickyColumns?.get(colIndex);
-                        if (isStickySide === 'left')
-                            cell.classList.add('is-sticky-left');
-                        else if (isStickySide === 'right')
-                            cell.classList.add('is-sticky-right');
-                    }
-
-                    if (allowCellPreview) {
-                        p._bindCellHoverIn(cell);
-                    }
-
-                    let cellInner = cell.appendChild(createElement('div'));
-                    cellInner.innerHTML = this._getHtmlForCell(rowData, column);
-
-                    row.appendChild(cell);
-                }
-
-                row.addEventListener('click', row[RowClickEventSymbol] = event => {
-                    this.emit('rowclick', {
-                        event: event,
-                        filteredRowIndex: virtualIndex,
-                        rowIndex: rowIndex,
-                        rowEl: row,
-                        rowData: rowData,
-                    });
-                });
-
-                this.emit('rowcreate', {
-                    filteredRowIndex: virtualIndex,
-                    rowIndex: rowIndex,
-                    rowEl: row,
-                    rowData: rowData,
-                });
-            },
-
-            onItemUnrender: (row) => {
-                if (row[RowClickEventSymbol]) {
-                    row.removeEventListener('click', row[RowClickEventSymbol]);
-                }
-
-                this._unbindCellEventsForRow(row);
-
-                this.emit('rowdestroy', row);
-            },
-
-            onScrollHeightChange: height => {
-                // only recalculate scrollbar width if height increased. we reset it in other situations.
-                if (height > p._lastVirtualScrollHeight && !p.scrollbarWidth) {
-                    this._updateLastCellWidthFromScrollbar();
-                }
-
-                p._lastVirtualScrollHeight = height;
-            },
-        });
-
-        p.virtualListHelper.setCount((p.filteredRows ?? p.rows).length);
-
-        p.notifyRendererOfColumnsConfig();
-    }
-
-    /**
-     * Register an event handler
-     * @param {(string|'*')?} event
-     * @param {function(any)} handler
-     * @returns {DGTable}
-     */
-    on(/**string|'*'*/event, /**Function?*/handler) {
-        this._p.mitt.on(event, handler);
-        return this;
-    }
-
-    /**
-     * Register a one time event handler
-     * @param {(string|'*')?} event
-     * @param {function(any)} handler
-     * @returns {DGTable}
-     */
-    once(/**string|'*'*/event, /**Function?*/handler) {
-        let wrapped = (value) => {
-            this._p.mitt.off(event, wrapped);
-            handler(value);
-        };
-        this._p.mitt.on(event, wrapped);
-        return this;
-    }
-
-    /**
-     * Remove an `handler` for `event`, all events for `event`, or all events completely.
-     * @param {(string|'*')?} event
-     * @param {function(any)} handler
-     * @returns {DGTable}
-     */
-    off(/**(string|'*')?*/event, /**Function?*/handler) {
-        if (!event && !event) {
-            this._p.mitt.all.clear();
-        } else {
-            this._p.mitt.off(event, handler);
         }
+
         return this;
     }
 
-    /**
-     * Emit an event
-     * @param {string} event
-     * @param {any?} value
-     * @returns {DGTable}
-     */
-    emit(/**string|'*'*/event, /**any?*/value) {
-        this._p.mitt.emit(event, value);
+    _unbindCellEventsForRow(rowToClean) {
+        const p = this._p;
+        for (let i = 0, cells = rowToClean.childNodes, cellCount = cells.length; i < cellCount; i++) {
+            p._unbindCellHoverIn(cells[i]);
+        }
         return this;
     }
 
@@ -557,25 +491,16 @@ class DGTable {
      * @returns {Object} parsed width
      */
     _parseColumnWidth(width, minWidth) {
-
         let widthSize = Math.max(0, parseFloat(width)),
-            widthMode = ColumnWidthMode.AUTO; // Default
+            widthMode = ColumnWidthMode.AUTO;
 
         if (widthSize > 0) {
-            // Well, it's sure is not AUTO, as we have a value
-
             if (width === widthSize + '%') {
-                // It's a percentage!
-
                 widthMode = ColumnWidthMode.RELATIVE;
                 widthSize /= 100;
             } else if (widthSize > 0 && widthSize < 1) {
-                // It's a decimal value, as a relative value!
-
                 widthMode = ColumnWidthMode.RELATIVE;
             } else {
-                // It's an absolute size!
-
                 if (widthSize < minWidth) {
                     widthSize = minWidth;
                 }
@@ -591,7 +516,6 @@ class DGTable {
      * @param {COLUMN_OPTIONS} columnData
      */
     _initColumnFromData(columnData) {
-
         let parsedWidth = this._parseColumnWidth(columnData.width, columnData.ignoreMin ? 0 : this._o.minColumnWidth);
 
         let col = {
@@ -622,6 +546,133 @@ class DGTable {
     }
 
     /**
+     * @private
+     * @returns {DGTable} self
+     */
+    _ensureVisibleColumns() {
+        const p = this._p;
+
+        if (p.visibleColumns.length === 0 && p.columns.length) {
+            p.columns[0].visible = true;
+            p.visibleColumns.push(p.columns[0]);
+            this.emit('showcolumn', p.columns[0].name);
+        }
+
+        return this;
+    }
+
+    /**
+     * @private
+     * @returns {DGTable} self
+     */
+    _refilter() {
+        const p = this._p;
+
+        if (p.filteredRows && p.filterArgs) {
+            let filterFunc = this._o.filter || ByColumnFilter;
+            p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
+        }
+        return this;
+    }
+
+    /**
+     * Returns the HTML string for a specific cell.
+     * @private
+     * @param {Object} rowData - row data
+     * @param {Object} column - column data
+     * @returns {string} HTML string for the specified cell
+     */
+    _getHtmlForCell(rowData, column) {
+        let dataPath = column.dataPath;
+        let colValue = rowData[dataPath[0]];
+        for (let dataPathIndex = 1; dataPathIndex < dataPath.length; dataPathIndex++) {
+            if (colValue == null) break;
+            colValue = colValue && colValue[dataPath[dataPathIndex]];
+        }
+
+        const formatter = this._o.cellFormatter;
+        let content;
+
+        if (formatter[IsSafeSymbol]) {
+            content = formatter(colValue, column.name, rowData);
+        } else {
+            try {
+                content = formatter(colValue, column.name, rowData);
+            } catch (err) {
+                content = '[ERROR]';
+                // eslint-disable-next-line no-console
+                console.error('Failed to generate content for cell ' + column.name, err);
+            }
+        }
+
+        if (content === undefined || content === null) {
+            content = '';
+        }
+
+        return content;
+    }
+
+    // =========================================================================
+    // PUBLIC API - Events
+    // =========================================================================
+
+    /**
+     * Register an event handler
+     * @param {(string|'*')?} event
+     * @param {function(any)} handler
+     * @returns {DGTable}
+     */
+    on(event, handler) {
+        this._p.mitt.on(event, handler);
+        return this;
+    }
+
+    /**
+     * Register a one time event handler
+     * @param {(string|'*')?} event
+     * @param {function(any)} handler
+     * @returns {DGTable}
+     */
+    once(event, handler) {
+        let wrapped = (value) => {
+            this._p.mitt.off(event, wrapped);
+            handler(value);
+        };
+        this._p.mitt.on(event, wrapped);
+        return this;
+    }
+
+    /**
+     * Remove an `handler` for `event`, all events for `event`, or all events completely.
+     * @param {(string|'*')?} event
+     * @param {function(any)} handler
+     * @returns {DGTable}
+     */
+    off(event, handler) {
+        if (!event && !event) {
+            this._p.mitt.all.clear();
+        } else {
+            this._p.mitt.off(event, handler);
+        }
+        return this;
+    }
+
+    /**
+     * Emit an event
+     * @param {string} event
+     * @param {any?} value
+     * @returns {DGTable}
+     */
+    emit(event, value) {
+        this._p.mitt.emit(event, value);
+        return this;
+    }
+
+    // =========================================================================
+    // PUBLIC API - Lifecycle
+    // =========================================================================
+
+    /**
      * Destroy, releasing all memory, events and DOM elements
      * @public
      * @expose
@@ -642,9 +693,7 @@ class DGTable {
         p.virtualListHelper?.destroy();
         p.virtualListHelper = null;
 
-        // Using quotes for __super__ because Google Closure Compiler has a bug...
-
-        this._destroyHeaderCells();
+        destroyHeaderCells(this);
 
         p.table?.remove();
         p.tbody?.remove();
@@ -679,47 +728,19 @@ class DGTable {
         return this;
     }
 
-// Backwards compatibility
+    // Backwards compatibility
     close() {
         this.destroy();
     }
 
-// Backwards compatibility
+    // Backwards compatibility
     remove() {
         this.destroy();
     }
 
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _unbindCellEventsForTable() {
-        const p = this._p;
-
-        if (p.headerRow) {
-            for (let i = 0, rows = p.headerRow.childNodes, rowCount = rows.length; i < rowCount; i++) {
-                let rowToClean = rows[i];
-                for (let j = 0, cells = rowToClean.childNodes, cellCount = cells.length; j < cellCount; j++) {
-                    p._unbindCellHoverIn(cells[j]);
-                }
-            }
-        }
-
-        return this;
-    }
-
-    /**
-     * @private
-     * @param {HTMLElement} rowToClean
-     * @returns {DGTable} self
-     */
-    _unbindCellEventsForRow(rowToClean) {
-        const p = this._p;
-        for (let i = 0, cells = rowToClean.childNodes, cellCount = cells.length; i < cellCount; i++) {
-            p._unbindCellHoverIn(cells[i]);
-        }
-        return this;
-    }
+    // =========================================================================
+    // PUBLIC API - Rendering
+    // =========================================================================
 
     /**
      * @public
@@ -745,28 +766,27 @@ class DGTable {
         if (p.tableSkeletonNeedsRendering === true) {
             p.tableSkeletonNeedsRendering = false;
 
-            if (o.width === DGTable.Width.AUTO) {
-                // We need to do this to return to the specified widths instead. The arrows added to the column widths...
-                this._clearSortArrows();
+            if (o.width === Width.AUTO) {
+                clearSortArrows(this);
             }
 
             let lastScrollTop = p.table && p.table.parentNode ? p.table.scrollTop : NaN,
                 lastScrollHorz = p.table && p.table.parentNode ? getScrollHorz(p.table) : NaN;
 
-            this._renderSkeletonBase()
-                ._renderSkeletonBody()
-                .tableWidthChanged(true, false) // Take this chance to calculate required column widths
-                ._renderSkeletonHeaderCells();
+            renderSkeletonBase(this);
+            renderSkeletonBody(this);
+            this.tableWidthChanged(true, false);
+            renderSkeletonHeaderCells(this);
 
             p.virtualListHelper.setCount((p.filteredRows ?? p.rows).length);
 
-            this._updateVirtualHeight();
-            this._updateLastCellWidthFromScrollbar(true);
-            this._updateTableWidth(true);
+            updateVirtualHeight(this);
+            updateLastCellWidthFromScrollbar(this, true);
+            updateTableWidth(this, true);
 
             // Show sort arrows
             for (let i = 0; i < p.rows.sortColumn.length; i++) {
-                this._showSortArrow(p.rows.sortColumn[i].column, p.rows.sortColumn[i].descending);
+                showSortArrow(this, p.rows.sortColumn[i].column, p.rows.sortColumn[i].descending);
             }
             if (o.adjustColumnWidthForSortArrow && p.rows.sortColumn.length) {
                 this.tableWidthChanged(true);
@@ -811,84 +831,9 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Calculate the size required for the table body width (which is the row's width)
-     * @private
-     * @returns {number} calculated width
-     */
-    _calculateTbodyWidth() {
-        const p = this._p;
-
-        let tableClassName = this._o.tableClassName,
-            rowClassName = tableClassName + '-row',
-            cellClassName = tableClassName + '-cell',
-            visibleColumns = p.visibleColumns,
-            colCount = visibleColumns.length;
-
-        const row = createElement('div');
-        row.className = rowClassName;
-        row.style.float = 'left';
-
-        let sumActualWidth = 0;
-
-        for (let colIndex = 0; colIndex < colCount; colIndex++) {
-            const column = visibleColumns[colIndex];
-            const cell = createElement('div');
-            cell.className = cellClassName;
-            cell.style.width = column.actualWidth + 'px';
-            if (column.cellClasses) cell.className += ' ' + column.cellClasses;
-            cell.appendChild(createElement('div'));
-            row.appendChild(cell);
-            sumActualWidth += column.actualWidth;
-        }
-
-        const thisWrapper = createElement('div');
-        thisWrapper.className = this.el.className;
-        setCssProps(thisWrapper, {
-            'z-index': -1,
-            'position': 'absolute',
-            'left': '0',
-            'top': '-9999px',
-            'float': 'left',
-            'width': '1px',
-            'overflow': 'hidden',
-        });
-
-        const tableDiv = createElement('div');
-        tableDiv.className = tableClassName;
-        thisWrapper.appendChild(tableDiv);
-        const tableBodyDiv = createElement('div');
-        tableBodyDiv.className = tableClassName + '-body';
-        tableBodyDiv.style.width = (sumActualWidth + 10000) + 'px';
-        tableDiv.appendChild(tableBodyDiv);
-        tableBodyDiv.appendChild(row);
-
-        document.body.appendChild(thisWrapper);
-
-        const fractionTest = createElement('div');
-        setCssProps(fractionTest, {
-            border: '1.5px solid #000',
-            width: '0',
-            height: '0',
-            position: 'absolute',
-            left: '0',
-            top: '-9999px',
-        });
-        document.body.appendChild(fractionTest);
-        let fractionValue = parseFloat(getComputedStyle(fractionTest).borderWidth);
-        let hasFractions = Math.round(fractionValue) !== fractionValue;
-        fractionTest.remove();
-
-        let width = getElementWidth(row, true, true, true);
-        width -= p.scrollbarWidth || 0;
-
-        if (hasFractions) {
-            width++;
-        }
-
-        thisWrapper.remove();
-        return width;
-    }
+    // =========================================================================
+    // PUBLIC API - Columns
+    // =========================================================================
 
     /**
      * Sets the columns of the table
@@ -952,7 +897,7 @@ class DGTable {
             let column = this._initColumnFromData(columnData);
             column.order = beforeColumn ? beforeColumn.order : (columns.getMaxOrder() + 1);
 
-            for (let i = columns.getMaxOrder(), to = column.order; i >= to ; i--) {
+            for (let i = columns.getMaxOrder(), to = column.order; i >= to; i--) {
                 let col = columns.getByOrder(i);
                 if (col) {
                     col.order++;
@@ -991,136 +936,6 @@ class DGTable {
             this._ensureVisibleColumns().clearAndRender(render);
 
             this.emit('removecolumn', column);
-        }
-        return this;
-    }
-
-    /**
-     * Sets a new cell formatter.
-     * @public
-     * @expose
-     * @param {function(value: *, columnName: string, row: Object):string|null} [formatter=null] - The cell formatter. Should return an HTML.
-     * @returns {DGTable} self
-     */
-    setCellFormatter(formatter) {
-        if (!formatter) {
-            formatter = val => (typeof val === 'string') ? htmlEncode(val) : val;
-            formatter[IsSafeSymbol] = true;
-        }
-
-        /**
-         * @private
-         * @field {Function} cellFormatter */
-        this._o.cellFormatter = formatter;
-
-        return this;
-    }
-
-    /**
-     * Sets a new header cell formatter.
-     * @public
-     * @expose
-     * @param {function(label: string, columnName: string):string|null} [formatter=null] - The cell formatter. Should return an HTML.
-     * @returns {DGTable} self
-     */
-    setHeaderCellFormatter(formatter) {
-        /**
-         * @private
-         * @field {Function} headerCellFormatter */
-        this._o.headerCellFormatter = formatter || function (val) {
-            return (typeof val === 'string') ? htmlEncode(val) : val;
-        };
-
-        return this;
-    }
-
-    /**
-     * @public
-     * @expose
-     * @param {function(row:Object,args:Object):boolean|null} [filterFunc=null] - The filter function to work with filters. Default is a by-colum filter.
-     * @returns {DGTable} self
-     */
-    setFilter(filterFunc) {
-        /** @private
-         * @field {Function} filter */
-        this._o.filter = filterFunc;
-        return this;
-    }
-
-    /**
-     * @public
-     * @expose
-     * @param {Object|null} args - Options to pass to the filter function
-     * @returns {DGTable} self
-     */
-    filter(args) {
-        const p = this._p;
-
-        let filterFunc = this._o.filter || ByColumnFilter;
-
-        // Deprecated use of older by-column filter
-        if (typeof arguments[0] === 'string' && typeof arguments[1] === 'string') {
-            args = {
-                column: arguments[0],
-                keyword: arguments[1],
-                caseSensitive: arguments[2],
-            };
-        }
-
-        let hadFilter = !!p.filteredRows;
-        if (p.filteredRows) {
-            p.filteredRows = null; // Allow releasing array memory now
-        }
-
-        // Shallow-clone the args, as the filter function may want to modify it for keeping state
-        p.filterArgs = args == null ? null : ((typeof args === 'object' && !Array.isArray(args)) ? Object.assign({}, args) : args);
-
-        if (p.filterArgs !== null) {
-            p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
-
-            if (hadFilter || p.filteredRows) {
-                this.clearAndRender();
-                this.emit('filter', args);
-            }
-        }
-        else {
-            p.filterArgs = null;
-            p.filteredRows = null;
-            this.clearAndRender();
-            this.emit('filterclear', {});
-        }
-
-        return this;
-    }
-
-    /**
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
-    clearFilter() {
-        const p = this._p;
-
-        if (p.filteredRows) {
-            p.filterArgs = null;
-            p.filteredRows = null;
-            this.clearAndRender();
-            this.emit('filterclear', {});
-        }
-
-        return this;
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _refilter() {
-        const p = this._p;
-
-        if (p.filteredRows && p.filterArgs) {
-            let filterFunc = this._o.filter || ByColumnFilter;
-            p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
         }
         return this;
     }
@@ -1222,148 +1037,6 @@ class DGTable {
     }
 
     /**
-     * Sort the table
-     * @public
-     * @expose
-     * @param {string?} column Name of the column to sort on (or null to remove sort arrow)
-     * @param {boolean=} descending Sort in descending order
-     * @param {boolean} [add=false] Should this sort be on top of the existing sort? (For multiple column sort)
-     * @returns {DGTable} self
-     */
-    sort(column, descending, add) {
-        const o = this._o, p = this._p;
-
-        let columns = p.columns,
-            col = columns.get(column);
-
-        let currentSort = p.rows.sortColumn;
-
-        if (col) {
-            if (add) { // Add the sort to current sort stack
-
-                for (let i = 0; i < currentSort.length; i++) {
-                    if (currentSort[i].column === col.name) {
-                        if (i < currentSort.length - 1) {
-                            currentSort.length = 0;
-                        } else {
-                            descending = currentSort[currentSort.length - 1].descending;
-                            currentSort.splice(currentSort.length - 1, 1);
-                        }
-                        break;
-                    }
-                }
-                if ((o.sortableColumns > 0 /* allow manual sort when disabled */ && currentSort.length >= o.sortableColumns) || currentSort.length >= p.visibleColumns.length) {
-                    currentSort.length = 0;
-                }
-
-            } else { // Sort only by this column
-                currentSort.length = 0;
-            }
-
-            // Default to ascending
-            descending = descending === undefined ? false : descending;
-
-            // Set the required column in the front of the stack
-            currentSort.push({
-                column: col.name,
-                comparePath: col.comparePath || col.dataPath,
-                descending: !!descending,
-            });
-        } else {
-            currentSort.length = 0;
-        }
-
-        this._clearSortArrows();
-
-        for (let i = 0; i < currentSort.length; i++) {
-            this._showSortArrow(currentSort[i].column, currentSort[i].descending);
-        }
-
-        if (o.adjustColumnWidthForSortArrow && !p.tableSkeletonNeedsRendering) {
-            this.tableWidthChanged(true);
-        }
-
-        p.rows.sortColumn = currentSort;
-
-        let comparator;
-        if (currentSort.length) {
-            comparator = p.rows.sort(!!p.filteredRows);
-            if (p.filteredRows) {
-                p.filteredRows.sort(!!p.filteredRows);
-            }
-        }
-
-        if (p.virtualListHelper)
-            p.virtualListHelper.invalidate().render();
-
-        // Build output for event, with option names that will survive compilers
-        let sorts = [];
-        for (let i = 0; i < currentSort.length; i++) {
-            sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
-        }
-        this.emit('sort', { sorts: sorts, comparator: comparator });
-
-        return this;
-    }
-
-    /**
-     * Re-sort the table using current sort specifiers
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
-    resort() {
-        const p = this._p;
-        let columns = p.columns;
-
-        let currentSort = p.rows.sortColumn;
-        if (currentSort.length) {
-
-            for (let i = 0; i < currentSort.length; i++) {
-                if (!columns.get(currentSort[i].column)) {
-                    currentSort.splice(i--, 1);
-                }
-            }
-
-            let comparator;
-            p.rows.sortColumn = currentSort;
-            if (currentSort.length) {
-                comparator = p.rows.sort(!!p.filteredRows);
-                if (p.filteredRows) {
-                    p.filteredRows.sort(!!p.filteredRows);
-                }
-            }
-
-            // Build output for event, with option names that will survive compilers
-            let sorts = [];
-            for (let i = 0; i < currentSort.length; i++) {
-                sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
-            }
-            this.emit('sort', { sorts: sorts, resort: true, comparator: comparator });
-        }
-
-        return this;
-    }
-
-    /**
-     * Make sure there's at least one column visible
-     * @private
-     * @expose
-     * @returns {DGTable} self
-     */
-    _ensureVisibleColumns() {
-        const p = this._p;
-
-        if (p.visibleColumns.length === 0 && p.columns.length) {
-            p.columns[0].visible = true;
-            p.visibleColumns.push(p.columns[0]);
-            this.emit('showcolumn', p.columns[0].name);
-        }
-
-        return this;
-    }
-
-    /**
      * Show or hide a column
      * @public
      * @expose
@@ -1376,7 +1049,6 @@ class DGTable {
 
         let col = p.columns.get(column);
 
-        //noinspection PointlessBooleanExpressionJS
         visible = !!visible;
 
         if (col && !!col.visible !== visible) {
@@ -1432,6 +1104,94 @@ class DGTable {
     }
 
     /**
+     * Set a new width to a column
+     * @public
+     * @expose
+     * @param {string} column name of the column to resize
+     * @param {number|string} width new column as pixels, or relative size (0.5, 50%)
+     * @returns {DGTable} self
+     */
+    setColumnWidth(column, width) {
+        const p = this._p;
+
+        let col = p.columns.get(column);
+
+        let parsedWidth = this._parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
+
+        if (col) {
+            let oldWidth = serializeColumnWidth(col);
+
+            col.width = parsedWidth.width;
+            col.widthMode = parsedWidth.mode;
+
+            let newWidth = serializeColumnWidth(col);
+
+            if (oldWidth !== newWidth) {
+                this.tableWidthChanged(true);
+            }
+
+            this.emit('columnwidth', { name: col.name, width: newWidth, oldWidth: oldWidth });
+        }
+        return this;
+    }
+
+    /**
+     * @public
+     * @expose
+     * @param {string} column name of the column
+     * @returns {string|null} the serialized width of the specified column, or null if column not found
+     */
+    getColumnWidth(column) {
+        const p = this._p;
+
+        let col = p.columns.get(column);
+        if (col) {
+            return serializeColumnWidth(col);
+        }
+        return null;
+    }
+
+    /**
+     * @public
+     * @expose
+     * @param {string} column name of the column
+     * @returns {SERIALIZED_COLUMN|null} configuration for all columns
+     */
+    getColumnConfig(column) {
+        const p = this._p;
+        let col = p.columns.get(column);
+        if (col) {
+            return {
+                'order': col.order,
+                'width': serializeColumnWidth(col),
+                'visible': col.visible,
+                'label': col.label,
+            };
+        }
+        return null;
+    }
+
+    /**
+     * Returns a config object for the columns, to allow saving configurations for next time...
+     * @public
+     * @expose
+     * @returns {Object} configuration for all columns
+     */
+    getColumnsConfig() {
+        const p = this._p;
+
+        let config = {};
+        for (let i = 0; i < p.columns.length; i++) {
+            config[p.columns[i].name] = this.getColumnConfig(p.columns[i].name);
+        }
+        return config;
+    }
+
+    // =========================================================================
+    // PUBLIC API - Sorting
+    // =========================================================================
+
+    /**
      * Set the limit on concurrent columns sorted
      * @public
      * @expose
@@ -1471,7 +1231,6 @@ class DGTable {
      */
     setMovableColumns(movableColumns) {
         let o = this._o;
-        //noinspection PointlessBooleanExpressionJS
         movableColumns = movableColumns === undefined ? true : !!movableColumns;
         if (o.movableColumns !== movableColumns) {
             o.movableColumns = movableColumns;
@@ -1496,7 +1255,6 @@ class DGTable {
      */
     setResizableColumns(resizableColumns) {
         let o = this._o;
-        //noinspection PointlessBooleanExpressionJS
         resizableColumns = resizableColumns === undefined ? true : !!resizableColumns;
         if (o.resizableColumns !== resizableColumns) {
             o.resizableColumns = resizableColumns;
@@ -1528,7 +1286,7 @@ class DGTable {
         return this;
     }
 
-// Backwards compatibility
+    // Backwards compatibility
     setComparatorCallback(comparatorCallback) {
         return this.setOnComparatorRequired(comparatorCallback);
     }
@@ -1537,7 +1295,7 @@ class DGTable {
      * sets custom sorting function for a data set
      * @public
      * @expose
-     * @param {{function(data: any[], sort: function(any[]):any[]):any[]}|null|undefined} customSortingProvider provides a custom sorting function (not the comparator, but a sort() alternative) for a data set
+     * @param {{function(data: any[], sort: function(any[]):any[]):any[]}|null|undefined} customSortingProvider provides a custom sorting function
      * @returns {DGTable} self
      */
     setCustomSortingProvider(customSortingProvider) {
@@ -1549,88 +1307,122 @@ class DGTable {
     }
 
     /**
-     * Set a new width to a column
+     * Sort the table
      * @public
      * @expose
-     * @param {string} column name of the column to resize
-     * @param {number|string} width new column as pixels, or relative size (0.5, 50%)
+     * @param {string?} column Name of the column to sort on (or null to remove sort arrow)
+     * @param {boolean=} descending Sort in descending order
+     * @param {boolean} [add=false] Should this sort be on top of the existing sort?
      * @returns {DGTable} self
      */
-    setColumnWidth(column, width) {
+    sort(column, descending, add) {
+        const o = this._o, p = this._p;
 
-        const p = this._p;
+        let columns = p.columns,
+            col = columns.get(column);
 
-        let col = p.columns.get(column);
-
-        let parsedWidth = this._parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
+        let currentSort = p.rows.sortColumn;
 
         if (col) {
-            let oldWidth = this._serializeColumnWidth(col);
+            if (add) {
+                for (let i = 0; i < currentSort.length; i++) {
+                    if (currentSort[i].column === col.name) {
+                        if (i < currentSort.length - 1) {
+                            currentSort.length = 0;
+                        } else {
+                            descending = currentSort[currentSort.length - 1].descending;
+                            currentSort.splice(currentSort.length - 1, 1);
+                        }
+                        break;
+                    }
+                }
+                if ((o.sortableColumns > 0 && currentSort.length >= o.sortableColumns) || currentSort.length >= p.visibleColumns.length) {
+                    currentSort.length = 0;
+                }
 
-            col.width = parsedWidth.width;
-            col.widthMode = parsedWidth.mode;
-
-            let newWidth = this._serializeColumnWidth(col);
-
-            if (oldWidth !== newWidth) {
-                this.tableWidthChanged(true); // Calculate actual sizes
+            } else {
+                currentSort.length = 0;
             }
 
-            this.emit('columnwidth', { name: col.name, width: newWidth, oldWidth: oldWidth });
+            descending = descending === undefined ? false : descending;
+
+            currentSort.push({
+                column: col.name,
+                comparePath: col.comparePath || col.dataPath,
+                descending: !!descending,
+            });
+        } else {
+            currentSort.length = 0;
         }
+
+        clearSortArrows(this);
+
+        for (let i = 0; i < currentSort.length; i++) {
+            showSortArrow(this, currentSort[i].column, currentSort[i].descending);
+        }
+
+        if (o.adjustColumnWidthForSortArrow && !p.tableSkeletonNeedsRendering) {
+            this.tableWidthChanged(true);
+        }
+
+        p.rows.sortColumn = currentSort;
+
+        let comparator;
+        if (currentSort.length) {
+            comparator = p.rows.sort(!!p.filteredRows);
+            if (p.filteredRows) {
+                p.filteredRows.sort(!!p.filteredRows);
+            }
+        }
+
+        if (p.virtualListHelper)
+            p.virtualListHelper.invalidate().render();
+
+        let sorts = [];
+        for (let i = 0; i < currentSort.length; i++) {
+            sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
+        }
+        this.emit('sort', { sorts: sorts, comparator: comparator });
+
         return this;
     }
 
     /**
+     * Re-sort the table using current sort specifiers
      * @public
      * @expose
-     * @param {string} column name of the column
-     * @returns {string|null} the serialized width of the specified column, or null if column not found
+     * @returns {DGTable} self
      */
-    getColumnWidth(column) {
+    resort() {
         const p = this._p;
+        let columns = p.columns;
 
-        let col = p.columns.get(column);
-        if (col) {
-            return this._serializeColumnWidth(col);
+        let currentSort = p.rows.sortColumn;
+        if (currentSort.length) {
+
+            for (let i = 0; i < currentSort.length; i++) {
+                if (!columns.get(currentSort[i].column)) {
+                    currentSort.splice(i--, 1);
+                }
+            }
+
+            let comparator;
+            p.rows.sortColumn = currentSort;
+            if (currentSort.length) {
+                comparator = p.rows.sort(!!p.filteredRows);
+                if (p.filteredRows) {
+                    p.filteredRows.sort(!!p.filteredRows);
+                }
+            }
+
+            let sorts = [];
+            for (let i = 0; i < currentSort.length; i++) {
+                sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
+            }
+            this.emit('sort', { sorts: sorts, resort: true, comparator: comparator });
         }
-        return null;
-    }
 
-    /**
-     * @public
-     * @expose
-     * @param {string} column name of the column
-     * @returns {SERIALIZED_COLUMN|null} configuration for all columns
-     */
-    getColumnConfig(column) {
-        const p = this._p;
-        let col = p.columns.get(column);
-        if (col) {
-            return {
-                'order': col.order,
-                'width': this._serializeColumnWidth(col),
-                'visible': col.visible,
-                'label': col.label,
-            };
-        }
-        return null;
-    }
-
-    /**
-     * Returns a config object for the columns, to allow saving configurations for next time...
-     * @public
-     * @expose
-     * @returns {Object} configuration for all columns
-     */
-    getColumnsConfig() {
-        const p = this._p;
-
-        let config = {};
-        for (let i = 0; i < p.columns.length; i++) {
-            config[p.columns[i].name] = this.getColumnConfig(p.columns[i].name);
-        }
-        return config;
+        return this;
     }
 
     /**
@@ -1650,8 +1442,123 @@ class DGTable {
         return sorted;
     }
 
+    // =========================================================================
+    // PUBLIC API - Formatters & Filters
+    // =========================================================================
+
     /**
-     * Returns the HTML string for a specific cell. Can be used externally for special cases (i.e. when setting a fresh HTML in the cell preview through the callback).
+     * Sets a new cell formatter.
+     * @public
+     * @expose
+     * @param {function(value: *, columnName: string, row: Object):string|null} [formatter=null] - The cell formatter. Should return an HTML.
+     * @returns {DGTable} self
+     */
+    setCellFormatter(formatter) {
+        if (!formatter) {
+            formatter = val => (typeof val === 'string') ? htmlEncode(val) : val;
+            formatter[IsSafeSymbol] = true;
+        }
+
+        this._o.cellFormatter = formatter;
+
+        return this;
+    }
+
+    /**
+     * Sets a new header cell formatter.
+     * @public
+     * @expose
+     * @param {function(label: string, columnName: string):string|null} [formatter=null] - The cell formatter. Should return an HTML.
+     * @returns {DGTable} self
+     */
+    setHeaderCellFormatter(formatter) {
+        this._o.headerCellFormatter = formatter || function (val) {
+            return (typeof val === 'string') ? htmlEncode(val) : val;
+        };
+
+        return this;
+    }
+
+    /**
+     * @public
+     * @expose
+     * @param {function(row:Object,args:Object):boolean|null} [filterFunc=null] - The filter function to work with filters.
+     * @returns {DGTable} self
+     */
+    setFilter(filterFunc) {
+        this._o.filter = filterFunc;
+        return this;
+    }
+
+    /**
+     * @public
+     * @expose
+     * @param {Object|null} args - Options to pass to the filter function
+     * @returns {DGTable} self
+     */
+    filter(args) {
+        const p = this._p;
+
+        let filterFunc = this._o.filter || ByColumnFilter;
+
+        // Deprecated use of older by-column filter
+        if (typeof arguments[0] === 'string' && typeof arguments[1] === 'string') {
+            args = {
+                column: arguments[0],
+                keyword: arguments[1],
+                caseSensitive: arguments[2],
+            };
+        }
+
+        let hadFilter = !!p.filteredRows;
+        if (p.filteredRows) {
+            p.filteredRows = null;
+        }
+
+        p.filterArgs = args == null ? null : ((typeof args === 'object' && !Array.isArray(args)) ? Object.assign({}, args) : args);
+
+        if (p.filterArgs !== null) {
+            p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
+
+            if (hadFilter || p.filteredRows) {
+                this.clearAndRender();
+                this.emit('filter', args);
+            }
+        }
+        else {
+            p.filterArgs = null;
+            p.filteredRows = null;
+            this.clearAndRender();
+            this.emit('filterclear', {});
+        }
+
+        return this;
+    }
+
+    /**
+     * @public
+     * @expose
+     * @returns {DGTable} self
+     */
+    clearFilter() {
+        const p = this._p;
+
+        if (p.filteredRows) {
+            p.filterArgs = null;
+            p.filteredRows = null;
+            this.clearAndRender();
+            this.emit('filterclear', {});
+        }
+
+        return this;
+    }
+
+    // =========================================================================
+    // PUBLIC API - Row Operations
+    // =========================================================================
+
+    /**
+     * Returns the HTML string for a specific cell.
      * @public
      * @expose
      * @param {number} rowIndex - index of the row
@@ -1670,7 +1577,7 @@ class DGTable {
     }
 
     /**
-     * Returns the HTML string for a specific cell. Can be used externally for special cases (i.e. when setting a fresh HTML in the cell preview through the callback).
+     * Returns the HTML string for a specific cell.
      * @public
      * @expose
      * @param {Object} rowData - row data
@@ -1684,44 +1591,6 @@ class DGTable {
         if (!column) return null;
 
         return this._getHtmlForCell(rowData, column);
-    }
-
-    /**
-     * Returns the HTML string for a specific cell. Can be used externally for special cases (i.e. when setting a fresh HTML in the cell preview through the callback).
-     * @private
-     * @expose
-     * @param {Object} rowData - row data
-     * @param {Object} column - column data
-     * @returns {string} HTML string for the specified cell
-     */
-    _getHtmlForCell(rowData, column) {
-        let dataPath = column.dataPath;
-        let colValue = rowData[dataPath[0]];
-        for (let dataPathIndex = 1; dataPathIndex < dataPath.length; dataPathIndex++) {
-            if (colValue == null) break;
-            colValue = colValue && colValue[dataPath[dataPathIndex]];
-        }
-
-        const formatter = this._o.cellFormatter;
-        let content;
-
-        if (formatter[IsSafeSymbol]) {
-            content = formatter(colValue, column.name, rowData);
-        } else {
-            try {
-                content = formatter(colValue, column.name, rowData);
-            } catch (err) {
-                content = '[ERROR]';
-                // eslint-disable-next-line no-console
-                console.error('Failed to generate content for cell ' + column.name, err);
-            }
-        }
-
-        if (content === undefined || content === null) {
-            content = '';
-        }
-
-        return content;
     }
 
     /**
@@ -1763,7 +1632,7 @@ class DGTable {
     }
 
     /**
-     * Returns the actual row index for specific row (out of the full data set, not filtered)
+     * Returns the actual row index for specific row
      * @public
      * @expose
      * @param {Object} rowData - Row data to find
@@ -1821,142 +1690,225 @@ class DGTable {
     }
 
     /**
-     * @private
-     * @param {Element} el
-     * @returns {number} width
+     * Add rows to the table
+     * @public
+     * @expose
+     * @param {Object[]} data - array of rows to add to the table
+     * @param {number} [at=-1] - where to add the rows at
+     * @param {boolean} [resort=false] - should resort all rows?
+     * @param {boolean} [render=true]
+     * @returns {DGTable} self
      */
-    _horizontalPadding(el) {
-        const style = getComputedStyle(el);
-        return ((parseFloat(style.paddingLeft) || 0) +
-            (parseFloat(style.paddingRight) || 0));
+    addRows(data, at, resort, render) {
+        let p = this._p;
+
+        if (typeof at === 'boolean') {
+            render = resort;
+            resort = at;
+            at = -1;
+        }
+
+        if (typeof at !== 'number')
+            at = -1;
+
+        if (at < 0 || at > p.rows.length)
+            at = p.rows.length;
+
+        render = (render === undefined) ? true : !!render;
+
+        if (data) {
+            p.rows.add(data, at);
+
+            if (p.filteredRows || (resort && p.rows.sortColumn.length)) {
+
+                if (resort && p.rows.sortColumn.length) {
+                    this.resort();
+                } else {
+                    this._refilter();
+                }
+
+                p.tableSkeletonNeedsRendering = true;
+
+                if (render) {
+                    // Render the skeleton with all rows from scratch
+                    this.render();
+                }
+
+            } else if (render) {
+                p.virtualListHelper.addItemsAt(data.length, at);
+
+                if (this._o.virtualTable) {
+                    updateVirtualHeight(this);
+                    updateLastCellWidthFromScrollbar(this);
+                    this.render();
+                    updateTableWidth(this, false);
+
+                } else if (p.tbody) {
+                    this.render();
+                    updateLastCellWidthFromScrollbar(this);
+                    updateTableWidth(this, true);
+                }
+            }
+
+            this.emit('addrows', { count: data.length, clear: false });
+        }
+        return this;
     }
 
     /**
-     * @private
-     * @param {Element} el
-     * @returns {number} width
+     * Removes a row from the table
+     * @public
+     * @expose
+     * @param {number} rowIndex - index
+     * @param {number} count - how many rows to remove
+     * @param {boolean=true} render
+     * @returns {DGTable} self
      */
-    _horizontalBorderWidth(el) {
-        const style = getComputedStyle(el);
-        return ((parseFloat(style.borderLeftWidth) || 0) +
-        (parseFloat(style.borderRightWidth) || 0));
+    removeRows(rowIndex, count, render) {
+        let p = this._p;
+
+        if (typeof count !== 'number' || count <= 0) return this;
+
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1) return this;
+
+        p.rows.splice(rowIndex, count);
+        render = (render === undefined) ? true : !!render;
+
+        if (p.filteredRows) {
+            this._refilter();
+
+            p.tableSkeletonNeedsRendering = true;
+
+            if (render) {
+                // Render the skeleton with all rows from scratch
+                this.render();
+            }
+
+        } else if (render) {
+            p.virtualListHelper.removeItemsAt(count, rowIndex);
+
+            if (this._o.virtualTable) {
+                updateVirtualHeight(this);
+                updateLastCellWidthFromScrollbar(this);
+                this.render();
+                updateTableWidth(this, false);
+            } else {
+                this.render();
+                updateLastCellWidthFromScrollbar(this);
+                updateTableWidth(this, true);
+            }
+        }
+
+        return this;
     }
 
     /**
-     * @private
-     * @returns {number} width
+     * Removes a row from the table
+     * @public
+     * @expose
+     * @param {number} rowIndex - index
+     * @param {boolean=true} render
+     * @returns {DGTable} self
      */
-    _calculateWidthAvailableForColumns() {
-        const o = this._o, p = this._p;
-
-        // Changing display mode briefly, to prevent taking in account the  parent's scrollbar width when we are the cause for it
-        let oldDisplay, lastScrollTop, lastScrollLeft;
-        if (p.table) {
-            lastScrollTop = p.table ? p.table.scrollTop : 0;
-            lastScrollLeft = p.table ? p.table.scrollLeft : 0;
-
-            if (o.virtualTable) {
-                oldDisplay = p.table.style.display;
-                p.table.style.display = 'none';
-            }
-        }
-
-        let detectedWidth = getElementWidth(this.el);
-
-        if (p.table) {
-            if (o.virtualTable) {
-                p.table.style.display = oldDisplay;
-            }
-
-            p.table.scrollTop = lastScrollTop;
-            p.table.scrollLeft = lastScrollLeft;
-            p.header.scrollLeft = lastScrollLeft;
-        }
-
-        let tableClassName = o.tableClassName;
-
-        const thisWrapper = createElement('div');
-        thisWrapper.className = this.el.className;
-        setCssProps(thisWrapper, {
-            'z-index': -1,
-            'position': 'absolute',
-            left: '0',
-            top: '-9999px',
-        });
-        let header = createElement('div');
-        header.className = `${tableClassName}-header`;
-        thisWrapper.appendChild(header);
-        let headerRow = createElement('div');
-        headerRow.index = null;
-        headerRow.vIndex = null;
-        headerRow.className = `${tableClassName}-header-row`;
-        header.appendChild(headerRow);
-        for (let i = 0; i < p.visibleColumns.length; i++) {
-            const column = p.visibleColumns[i];
-            const cell = createElement('div');
-            cell.className = `${tableClassName}-header-cell ${column.cellClasses || ''}`;
-            cell['columnName'] = column.name;
-            cell.appendChild(createElement('div'));
-            headerRow.appendChild(cell);
-        }
-        document.body.appendChild(thisWrapper);
-
-        detectedWidth -= this._horizontalBorderWidth(headerRow);
-
-        let cells = scopedSelectorAll(headerRow, `>div.${tableClassName}-header-cell`);
-        for (const cell of cells) {
-            const cellStyle = getComputedStyle(cell);
-            let isBoxing = cellStyle.boxSizing === 'border-box';
-            if (!isBoxing) {
-                detectedWidth -=
-                    (parseFloat(cellStyle.borderRightWidth) || 0) +
-                    (parseFloat(cellStyle.borderLeftWidth) || 0) +
-                    (this._horizontalPadding(cell)); // CELL's padding
-
-                const colName = cell['columnName'];
-                const column = p.columns.get(colName);
-                if (column)
-                    detectedWidth -= column.arrowProposedWidth || 0;
-            }
-        }
-
-        thisWrapper.remove();
-
-        return Math.max(0, detectedWidth);
+    removeRow(rowIndex, render) {
+        return this.removeRows(rowIndex, 1, render);
     }
 
-    _getTextWidth(text) {
-        let tableClassName = this._o.tableClassName;
+    /**
+     * Refreshes the row specified
+     * @public
+     * @expose
+     * @param {number} rowIndex index
+     * @param {boolean} render should render the changes immediately?
+     * @returns {DGTable} self
+     */
+    refreshRow(rowIndex, render = true) {
+        let p = this._p;
 
-        const tableWrapper = createElement('div');
-        tableWrapper.className = this.el.className;
-        const header = createElement('div');
-        header.className = tableClassName + '-header';
-        const headerRow = createElement('div');
-        headerRow.className = tableClassName + '-header-row';
-        const cell = createElement('div');
-        cell.className = tableClassName + '-header-cell';
-        const cellContent = createElement('div');
-        cellContent.textContent = text;
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
+            return this;
 
-        cell.appendChild(cellContent);
-        headerRow.appendChild(cell);
-        header.appendChild(headerRow);
-        tableWrapper.appendChild(header);
-        setCssProps(tableWrapper, {
-            position: 'absolute',
-            top: '-9999px',
-            visibility: 'hidden',
-        });
+        // Find out if the row is in the rendered dataset
+        let filteredRowIndex = -1;
+        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
+            return this;
 
-        document.body.appendChild(tableWrapper);
+        if (filteredRowIndex === -1) {
+            filteredRowIndex = rowIndex;
+        }
 
-        let width = getElementWidth(cell);
+        p.virtualListHelper.refreshItemAt(filteredRowIndex);
 
-        tableWrapper.remove();
+        if (render)
+            p.virtualListHelper.render();
 
-        return width;
+        return this;
     }
+
+    /**
+     * Get the DOM element for the specified row, if it exists
+     * @public
+     * @expose
+     * @param {number} rowIndex index
+     * @returns {Element|null} row or null
+     */
+    getRowElement(rowIndex) {
+        let p = this._p;
+
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
+            return null;
+
+        // Find out if the row is in the rendered dataset
+        let filteredRowIndex = -1;
+        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
+            return null;
+
+        if (filteredRowIndex === -1) {
+            filteredRowIndex = rowIndex;
+        }
+
+        return p.virtualListHelper.getItemElementAt(filteredRowIndex) || null;
+    }
+
+    /**
+     * Refreshes all virtual rows
+     * @public
+     * @expose
+     * @returns {DGTable} self
+     */
+    refreshAllVirtualRows() {
+        const p = this._p;
+        p.virtualListHelper.invalidate().render();
+        return this;
+    }
+
+    /**
+     * Replace the whole dataset
+     * @public
+     * @expose
+     * @param {Object[]} data array of rows to add to the table
+     * @param {boolean} [resort=false] should resort all rows?
+     * @returns {DGTable} self
+     */
+    setRows(data, resort) {
+        let p = this._p;
+
+        p.rows.reset(data);
+
+        if (resort && p.rows.sortColumn.length) {
+            this.resort();
+        } else {
+            this._refilter();
+        }
+
+        this.clearAndRender().emit('addrows', { count: data.length, clear: true });
+
+        return this;
+    }
+
+    // =========================================================================
+    // PUBLIC API - Size Changes
+    // =========================================================================
 
     /**
      * Notify the table that its width has changed
@@ -1967,10 +1919,9 @@ class DGTable {
      * @returns {DGTable} self
      */
     tableWidthChanged(forceUpdate, renderColumns) {
-
         let o = this._o,
             p = this._p,
-            detectedWidth = this._calculateWidthAvailableForColumns(),
+            detectedWidth = calculateWidthAvailableForColumns(this),
             sizeLeft = detectedWidth,
             relatives = 0;
 
@@ -2001,7 +1952,7 @@ class DGTable {
                 let col = p.visibleColumns[i];
                 if (col.widthMode === ColumnWidthMode.ABSOLUTE) {
                     let width = col.width;
-                    width += col.arrowProposedWidth || 0; // Sort-arrow width
+                    width += col.arrowProposedWidth || 0;
                     if (!col.ignoreMin && width < o.minColumnWidth) {
                         width = o.minColumnWidth;
                     }
@@ -2014,8 +1965,8 @@ class DGTable {
                         changedColumnIndexes.push(i);
                     }
                 } else if (col.widthMode === ColumnWidthMode.AUTO) {
-                    let width = this._getTextWidth(col.label) + 20;
-                    width += col.arrowProposedWidth || 0; // Sort-arrow width
+                    let width = getTextWidth(this, col.label) + 20;
+                    width += col.arrowProposedWidth || 0;
                     if (!col.ignoreMin && width < o.minColumnWidth) {
                         width = o.minColumnWidth;
                     }
@@ -2140,7 +2091,7 @@ class DGTable {
                     relatives--;
 
                     // Take care of rounding errors
-                    if (relatives === 0 && sizeLeft === 1) { // Take care of rounding errors
+                    if (relatives === 0 && sizeLeft === 1) {
                         width++;
                         sizeLeft--;
                     }
@@ -2166,18 +2117,18 @@ class DGTable {
             p.notifyRendererOfColumnsConfig?.();
 
             if (renderColumns) {
-                let tableWidth = this._calculateTbodyWidth();
+                let tableWidth = calculateTbodyWidth(this);
 
                 if (tableWidthBeforeCalculations < tableWidth) {
-                    this._updateTableWidth(false);
+                    updateTableWidth(this, false);
                 }
 
                 for (let i = 0; i < changedColumnIndexes.length; i++) {
-                    this._resizeColumnElements(changedColumnIndexes[i]);
+                    resizeColumnElements(this, changedColumnIndexes[i]);
                 }
 
                 if (tableWidthBeforeCalculations > tableWidth) {
-                    this._updateTableWidth(false);
+                    updateTableWidth(this, false);
                 }
             }
         }
@@ -2202,15 +2153,14 @@ class DGTable {
         const tableStyle = getComputedStyle(p.table);
 
         let height = getElementHeight(this.el, true)
-            - (parseFloat(tableStyle.borderTopWidth) || 0) // Subtract top border of inner element
-            - (parseFloat(tableStyle.borderBottomWidth) || 0); // Subtract bottom border of inner element
+            - (parseFloat(tableStyle.borderTopWidth) || 0)
+            - (parseFloat(tableStyle.borderBottomWidth) || 0);
 
         if (height !== o.height) {
 
             o.height = height;
 
             if (p.tbody) {
-                // At least 1 pixel - to show scrollbars correctly.
                 p.tbody.style.height = Math.max(o.height - getElementHeight(p.header, true, true, true), 1) + 'px';
             }
 
@@ -2222,223 +2172,47 @@ class DGTable {
         return this;
     }
 
+    // =========================================================================
+    // PUBLIC API - Cell Preview
+    // =========================================================================
+
     /**
-     * Add rows to the table
+     * Hides the current cell preview,
+     * or prevents the one that is currently trying to show (in the 'cellpreview' event)
      * @public
      * @expose
-     * @param {Object[]} data - array of rows to add to the table
-     * @param {number} [at=-1] - where to add the rows at
-     * @param {boolean} [resort=false] - should resort all rows?
-     * @param {boolean} [render=true]
      * @returns {DGTable} self
      */
-    addRows(data, at, resort, render) {
-        let p = this._p;
-
-        if (typeof at === 'boolean') {
-            render = resort;
-            resort = at;
-            at = -1;
-        }
-
-        if (typeof at !== 'number')
-            at = -1;
-
-        if (at < 0 || at > p.rows.length)
-            at = p.rows.length;
-
-        render = (render === undefined) ? true : !!render;
-
-        if (data) {
-            p.rows.add(data, at);
-
-            if (p.filteredRows || (resort && p.rows.sortColumn.length)) {
-
-                if (resort && p.rows.sortColumn.length) {
-                    this.resort();
-                } else {
-                    this._refilter();
-                }
-
-                p.tableSkeletonNeedsRendering = true;
-
-                if (render) {
-                    // Render the skeleton with all rows from scratch
-                    this.render();
-                }
-
-            } else if (render) {
-                p.virtualListHelper.addItemsAt(data.length, at);
-
-                if (this._o.virtualTable) {
-                    this._updateVirtualHeight()
-                        ._updateLastCellWidthFromScrollbar() // Detect vertical scrollbar height
-                        .render()
-                        ._updateTableWidth(false); // Update table width to suit the required width considering vertical scrollbar
-
-                } else if (p.tbody) {
-                    this.render()
-                        ._updateLastCellWidthFromScrollbar() // Detect vertical scrollbar height, and update existing last cells
-                        ._updateTableWidth(true); // Update table width to suit the required width considering vertical scrollbar
-                }
-            }
-
-            this.emit('addrows', { count: data.length, clear: false });
-        }
+    hideCellPreview() {
+        hideCellPreview(this);
         return this;
     }
 
     /**
-     * Removes a row from the table
+     * A synonym for hideCellPreview()
      * @public
      * @expose
-     * @param {number} rowIndex - index
-     * @param {number} count - how many rows to remove
-     * @param {boolean=true} render
      * @returns {DGTable} self
      */
-    removeRows(rowIndex, count, render) {
-        let p = this._p;
-
-        if (typeof count !== 'number' || count <= 0) return this;
-
-        if (rowIndex < 0 || rowIndex > p.rows.length - 1) return this;
-
-        p.rows.splice(rowIndex, count);
-        render = (render === undefined) ? true : !!render;
-
-        if (p.filteredRows) {
-            this._refilter();
-
-            p.tableSkeletonNeedsRendering = true;
-
-            if (render) {
-                // Render the skeleton with all rows from scratch
-                this.render();
-            }
-
-        } else if (render) {
-            p.virtualListHelper.removeItemsAt(count, rowIndex);
-
-            if (this._o.virtualTable) {
-                this._updateVirtualHeight()
-                    ._updateLastCellWidthFromScrollbar()
-                    .render()
-                    ._updateTableWidth(false); // Update table width to suit the required width considering vertical scrollbar
-            } else {
-                this.render()
-                    ._updateLastCellWidthFromScrollbar()
-                    ._updateTableWidth(true); // Update table width to suit the required width considering vertical scrollbar
-            }
-        }
-
+    abortCellPreview() {
+        this.hideCellPreview();
         return this;
     }
 
     /**
-     * Removes a row from the table
-     * @public
+     * Cancel a resize in progress
      * @expose
-     * @param {number} rowIndex - index
-     * @param {boolean=true} render
+     * @private
      * @returns {DGTable} self
      */
-    removeRow(rowIndex, render) {
-        return this.removeRows(rowIndex, 1, render);
-    }
-
-    /**
-     * Refreshes the row specified
-     * @public
-     * @expose
-     * @param {number} rowIndex index
-     * @param {boolean} render should render the changes immediately?
-     * @returns {DGTable} self
-     */
-    refreshRow(rowIndex, render = true) {
-        let p = this._p;
-
-        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
-            return this;
-
-        // Find out if the row is in the rendered dataset
-        let filteredRowIndex = -1;
-        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
-            return this;
-
-        if (filteredRowIndex === -1) {
-            filteredRowIndex = rowIndex;
-        }
-
-        p.virtualListHelper.refreshItemAt(filteredRowIndex);
-
-        if (render)
-            p.virtualListHelper.render();
-
+    cancelColumnResize() {
+        cancelColumnResize(this);
         return this;
     }
 
-    /**
-     * Get the DOM element for the specified row, if it exists
-     * @public
-     * @expose
-     * @param {number} rowIndex index
-     * @returns {Element|null} row or null
-     */
-    getRowElement(rowIndex) {
-        let p = this._p;
-
-        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
-            return null;
-
-        // Find out if the row is in the rendered dataset
-        let filteredRowIndex = -1;
-        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
-            return null;
-
-        if (filteredRowIndex === -1) {
-            filteredRowIndex = rowIndex;
-        }
-
-        return p.virtualListHelper.getItemElementAt(filteredRowIndex) || null;
-    }
-
-    /**
-     * Refreshes all virtual rows
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
-    refreshAllVirtualRows() {
-        const p = this._p;
-        p.virtualListHelper.invalidate().render();
-        return this;
-    }
-
-    /**
-     * Replace the whole dataset
-     * @public
-     * @expose
-     * @param {Object[]} data array of rows to add to the table
-     * @param {boolean} [resort=false] should resort all rows?
-     * @returns {DGTable} self
-     */
-    setRows(data, resort) {
-        let p = this._p;
-
-        // this.scrollTop = this.$el.find('.table').scrollTop();
-        p.rows.reset(data);
-
-        if (resort && p.rows.sortColumn.length) {
-            this.resort();
-        } else {
-            this._refilter();
-        }
-
-        this.clearAndRender().emit('addrows', { count: data.length, clear: true });
-
-        return this;
-    }
+    // =========================================================================
+    // PUBLIC API - Web Workers
+    // =========================================================================
 
     /**
      * Creates a URL representing the data in the specified element.
@@ -2490,7 +2264,7 @@ class DGTable {
      */
     createWebWorker(url, start, resort) {
         if (this.isWorkerSupported()) {
-            let     p = this._p;
+            let p = this._p;
 
             let worker = new Worker(url);
             let listener = (evt) => {
@@ -2535,1582 +2309,11 @@ class DGTable {
 
         return this;
     }
-
-    /**
-     * A synonym for hideCellPreview()
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
-    abortCellPreview() {
-        this.hideCellPreview();
-        return this;
-    }
-
-    /**
-     * Cancel a resize in progress
-     * @expose
-     * @private
-     * @returns {DGTable} self
-     */
-    cancelColumnResize() {
-        const p = this._p;
-
-        if (p.resizer) {
-            p.resizer.remove();
-            p.resizer = null;
-            p.eventsSink.remove(document, '.colresize');
-        }
-
-        return this;
-    }
-
-    _onTableScrolledHorizontally() {
-        const p = this._p;
-
-        p.header.scrollLeft = p.table.scrollLeft;
-
-        this._syncHorizontalStickies();
-    }
-
-    _syncHorizontalStickies() {
-        const p = this._p;
-
-        const stickiesLeft = p.stickiesLeft;
-        const stickiesRight = p.stickiesRight;
-
-        const oldStickiesSetLeft = p.stickiesSetLeft;
-        const oldStickiesSetRight = p.stickiesSetRight;
-        const stickiesSetLeft = p.stickiesSetLeft = new Set();
-        const stickiesSetRight = p.stickiesSetRight = new Set();
-
-        // Early exit before creating Sets
-        if (stickiesLeft?.length || !stickiesRight?.length) {
-            const scrollLeft = p.table.scrollLeft;
-
-            // Skip if scroll unchanged
-            if (scrollLeft === p.lastStickyScrollLeft) return;
-            p.lastStickyScrollLeft = scrollLeft;
-
-            const allHeaderCells = p.headerRow.children; // Use HTMLCollection directly
-            const tolerance = 1.5;
-
-            const processStickies = (stickies, isLeft, indicesSet) => {
-                if (!stickies || !stickies.length) return;
-
-                let stackSize = 0;
-
-                for (const sticky of stickies) {
-                    const el = sticky[0];
-                    const block = sticky.slice(1);
-
-                    const first = block[0];
-                    const last = block[block.length - 1];
-
-                    if (!el || !el.getBoundingClientRect) continue;
-
-                    const sRect = el.getBoundingClientRect();
-
-                    let overlapsFollowing = false;
-                    if (first && last) {
-                        const fRect = first.getBoundingClientRect();
-                        const lRect = last.getBoundingClientRect();
-
-                        if (isLeft) {
-                            overlapsFollowing = (sRect.right - tolerance) > fRect.left && (sRect.left + tolerance) < lRect.right;
-                        } else {
-                            overlapsFollowing = (sRect.left + tolerance) < lRect.right && (sRect.right - tolerance) > fRect.left;
-                        }
-                    }
-
-                    el.classList.toggle(isLeft ? 'is-sticky-left' : 'is-sticky-right', overlapsFollowing);
-
-                    if (overlapsFollowing) {
-                        indicesSet.add(nativeIndexOf.call(allHeaderCells, el));
-                    }
-
-                    stackSize += sRect.width || el.offsetWidth || 0;
-                }
-            };
-
-            processStickies(stickiesLeft, true, stickiesSetLeft);
-            processStickies(stickiesRight, false, stickiesSetRight);
-        }
-
-        // Compute changes with direct iteration
-        const newStickies = [];
-        const removeStickies = [];
-
-        for (const idx of stickiesSetLeft)
-            if (!oldStickiesSetLeft?.has(idx))
-                newStickies.push({ index: idx, left: true });
-
-        for (const idx of stickiesSetRight)
-            if (!oldStickiesSetRight?.has(idx))
-                newStickies.push({ index: idx, right: true });
-
-        if (oldStickiesSetLeft) {
-            for (const idx of oldStickiesSetLeft)
-                if (!stickiesSetLeft.has(idx))
-                    removeStickies.push({ index: idx, left: true });
-        }
-
-        if (oldStickiesSetRight) {
-            for (const idx of oldStickiesSetRight)
-                if (!stickiesSetRight.has(idx))
-                    removeStickies.push({ index: idx, right: true });
-        }
-
-        if (!newStickies.length && !removeStickies.length)
-            return;
-
-        // Apply to body rows
-        let rowEl = p.tbody.firstElementChild;
-        while (rowEl) {
-            const children = rowEl.children;
-
-            for (const sticky of removeStickies)
-                children[sticky.index]?.classList.remove(sticky.left ? 'is-sticky-left' : 'is-sticky-right');
-
-            for (const sticky of newStickies)
-                children[sticky.index]?.classList.add(sticky.left ? 'is-sticky-left' : 'is-sticky-right');
-
-            rowEl = rowEl.nextElementSibling;
-        }
-
-        // Update stickyColumns map
-        p.isStickyColumns = new Map();
-        for (const idx of stickiesSetLeft) p.isStickyColumns.set(idx, 'left');
-        for (const idx of stickiesSetRight) p.isStickyColumns.set(idx, 'right');
-    }
-
-    /**previousElementSibling
-     * Reverse-calculate the column to resize from mouse position
-     * @private
-     * @param {MouseEvent|TouchEvent} event mouse event
-     * @returns {string|null} name of the column which the mouse is over, or null if the mouse is not in resize position
-     */
-    _getColumnByResizePosition(event) {
-        let o = this._o,
-            rtl = this._isTableRtl();
-
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        if (headerCell[OriginalCellSymbol]) {
-            headerCell = headerCell[OriginalCellSymbol];
-        }
-
-        let previousElementSibling = headerCell.previousSibling;
-        while (previousElementSibling && previousElementSibling.nodeType !== 1) {
-            previousElementSibling = previousElementSibling.previousSibling;
-        }
-
-        let firstCol = !previousElementSibling;
-
-        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
-        let mouseX = (positionHost.pageX || positionHost.clientX) - getElementOffset(headerCell).left;
-
-        if (rtl) {
-            if (!firstCol && getElementWidth(headerCell, true, true, true) - mouseX <= o.resizeAreaWidth / 2) {
-                return previousElementSibling['columnName'];
-            } else if (mouseX <= o.resizeAreaWidth / 2) {
-                return headerCell['columnName'];
-            }
-        } else {
-            if (!firstCol && mouseX <= o.resizeAreaWidth / 2) {
-                return previousElementSibling['columnName'];
-            } else if (getElementWidth(headerCell, true, true, true) - mouseX <= o.resizeAreaWidth / 2) {
-                return headerCell['columnName'];
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * @param {TouchEvent} event
-     */
-    _onTouchStartColumnHeader(event) {
-        const p = this._p;
-
-        if (p.currentTouchId) return;
-
-        let startTouch = event.changedTouches[0];
-        p.currentTouchId = startTouch.identifier;
-
-        let cellEl = event.currentTarget;
-
-        let startPos = { x: startTouch.pageX, y: startTouch.pageY },
-            currentPos = startPos,
-            distanceTreshold = 9;
-
-        let tapAndHoldTimeout;
-
-        let unbind = function () {
-            p.currentTouchId = null;
-            p.eventsSink.remove(cellEl, '.colheader');
-            clearTimeout(tapAndHoldTimeout);
-        };
-
-        event[RelatedTouch] = event.changedTouches[0];
-        this._onMouseDownColumnHeader(event);
-
-        tapAndHoldTimeout = setTimeout(() => {
-            unbind();
-
-            p.eventsSink
-                .add(cellEl, 'touchend.colheader', (event) => {
-                    // Prevent simulated mouse events after touchend
-                    if (!isInputElementEvent(event))
-                        event.preventDefault();
-
-                    p.eventsSink.remove(cellEl, '.colheader');
-                }, { once: true })
-                .add(cellEl, 'touchcancel.colheader', (_event) => {
-                    p.eventsSink.remove(cellEl, '.colheader');
-                }, { once: true });
-
-            let distanceTravelled = Math.sqrt(Math.pow(Math.abs(currentPos.x - startPos.x), 2) + Math.pow(Math.abs(currentPos.y - startPos.y), 2));
-
-            if (distanceTravelled < distanceTreshold) {
-                this.cancelColumnResize();
-                this._triggerColumnHeaderContextMenu(event);
-            }
-
-        }, 500);
-
-        p.eventsSink
-            .add(cellEl, 'touchend.colheader', (/**TouchEvent*/event) => {
-                let touch = find(event.changedTouches, (touch) => touch.identifier === p.currentTouchId);
-                if (!touch) return;
-
-                unbind();
-
-                // Prevent simulated mouse events after touchend
-                if (!isInputElementEvent(event))
-                    event.preventDefault();
-
-                currentPos = { x: touch.pageX, y: touch.pageY };
-                let distanceTravelled = Math.sqrt(Math.pow(Math.abs(currentPos.x - startPos.x), 2) + Math.pow(Math.abs(currentPos.y - startPos.y), 2));
-
-                if (distanceTravelled < distanceTreshold || p.resizer) {
-                    event[RelatedTouch] = touch;
-                    this._onSortOnColumnHeaderEvent(event);
-                }
-
-            })
-            .add(cellEl, 'touchcancel.colheader', unbind)
-            .add(cellEl, 'touchmove.colheader', (/**TouchEvent*/event) => {
-                let touch = find(event.changedTouches, (touch) => touch.identifier === p.currentTouchId);
-                if (!touch) return;
-
-                // Keep track of current position, so we know if we need to cancel the tap-and-hold
-                currentPos = { x: touch.pageX, y: touch.pageY };
-
-                if (p.resizer) {
-                    event.preventDefault();
-
-                    event[RelatedTouch] = touch;
-                    this._onMouseMoveColumnHeader(event);
-                }
-            });
-    }
-
-    /**
-     * @param {MouseEvent|TouchEvent} event
-     */
-    _onMouseDownColumnHeader(event) {
-        if (event.type === 'mousedown' && event.button !== 0)
-            return;
-
-        let o = this._o,
-            p = this._p,
-            col = this._getColumnByResizePosition(event);
-
-        if (col) {
-            let column = p.columns.get(col);
-            if (!o.resizableColumns || !column || !column.resizable) {
-                return false;
-            }
-
-            let rtl = this._isTableRtl();
-
-            if (p.resizer) {
-                p.resizer.remove();
-            }
-            p.resizer = createElement('div');
-            p.resizer.className = o.resizerClassName;
-            setCssProps(p.resizer, {
-                position: 'absolute',
-                display: 'block',
-                zIndex: -1,
-                visibility: 'hidden',
-                width: '2px',
-                background: '#000',
-                opacity: 0.7,
-            });
-            this.el.appendChild(p.resizer);
-
-            let selectedHeaderCell = column.element,
-                commonAncestor = p.resizer.parentNode;
-
-            const commonAncestorStyle = getComputedStyle(commonAncestor);
-            const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
-
-            let posCol = getElementOffset(selectedHeaderCell),
-                posRelative = getElementOffset(commonAncestor);
-            posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
-            posRelative.top += parseFloat(commonAncestorStyle.borderTopWidth) || 0;
-            posCol.left -= posRelative.left;
-            posCol.top -= posRelative.top;
-            posCol.top -= parseFloat(selectedHeaderCellStyle.borderTopWidth) || 0;
-            let resizerWidth = getElementWidth(p.resizer, true, true, true);
-            if (rtl) {
-                posCol.left -= Math.ceil((parseFloat(selectedHeaderCellStyle.borderLeftWidth) || 0) / 2);
-                posCol.left -= Math.ceil(resizerWidth / 2);
-            } else {
-                posCol.left += getElementWidth(selectedHeaderCell, true, true, true);
-                posCol.left += Math.ceil((parseFloat(selectedHeaderCellStyle.borderRightWidth) || 0) / 2);
-                posCol.left -= Math.ceil(resizerWidth / 2);
-            }
-
-            setCssProps(p.resizer, {
-                'z-index': '10',
-                'visibility': 'visible',
-                'left': posCol.left + 'px',
-                'top': posCol.top + 'px',
-                'height': getElementHeight(this.el, false, false, false) + 'px',
-            });
-            p.resizer['columnName'] = selectedHeaderCell['columnName'];
-
-            try { p.resizer.style.zIndex = ''; }
-            catch (ignored) { /* we're ok with this */ }
-
-            p.eventsSink
-                .add(document, 'mousemove.colresize', this._onMouseMoveResizeArea.bind(this))
-                .add(document, 'touchmove.colresize', this._onMouseMoveResizeArea.bind(this))
-                .add(document, 'mouseup.colresize', this._onResizerPointerUpColumnHeader.bind(this))
-                .add(document, 'touchend.colresize', this._onResizerPointerUpColumnHeader.bind(this));
-
-            event.preventDefault();
-        }
-    }
-
-    /**
-     * @param {MouseEvent|TouchEvent} event event
-     */
-    _onMouseMoveColumnHeader(event) {
-        const o = this._o,
-            p = this._p;
-
-        if (!o.resizableColumns)
-            return;
-
-        let col = this._getColumnByResizePosition(event);
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        if (!col || !p.columns.get(col).resizable) {
-            headerCell.style.cursor = '';
-        } else {
-            headerCell.style.cursor = 'e-resize';
-        }
-    }
-
-    /**
-     * @param {MouseEvent|TouchEvent} event
-     */
-    _onMouseUpColumnHeader(event) {
-        if (event.button !== 2)
-            return;
-
-        this._triggerColumnHeaderContextMenu(event);
-    }
-
-    /**
-     * @param {MouseEvent|TouchEvent} event
-     */
-    _triggerColumnHeaderContextMenu(event) {
-        const o = this._o;
-
-        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
-
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        let bounds = getElementOffset(headerCell);
-        bounds['width'] = getElementWidth(headerCell, true, true, true);
-        bounds['height'] = getElementHeight(headerCell, true, true, true);
-        this.emit('headercontextmenu', {
-            columnName: headerCell['columnName'],
-            pageX: positionHost.pageX,
-            pageY: positionHost.pageY,
-            bounds: bounds,
-        });
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent} event event
-     */
-    _onMouseLeaveColumnHeader(event) {
-        let o = this._o;
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        headerCell.style.cursor = '';
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent|TouchEvent} event event
-     */
-    _onSortOnColumnHeaderEvent(event) {
-        if (isInputElementEvent(event))
-            return;
-
-        if (this._getColumnByResizePosition(event))
-            return;
-
-        const o = this._o,
-            p = this._p;
-
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        if (!o.sortableColumns)
-            return;
-
-        let column = p.columns.get(headerCell['columnName']);
-        let currentSort = p.rows.sortColumn;
-        if (column && column.sortable) {
-            let shouldAdd = true;
-
-            let lastSort = currentSort.length ? currentSort[currentSort.length - 1] : null;
-
-            if (lastSort && lastSort.column === column.name) {
-                if (!lastSort.descending || !o.allowCancelSort) {
-                    lastSort.descending = !lastSort.descending;
-                } else {
-                    shouldAdd = false;
-                    currentSort.splice(currentSort.length - 1, 1);
-                }
-            }
-
-            if (shouldAdd) {
-                this.sort(column.name, undefined, true).render();
-            } else {
-                this.sort(); // just refresh current situation
-            }
-        }
-    }
-
-    /**
-     * @private
-     * @param {DragEvent} event event
-     */
-    _onStartDragColumnHeader(event) {
-        let o = this._o,
-            p = this._p;
-
-        if (o.movableColumns) {
-            let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-            let column = p.columns.get(headerCell['columnName']);
-            if (column && column.movable) {
-                headerCell.style.opacity = 0.35;
-                p.dragId = Math.random() * 0x9999999; // Recognize this ID on drop
-                event.dataTransfer.setData('text', JSON.stringify({ dragId: p.dragId, column: column.name }));
-            } else {
-                event.preventDefault();
-            }
-        } else {
-            event.preventDefault();
-        }
-
-        return undefined;
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent|TouchEvent} event event
-     */
-    _onMouseMoveResizeArea(event) {
-
-        let p = this._p;
-
-        let column = p.columns.get(p.resizer['columnName']);
-        let rtl = this._isTableRtl();
-
-        let selectedHeaderCell = column.element,
-            commonAncestor = p.resizer.parentNode;
-
-        const commonAncestorStyle = getComputedStyle(commonAncestor);
-        const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
-
-        let posCol = getElementOffset(selectedHeaderCell),
-            posRelative = getElementOffset(commonAncestor);
-        posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
-        posCol.left -= posRelative.left;
-        let resizerWidth = getElementWidth(p.resizer, true, true, true);
-
-        let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
-
-        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
-        let actualX = positionHost.pageX - posRelative.left;
-        let minX = posCol.left;
-
-        minX -= Math.ceil(resizerWidth / 2);
-
-        if (rtl) {
-            minX += getElementWidth(selectedHeaderCell, true, true, true);
-            minX -= column.ignoreMin ? 0 : this._o.minColumnWidth;
-
-            if (!isBoxing) {
-                minX -= Math.ceil((parseFloat(selectedHeaderCellStyle.borderLeftWidth) || 0) / 2);
-                minX -= this._horizontalPadding(selectedHeaderCell);
-            }
-
-            if (actualX > minX) {
-                actualX = minX;
-            }
-        } else {
-            minX += column.ignoreMin ? 0 : this._o.minColumnWidth;
-
-            if (!isBoxing) {
-                minX += Math.ceil((parseFloat(selectedHeaderCellStyle.borderRightWidth) || 0) / 2);
-                minX += this._horizontalPadding(selectedHeaderCell);
-            }
-
-            if (actualX < minX) {
-                actualX = minX;
-            }
-        }
-
-        p.resizer.style.left = actualX + 'px';
-    }
-
-    /**
-     * @private
-     * @param {DragEvent} event event
-     */
-    _onDragEndColumnHeader(event) {
-        let p = this._p;
-
-        if (!p.resizer) {
-            event.target.style.opacity = null;
-        }
-    }
-
-    /**
-     * @private
-     * @param {MouseEvent|TouchEvent} event event
-     */
-    _onResizerPointerUpColumnHeader(event) {
-        let o = this._o,
-            p = this._p;
-
-        if (!p.resizer)
-            return;
-
-        p.eventsSink.remove(document, '.colresize');
-
-        let column = p.columns.get(p.resizer['columnName']);
-        let rtl = this._isTableRtl();
-
-        let selectedHeaderCell = column.element,
-            selectedHeaderCellInner = selectedHeaderCell.firstChild,
-            commonAncestor = p.resizer.parentNode;
-
-        const commonAncestorStyle = getComputedStyle(commonAncestor);
-        const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
-
-        let posCol = getElementOffset(selectedHeaderCell),
-            posRelative = getElementOffset(commonAncestor);
-        posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
-        posCol.left -= posRelative.left;
-        let resizerWidth = getElementWidth(p.resizer, true, true, true);
-
-        let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
-
-        const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
-        let actualX = positionHost.pageX - posRelative.left;
-        let baseX = posCol.left, minX = posCol.left;
-        let width = 0;
-
-        baseX -= Math.ceil(resizerWidth / 2);
-
-        if (rtl) {
-            if (!isBoxing) {
-                actualX += this._horizontalPadding(selectedHeaderCell);
-                const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
-                actualX += parseFloat(innerComputedStyle.borderLeftWidth) || 0;
-                actualX += parseFloat(innerComputedStyle.borderRightWidth) || 0;
-                actualX += column.arrowProposedWidth || 0; // Sort-arrow width
-            }
-
-            baseX += getElementWidth(selectedHeaderCell, true, true, true);
-
-            minX = baseX - (column.ignoreMin ? 0 : this._o.minColumnWidth);
-            if (actualX > minX) {
-                actualX = minX;
-            }
-
-            width = baseX - actualX;
-        } else {
-            if (!isBoxing) {
-                actualX -= this._horizontalPadding(selectedHeaderCell);
-                const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
-                actualX -= parseFloat(innerComputedStyle.borderLeftWidth) || 0;
-                actualX -= parseFloat(innerComputedStyle.borderRightWidth) || 0;
-                actualX -= column.arrowProposedWidth || 0; // Sort-arrow width
-            }
-
-            minX = baseX + (column.ignoreMin ? 0 : this._o.minColumnWidth);
-            if (actualX < minX) {
-                actualX = minX;
-            }
-
-            width = actualX - baseX;
-        }
-
-        p.resizer.remove();
-        p.resizer = null;
-
-        let sizeToSet = width;
-
-        if (column.widthMode === ColumnWidthMode.RELATIVE) {
-            let sizeLeft = this._calculateWidthAvailableForColumns();
-            //sizeLeft -= p.table.offsetWidth - p.table.clientWidth;
-
-            let totalRelativePercentage = 0;
-            let relatives = 0;
-
-            for (let i = 0; i < p.visibleColumns.length; i++) {
-                let col = p.visibleColumns[i];
-                if (col.name === column.name) continue;
-
-                if (col.widthMode === ColumnWidthMode.RELATIVE) {
-                    totalRelativePercentage += col.width;
-                    relatives++;
-                } else {
-                    sizeLeft -= col.actualWidth;
-                }
-            }
-
-            sizeLeft = Math.max(1, sizeLeft);
-            if (sizeLeft === 1)
-                sizeLeft = p.table.clientWidth;
-            sizeToSet = width / sizeLeft;
-
-            if (relatives > 0) {
-                // When there's more than one relative overall,
-                //   we can do relative enlarging/shrinking.
-                // Otherwise, we can end up having a 0 width.
-
-                let unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
-
-                totalRelativePercentage += sizeToSet;
-
-                // Account for relative widths scaling later
-                if ((totalRelativePercentage < 1 && o.relativeWidthGrowsToFillWidth) ||
-                    (totalRelativePercentage > 1 && o.relativeWidthShrinksToFillWidth)) {
-                    sizeToSet = unNormalizedSizeToSet;
-                }
-            }
-
-            sizeToSet *= 100;
-            sizeToSet += '%';
-        }
-
-        this.setColumnWidth(column.name, sizeToSet);
-    }
-
-    /**
-     * @private
-     * @param {DragEvent} event event
-     */
-    _onDragEnterColumnHeader(event) {
-        let o = this._o,
-            p = this._p;
-
-        if (o.movableColumns) {
-            let dataTransferred = event.dataTransfer.getData('text');
-            if (dataTransferred) {
-                dataTransferred = JSON.parse(dataTransferred);
-            }
-            else {
-                dataTransferred = null; // WebKit does not provide the dataTransfer on dragenter?..
-            }
-
-            let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-            if (!dataTransferred ||
-                (p.dragId === dataTransferred.dragId && headerCell['columnName'] !== dataTransferred.column)) {
-
-                let column = p.columns.get(headerCell['columnName']);
-                if (column && (column.movable || column !== p.visibleColumns[0])) {
-                    headerCell.classList.add('drag-over');
-                }
-            }
-        }
-    }
-
-    /**
-     * @private
-     * @param {DragEvent} event event
-     */
-    _onDragOverColumnHeader(event) {
-        event.preventDefault();
-    }
-
-    /**
-     * @private
-     * @param {DragEvent} event event
-     */
-    _onDragLeaveColumnHeader(event) {
-        let o = this._o;
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        if (!event.relatedTarget.contains(headerCell.firstChild)) {
-            headerCell.classList.remove('drag-over');
-        }
-    }
-
-    /**
-     * @private
-     * @param {DragEvent} event event
-     */
-    _onDropColumnHeader(event) {
-        event.preventDefault();
-
-        let o = this._o,
-            p = this._p;
-
-        let dataTransferred = JSON.parse(event.dataTransfer.getData('text'));
-        let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
-        if (o.movableColumns && dataTransferred.dragId === p.dragId) {
-            let srcColName = dataTransferred.column,
-                destColName = headerCell['columnName'],
-                srcCol = p.columns.get(srcColName),
-                destCol = p.columns.get(destColName);
-            if (srcCol && destCol && srcCol.movable && (destCol.movable || destCol !== p.visibleColumns[0])) {
-                this.moveColumn(srcColName, destColName);
-            }
-        }
-        headerCell.classList.remove('drag-over');
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _clearSortArrows() {
-        let p = this._p;
-
-        if (p.table) {
-            let tableClassName = this._o.tableClassName;
-            let sortedColumns = scopedSelectorAll(p.headerRow, `>div.${tableClassName}-header-cell.sorted`);
-            let arrows = Array.prototype.slice.call(sortedColumns, 0).map((el) => scopedSelector(el, '>div>.sort-arrow')).filter((el) => !!el);
-            for (const arrow of arrows) {
-                let col = p.columns.get(arrow.parentNode.parentNode['columnName']);
-                if (col) {
-                    col.arrowProposedWidth = 0;
-                }
-                arrow.remove();
-            }
-            for (const sortedColumn of sortedColumns) {
-                sortedColumn.classList.remove('sorted', 'desc');
-            }
-        }
-        return this;
-    }
-
-    /**
-     * @private
-     * @param {string} column the name of the sort column
-     * @param {boolean} descending table is sorted descending
-     * @returns {boolean} self
-     */
-    _showSortArrow(column, descending) {
-        let p = this._p;
-
-        let col = p.columns.get(column);
-        if (!col) return false;
-
-        let arrow = createElement('span');
-        arrow.className = 'sort-arrow';
-
-        if (col.element) {
-            col.element.className += descending ? ' sorted desc' : ' sorted';
-            col.element.firstChild.insertBefore(arrow, col.element.firstChild.firstChild);
-        }
-
-        if (col.widthMode !== ColumnWidthMode.RELATIVE && this._o.adjustColumnWidthForSortArrow) {
-            col.arrowProposedWidth = arrow.scrollWidth +
-                (parseFloat(getComputedStyle(arrow).marginRight) || 0) +
-                (parseFloat(getComputedStyle(arrow).marginLeft) || 0);
-        }
-
-        return true;
-    }
-
-    /**
-     * @private
-     * @param {number} cellIndex index of the column in the DOM
-     * @returns {DGTable} self
-     */
-    _resizeColumnElements(cellIndex) {
-        let p = this._p;
-
-        const headerCells = p.headerRow.querySelectorAll(`div.${this._o.tableClassName}-header-cell`);
-        const headerCell = headerCells[cellIndex];
-        let col = p.columns.get(headerCell['columnName']);
-
-        if (col) {
-            headerCell.style.width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth) + 'px';
-
-            let width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth) + 'px';
-            let tbodyChildren = p.tbody.childNodes;
-            for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                let rowEl = tbodyChildren[i];
-                if (rowEl.nodeType !== 1) continue;
-                rowEl.childNodes[cellIndex].style.width = width;
-            }
-        }
-
-        return this;
-    }
-
-    /**
-     * @returns {DGTable} self
-     * */
-    _destroyHeaderCells() {
-        let p = this._p;
-
-        if (p.headerRow) {
-            p.headerRow = null;
-        }
-        return this;
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _renderSkeletonBase() {
-        let p = this._p,
-            o = this._o;
-
-        // Clean up old elements
-
-        p.virtualListHelper?.destroy();
-        p.virtualListHelper = null;
-
-        if (p.table && o.virtualTable) {
-            p.table.remove();
-            p.table = p.tbody = null;
-        }
-
-        this._destroyHeaderCells();
-        p.currentTouchId = null;
-        if (p.header) {
-            p.header.remove();
-        }
-
-        // Create new base elements
-        let tableClassName = o.tableClassName,
-            header = createElement('div'),
-            headerRow = createElement('div');
-
-        header.className = `${tableClassName}-header`;
-        headerRow.className = `${tableClassName}-header-row`;
-
-        p.header = header;
-        p.headerRow = headerRow;
-        header.appendChild(headerRow);
-        this.el.prepend(header);
-
-        relativizeElement(this.el);
-
-        if (o.width === DGTable.Width.SCROLL) {
-            this.el.style.overflow = 'hidden';
-        } else {
-            this.el.style.overflow = '';
-        }
-
-        if (!o.height && o.virtualTable) {
-            o.height = getElementHeight(this.el, true);
-        }
-
-        return this;
-    }
-
-    _bindHeaderColumnEvents(columnEl) {
-        const inner = columnEl.firstChild;
-        columnEl.addEventListener('mousedown', this._onMouseDownColumnHeader.bind(this));
-        columnEl.addEventListener('mousemove', this._onMouseMoveColumnHeader.bind(this));
-        columnEl.addEventListener('mouseup', this._onMouseUpColumnHeader.bind(this));
-        columnEl.addEventListener('mouseleave', this._onMouseLeaveColumnHeader.bind(this));
-        columnEl.addEventListener('touchstart', this._onTouchStartColumnHeader.bind(this));
-        columnEl.addEventListener('dragstart', this._onStartDragColumnHeader.bind(this));
-        columnEl.addEventListener('click', this._onSortOnColumnHeaderEvent.bind(this));
-        columnEl.addEventListener('contextmenu', event => { event.preventDefault(); });
-        inner.addEventListener('dragenter', this._onDragEnterColumnHeader.bind(this));
-        inner.addEventListener('dragover', this._onDragOverColumnHeader.bind(this));
-        inner.addEventListener('dragleave', this._onDragLeaveColumnHeader.bind(this));
-        inner.addEventListener('drop', this._onDropColumnHeader.bind(this));
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _renderSkeletonHeaderCells() {
-        let p = this._p,
-            o = this._o;
-
-        let allowCellPreview = o.allowCellPreview,
-            allowHeaderCellPreview = o.allowHeaderCellPreview;
-
-        let tableClassName = o.tableClassName,
-            headerCellClassName = tableClassName + '-header-cell',
-            headerRow = p.headerRow;
-
-        // Create header cells
-        for (let i = 0; i < p.visibleColumns.length; i++) {
-            let column = p.visibleColumns[i];
-            if (column.visible) {
-                let cell = createElement('div');
-                cell.draggable = true;
-                cell.className = headerCellClassName;
-                cell.style.width = column.actualWidth + 'px';
-                if (o.sortableColumns && column.sortable) {
-                    cell.className += ' sortable';
-                }
-                cell['columnName'] = column.name;
-                cell.setAttribute('data-column', column.name);
-
-                // Insides - should always be the first child of the cell
-                let cellInside = createElement('div');
-                cellInside.innerHTML = o.headerCellFormatter(column.label, column.name);
-                cell.appendChild(cellInside);
-                if (allowCellPreview && allowHeaderCellPreview) {
-                    p._bindCellHoverIn(cell);
-                }
-
-                headerRow.appendChild(cell);
-
-                p.visibleColumns[i].element = cell;
-
-                this._bindHeaderColumnEvents(cell);
-                this._disableCssSelect(cell);
-            }
-        }
-
-        this._updateStickyColumnPositions();
-
-        this.emit('headerrowcreate', headerRow);
-
-        return this;
-    }
-
-    _updateStickyColumnPositions() {
-        const p = this._p,
-            o = this._o;
-
-        const tableClassName = o.tableClassName,
-            stickyClassName = tableClassName + '-sticky',
-            headerRow = p.headerRow;
-
-        const isRtl = this._isTableRtl();
-        const scrollbarWidth = p.scrollbarWidth ?? 0;
-
-        let stickColLeft = 0;
-        let stickColRight = 0;
-        let boxSizing = null;
-
-        const stickiesLeft = [];
-        const stickiesRight = [];
-        let stickyLeftGroup = null;
-        let stickyRightGroup = [];
-
-        for (let currentCellEl = headerRow.firstElementChild; currentCellEl; currentCellEl = currentCellEl.nextElementSibling) {
-            const columnName = currentCellEl.getAttribute('data-column');
-            if (!columnName)
-                continue;
-            const column = p.columns.get(columnName);
-            if (!column)
-                continue;
-
-            if (column.sticky === 'start' || column.sticky === 'end') {
-                currentCellEl.className += ' ' + stickyClassName;
-                currentCellEl.style.position = 'sticky';
-
-                let colFullWidth = column.actualWidth;
-
-                let computedStyle = null;
-                if (boxSizing === null) {
-                    computedStyle = getComputedStyle(currentCellEl);
-                    boxSizing = computedStyle.boxSizing;
-                }
-
-                if (boxSizing === 'content-box') {
-                    if (computedStyle === null)
-                        computedStyle = getComputedStyle(currentCellEl);
-                    colFullWidth += (parseFloat(computedStyle.paddingLeft) || 0) +
-                        (parseFloat(computedStyle.paddingRight) || 0) +
-                        (parseFloat(computedStyle.borderLeftWidth) || 0) +
-                        (parseFloat(computedStyle.borderRightWidth) || 0);
-                }
-
-                const isLeft = column.sticky === 'start' && !isRtl || column.sticky === 'end' && isRtl;
-
-                if (isLeft) {
-                    column.stickyPos = { direction: 'left', offset: stickColLeft };
-                    currentCellEl.style.left = stickColLeft + 'px';
-                    stickColLeft += colFullWidth;
-
-                    // reset the right group, as we are only interested in those which are next to the right sticky
-                    stickyRightGroup.length = 0;
-
-                    stickyLeftGroup = [currentCellEl];
-                    stickiesLeft.push(stickyLeftGroup);
-                } else {
-                    column.stickyPos = { direction: 'right', offset: stickColRight };
-                    currentCellEl.style.right = (stickColRight + scrollbarWidth) + 'px';
-                    stickColRight += colFullWidth;
-
-                    stickiesRight.push([currentCellEl, ...stickyRightGroup]);
-                    stickyRightGroup.length = 0;
-                }
-            } else {
-                delete column.stickyPos;
-                stickyLeftGroup?.push(currentCellEl);
-                stickyRightGroup?.push(currentCellEl);
-
-                if (currentCellEl.style.position === 'sticky') {
-                    currentCellEl.classList.remove(stickyClassName);
-                    currentCellEl.style.position = '';
-                    currentCellEl.style.left = '';
-                    currentCellEl.style.right = '';
-                }
-            }
-        }
-
-        p.stickiesLeft = stickiesLeft;
-        p.stickiesRight = stickiesRight;
-
-        this._syncHorizontalStickies();
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _renderSkeletonBody() {
-        let p = this._p,
-            o = this._o;
-
-        let tableClassName = o.tableClassName;
-
-        // Calculate virtual row heights
-        if (o.virtualTable && !p.virtualRowHeight) {
-            let createDummyRow = () => {
-                let row = createElement('div'),
-                    cell = row.appendChild(createElement('div')),
-                    cellInner = cell.appendChild(createElement('div'));
-                row.className = `${tableClassName}-row`;
-                cell.className = `${tableClassName}-cell`;
-                cellInner.innerHTML = '0';
-                row.style.visibility = 'hidden';
-                row.style.position = 'absolute';
-                return row;
-            };
-
-            const dummyWrapper = createElement('div');
-            dummyWrapper.className = this.el.className;
-            setCssProps(dummyWrapper, {
-                'z-index': -1,
-                'position': 'absolute',
-                'left': '0',
-                'top': '-9999px',
-                'width': '1px',
-                'overflow': 'hidden',
-            });
-
-            const dummyTable = createElement('div');
-            dummyTable.className = tableClassName;
-            dummyWrapper.appendChild(dummyTable);
-
-            const dummyTbody = createElement('div');
-            dummyTbody.className = `${tableClassName}-body`;
-            dummyTbody.style.width = '99999px';
-            dummyTable.appendChild(dummyTbody);
-
-            document.body.appendChild(dummyWrapper);
-
-            let row1 = createDummyRow(), row2 = createDummyRow(), row3 = createDummyRow();
-            dummyTbody.appendChild(row1);
-            dummyTbody.appendChild(row2);
-            dummyTbody.appendChild(row3);
-
-            p.virtualRowHeightFirst = getElementHeight(row1, true, true, true);
-            p.virtualRowHeight = getElementHeight(row2, true, true, true);
-            p.virtualRowHeightLast = getElementHeight(row3, true, true, true);
-
-            dummyWrapper.remove();
-        }
-
-        // Create inner table and tbody
-        if (!p.table) {
-            let fragment = document.createDocumentFragment();
-
-            // Create the inner table element
-            let table = createElement('div');
-            table.className = tableClassName;
-
-            if (o.virtualTable) {
-                table.className += ' virtual';
-            }
-
-            const tableStyle = getComputedStyle(table);
-
-            let tableHeight = (o.height - getElementHeight(p.header, true, true, true));
-            if (tableStyle.boxSizing !== 'border-box') {
-                tableHeight -= parseFloat(tableStyle.borderTopWidth) || 0;
-                tableHeight -= parseFloat(tableStyle.borderBottomWidth) || 0;
-                tableHeight -= parseFloat(tableStyle.paddingTop) || 0;
-                tableHeight -= parseFloat(tableStyle.paddingBottom) || 0;
-            }
-            p.visibleHeight = tableHeight;
-            setCssProps(table, {
-                height: o.height ? tableHeight + 'px' : 'auto',
-                display: 'block',
-                overflowY: 'auto',
-                overflowX: o.width === DGTable.Width.SCROLL ? 'auto' : 'hidden',
-            });
-            fragment.appendChild(table);
-
-            // Create the "tbody" element
-            let tbody = createElement('div');
-            tbody.className = o.tableClassName + '-body';
-            tbody.style.minHeight = '1px';
-            p.table = table;
-            p.tbody = tbody;
-
-            relativizeElement(tbody);
-            relativizeElement(table);
-
-            table.appendChild(tbody);
-            this.el.appendChild(fragment);
-
-            this._setupVirtualTable();
-        }
-
-        return this;
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     * @deprecated
-     */
-    _renderSkeleton() {
-        return this;
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _updateVirtualHeight() {
-        const o = this._o, p = this._p;
-
-        if (!p.tbody)
-            return this;
-
-        if (o.virtualTable) {
-            const virtualHeight =  p.virtualListHelper.estimateFullHeight();
-            p.lastVirtualScrollHeight = virtualHeight;
-            p.tbody.style.height = virtualHeight + 'px';
-        } else {
-            p.tbody.style.height = '';
-        }
-
-        return this;
-    }
-
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
-    _updateLastCellWidthFromScrollbar(force) {
-
-        const p = this._p;
-
-        // Calculate scrollbar's width and reduce from lat column's width
-        let scrollbarWidth = p.table.offsetWidth - p.table.clientWidth;
-        if (scrollbarWidth !== p.scrollbarWidth || force) {
-            p.scrollbarWidth = scrollbarWidth;
-            for (let i = 0; i < p.columns.length; i++) {
-                p.columns[i].actualWidthConsideringScrollbarWidth = null;
-            }
-
-            if (p.scrollbarWidth > 0 && p.visibleColumns.length > 0) {
-                // (There should always be at least 1 column visible, but just in case)
-                let lastColIndex = p.visibleColumns.length - 1;
-
-                p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth = p.visibleColumns[lastColIndex].actualWidth - p.scrollbarWidth;
-                let lastColWidth = p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth + 'px';
-                let tbodyChildren = p.tbody.childNodes;
-                for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                    let row = tbodyChildren[i];
-                    if (row.nodeType !== 1) continue;
-                    row.childNodes[lastColIndex].style.width = lastColWidth;
-                }
-
-                p.headerRow.childNodes[lastColIndex].style.width = lastColWidth;
-            }
-
-            this._updateStickyColumnPositions();
-
-            p.notifyRendererOfColumnsConfig?.();
-        }
-
-        return this;
-    }
-
-    /**
-     * Explicitly set the width of the table based on the sum of the column widths
-     * @private
-     * @param {boolean} parentSizeMayHaveChanged Parent size may have changed, treat rendering accordingly
-     * @returns {DGTable} self
-     */
-    _updateTableWidth(parentSizeMayHaveChanged) {
-        const o = this._o, p = this._p;
-        let width = this._calculateTbodyWidth();
-
-        p.tbody.style.minWidth = width + 'px';
-        p.headerRow.style.minWidth = (width + (p.scrollbarWidth || 0)) + 'px';
-
-        p.eventsSink.remove(p.table, 'scroll');
-
-        if (o.width === DGTable.Width.AUTO) {
-            // Update wrapper element's size to fully contain the table body
-
-            setElementWidth(p.table, getElementWidth(p.tbody, true, true, true));
-            setElementWidth(this.el, getElementWidth(p.table, true, true, true));
-
-        } else if (o.width === DGTable.Width.SCROLL) {
-
-            if (parentSizeMayHaveChanged) {
-                let lastScrollTop = p.table ? p.table.scrollTop : 0,
-                    lastScrollLeft = p.table ? p.table.scrollLeft : 0;
-
-                // BUGFIX: Relayout before recording the widths
-                webkitRenderBugfix(this.el);
-
-                p.table.crollTop = lastScrollTop;
-                p.table.scrollLeft = lastScrollLeft;
-                p.header.scrollLeft = lastScrollLeft;
-            }
-
-            p.eventsSink.add(p.table, 'scroll', this._onTableScrolledHorizontally.bind(this));
-        }
-
-        return this;
-    }
-
-    /**
-     * @private
-     * @returns {boolean}
-     */
-    _isTableRtl() {
-        return getComputedStyle(this._p.table).direction === 'rtl';
-    }
-
-    /**
-     * @private
-     * @param {Object} column column object
-     * @returns {string}
-     */
-    _serializeColumnWidth(column) {
-        return column.widthMode === ColumnWidthMode.AUTO ? 'auto' :
-            column.widthMode === ColumnWidthMode.RELATIVE ? column.width * 100 + '%' :
-                column.width;
-    }
-
-    /**
-     * @private
-     * @param {HTMLElement} el
-     */
-    _disableCssSelect(el) {
-        const style = el.style;
-        // Disable these to allow our own context menu events without interruption
-        style['-webkit-touch-callout'] = 'none';
-        style['-webkit-user-select'] = 'none';
-        style['-moz-user-select'] = 'none';
-        style['-ms-user-select'] = 'none';
-        style['-o-user-select'] = 'none';
-        style['user-select'] = 'none';
-    }
-
-    /**
-     * @private
-     * @param {HTMLElement} el
-     */
-    _cellMouseOverEvent(el) {
-        const o = this._o, p = this._p;
-
-        let elInner = el.firstElementChild;
-
-        if (!((elInner.scrollWidth - elInner.clientWidth > 1) ||
-            (elInner.scrollHeight - elInner.clientHeight > 1)))
-            return;
-
-        this.hideCellPreview();
-        p.abortCellPreview = false;
-
-        const rowEl = el.parentElement;
-        const previewCell = createElement('div');
-        previewCell.innerHTML = el.innerHTML;
-        previewCell.className = o.cellPreviewClassName;
-
-        let isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
-        if (isHeaderCell) {
-            previewCell.classList.add('header');
-            if (el.classList.contains('sortable')) {
-                previewCell.classList.add('sortable');
-            }
-
-            previewCell.draggable = true;
-
-            this._bindHeaderColumnEvents(previewCell);
-        }
-
-        const elStyle = getComputedStyle(el);
-        const elInnerStyle = getComputedStyle(elInner);
-
-        let rtl = elStyle.float === 'right';
-        let prop = rtl ? 'right' : 'left';
-
-        let paddingL = parseFloat(elStyle.paddingLeft) || 0,
-            paddingR = parseFloat(elStyle.paddingRight) || 0,
-            paddingT = parseFloat(elStyle.paddingTop) || 0,
-            paddingB = parseFloat(elStyle.paddingBottom) || 0;
-
-        let requiredWidth = elInner.scrollWidth + (el.clientWidth - elInner.offsetWidth);
-
-        let borderBox = elStyle.boxSizing === 'border-box';
-        if (borderBox) {
-            previewCell.style.boxSizing = 'border-box';
-        } else {
-            requiredWidth -= paddingL + paddingR;
-            previewCell.style.marginTop = (parseFloat(elStyle.borderTopWidth) || 0) + 'px';
-        }
-
-        if (!p.transparentBgColor1) {
-            // Detect browser's transparent spec
-            let tempDiv = document.createElement('div');
-            document.body.appendChild(tempDiv);
-            tempDiv.style.backgroundColor = 'transparent';
-            p.transparentBgColor1 = getComputedStyle(tempDiv).backgroundColor;
-            tempDiv.style.backgroundColor = 'rgba(0,0,0,0)';
-            p.transparentBgColor2 = getComputedStyle(tempDiv).backgroundColor;
-            tempDiv.remove();
-        }
-
-        let css = {
-            'box-sizing': borderBox ? 'border-box' : 'content-box',
-            'width': requiredWidth,
-            'min-height': Math.max(getElementHeight(el), /%/.test(elStyle.minHeight) ? 0 : (parseFloat(elStyle.minHeight) || 0)) + 'px',
-            'padding-left': paddingL,
-            'padding-right': paddingR,
-            'padding-top': paddingT,
-            'padding-bottom': paddingB,
-            'overflow': 'hidden',
-            'position': 'absolute',
-            'z-index': '-1',
-            [prop]: '0',
-            'top': '0',
-            'cursor': elStyle.cursor,
-        };
-
-        let bgColor = elStyle.backgroundColor;
-        if (bgColor === p.transparentBgColor1 || bgColor === p.transparentBgColor2) {
-            bgColor = getComputedStyle(rowEl).backgroundColor;
-        }
-        if (bgColor === p.transparentBgColor1 || bgColor === p.transparentBgColor2) {
-            bgColor = '#fff';
-        }
-        css['background-color'] = bgColor;
-
-        setCssProps(previewCell, css);
-        setCssProps(previewCell.firstChild, {
-            'direction': elInnerStyle.direction,
-            'white-space': elInnerStyle.whiteSpace,
-            'min-height': elInnerStyle.minHeight,
-            'line-height': elInnerStyle.lineHeight,
-            'font': elInnerStyle.font,
-        });
-
-        this.el.appendChild(previewCell);
-
-        if (isHeaderCell) {
-            this._disableCssSelect(previewCell);
-        }
-
-        previewCell['rowVIndex'] = rowEl['vIndex'];
-        let rowIndex = previewCell['rowIndex'] = rowEl['index'];
-        previewCell['columnName'] = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)].name;
-
-        try {
-            let selection = SelectionHelper.saveSelection(el);
-            if (selection)
-                SelectionHelper.restoreSelection(previewCell, selection);
-        } catch (ignored) { /* we're ok with this */ }
-
-        this.emit(
-            'cellpreview', {
-                el: previewCell.firstElementChild,
-                name: previewCell['columnName'],
-                rowIndex: rowIndex ?? null,
-                rowData: rowIndex == null ? null : p.rows[rowIndex],
-                cell: el,
-                cellEl: elInner,
-            },
-        );
-
-        if (p.abortCellPreview) {
-            previewCell.remove();
-            return;
-        }
-
-        if (rowIndex != null) {
-            previewCell.addEventListener('click', event => {
-                this.emit('rowclick', {
-                    event: event,
-                    filteredRowIndex: rowEl['vIndex'],
-                    rowIndex: rowIndex,
-                    rowEl: rowEl,
-                    rowData: p.rows[rowIndex],
-                });
-            });
-        }
-
-        let parent = this.el;
-        let scrollParent = parent === window ? document : parent;
-
-        const parentStyle = getComputedStyle(parent);
-
-        let offset = getElementOffset(el);
-        let parentOffset = getElementOffset(parent);
-
-        // Handle RTL, go from the other side
-        if (rtl) {
-            let windowWidth = window.innerWidth;
-            offset.right = windowWidth - (offset.left + getElementWidth(el, true, true, true));
-            parentOffset.right = windowWidth - (parentOffset.left + getElementWidth(parent, true, true, true));
-        }
-
-        // If the parent has borders, then it would offset the offset...
-        offset.left -= parseFloat(parentStyle.borderLeftWidth) || 0;
-        if (prop === 'right')
-            offset.right -= parseFloat(parentStyle.borderRightWidth) || 0;
-        offset.top -= parseFloat(parentStyle.borderTopWidth) || 0;
-
-        // Handle border widths of the element being offset
-        offset[prop] += parseFloat(elStyle[`border-${prop}-width`]) || 0;
-        offset.top += parseFloat(elStyle.borderTopWidth) || parseFloat(elStyle.borderBottomWidth) || 0;
-
-        // Subtract offsets to get offset relative to parent
-        offset.left -= parentOffset.left;
-        if (prop === 'right')
-            offset.right -= parentOffset.right;
-        offset.top -= parentOffset.top;
-
-        // Constrain horizontally
-        let minHorz = 0,
-            maxHorz = getElementWidth(parent, false, false, false) - getElementWidth(previewCell, true, true, true);
-        offset[prop] = offset[prop] < minHorz ?
-            minHorz :
-            (offset[prop] > maxHorz ? maxHorz : offset[prop]);
-
-        // Constrain vertically
-        let totalHeight = getElementHeight(el, true, true, true);
-        let maxTop = scrollParent.scrollTop + getElementHeight(parent, true) - totalHeight;
-        if (offset.top > maxTop) {
-            offset.top = Math.max(0, maxTop);
-        }
-
-        // Apply css to preview cell
-        let previewCss = {
-            'top': offset.top + 'px',
-            'z-index': 9999,
-        };
-        previewCss[prop] = offset[prop] + 'px';
-        setCssProps(previewCell, previewCss);
-
-        previewCell[OriginalCellSymbol] = el;
-        p.cellPreviewCell = previewCell;
-        el[PreviewCellSymbol] = previewCell;
-
-        p._bindCellHoverOut(el);
-        p._bindCellHoverOut(previewCell);
-
-        // Avoid interfering with wheel scrolling the table
-        previewCell.addEventListener('wheel', () => {
-            // Let the table naturally scroll with the wheel
-            this.hideCellPreview();
-        });
-    }
-
-    /**
-     * @private
-     * @param {HTMLElement} _el
-     */
-    _cellMouseOutEvent(_el) {
-        this.hideCellPreview();
-    }
-
-    /**
-     * Hides the current cell preview,
-     * or prevents the one that is currently trying to show (in the 'cellpreview' event)
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
-    hideCellPreview() {
-        const p = this._p;
-
-        if (p.cellPreviewCell) {
-            let previewCell = p.cellPreviewCell;
-            let origCell = previewCell[OriginalCellSymbol];
-            let selection;
-
-            try {
-                selection = SelectionHelper.saveSelection(previewCell);
-            } catch (ignored) { /* we're ok with this */ }
-
-            p.cellPreviewCell.remove();
-            p._unbindCellHoverOut(origCell);
-            p._unbindCellHoverOut(previewCell);
-
-            try {
-                if (selection)
-                    SelectionHelper.restoreSelection(origCell, selection);
-            } catch (ignored) { /* we're ok with this */ }
-
-            this.emit('cellpreviewdestroy', {
-                el: previewCell.firstChild,
-                name: previewCell['columnName'],
-                rowIndex: previewCell['rowIndex'] ?? null,
-                rowData: previewCell['rowIndex'] == null ? null : p.rows[previewCell['rowIndex']],
-                cell: origCell,
-                cellEl: origCell.firstChild,
-            });
-
-            delete origCell[PreviewCellSymbol];
-            delete previewCell[OriginalCellSymbol];
-
-            p.cellPreviewCell = null;
-            p.abortCellPreview = false;
-        } else {
-            p.abortCellPreview = true;
-        }
-
-        return this;
-    }
 }
+
+// =========================================================================
+// STATIC PROPERTIES
+// =========================================================================
 
 /**
  * @public
@@ -4119,7 +2322,16 @@ class DGTable {
  */
 DGTable.VERSION = '@@VERSION';
 
-// It's a shame the Google Closure Compiler does not support exposing a nested @param
+/**
+ * @enum {DGTable.Width|string|undefined}
+ * @const
+ * @typedef {DGTable.Width}
+ */
+DGTable.Width = Width;
+
+// =========================================================================
+// TYPE DEFINITIONS
+// =========================================================================
 
 /**
  * @typedef {Object} SERIALIZED_COLUMN
@@ -4134,27 +2346,6 @@ DGTable.VERSION = '@@VERSION';
  * @property {boolean|null|undefined} [descending=false]
  * */
 
-/**
- * @enum {ColumnWidthMode|number|undefined}
- * @const
- * @typedef {ColumnWidthMode}
- */
-const ColumnWidthMode = {
-    /** @const*/ AUTO: 0,
-    /** @const*/ ABSOLUTE: 1,
-    /** @const*/ RELATIVE: 2,
-};
-
-/**
- * @enum {DGTable.Width|string|undefined}
- * @const
- * @typedef {DGTable.Width}
- */
-DGTable.Width = {
-    /** @const*/ NONE: 'none',
-    /** @const*/ AUTO: 'auto',
-    /** @const*/ SCROLL: 'scroll',
-};
 
 /**
  * @expose

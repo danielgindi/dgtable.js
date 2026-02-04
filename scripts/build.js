@@ -19,18 +19,14 @@ import { fileURLToPath } from 'node:url';
         dest: 'dist/lib.es6.js',
         sourceMap: true,
         outputFormat: 'esm',
-        babelTargets: {
-            node: 10,
-        },
+        babelTargets: '> 0.25%, not dead',
         minified: false,
         ecmaVersion: 6,
     }, {
         dest: 'dist/lib.es6.min.js',
         sourceMap: true,
         outputFormat: 'esm',
-        babelTargets: {
-            node: 10,
-        },
+        babelTargets: '> 0.25%, not dead',
         minified: true,
         ecmaVersion: 6,
     }, {
@@ -56,9 +52,7 @@ import { fileURLToPath } from 'node:url';
         sourceMap: true,
         outputFormat: 'cjs',
         outputExports: 'default',
-        babelTargets: {
-            node: 10,
-        },
+        babelTargets: '> 0.25%, not dead',
         minified: false,
         ecmaVersion: 6,
     }, {
@@ -66,9 +60,7 @@ import { fileURLToPath } from 'node:url';
         sourceMap: true,
         outputFormat: 'cjs',
         outputExports: 'default',
-        babelTargets: {
-            node: 10,
-        },
+        babelTargets: '> 0.25%, not dead',
         minified: true,
         ecmaVersion: 6,
     }];
