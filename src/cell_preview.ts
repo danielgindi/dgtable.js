@@ -1,34 +1,52 @@
-'use strict';
-
 /**
  * Cell preview functionality for DGTable
  */
 
-import {
-    getElementWidth,
-    getElementHeight,
-    getElementOffset,
-    setCssProps,
-} from '@danielgindi/dom-utils/lib/Css.js';
-import SelectionHelper from './SelectionHelper.js';
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore - No type declarations available for this module
+import { getElementWidth, getElementHeight, getElementOffset, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
+import SelectionHelper from './SelectionHelper';
 import {
     OriginalCellSymbol,
     PreviewCellSymbol,
-} from './constants.js';
-import { disableCssSelect } from './helpers.js';
+} from './constants';
+import { disableCssSelect } from './helpers';
+import type { DGTableInterface, RowData } from './types';
 
 const nativeIndexOf = Array.prototype.indexOf;
-let createElement = document.createElement.bind(document);
+const createElement = document.createElement.bind(document);
+
+// Extended element types for cell preview
+interface PreviewCellElement extends HTMLDivElement {
+    rowVIndex?: number;
+    rowIndex?: number;
+    columnName?: string;
+    [OriginalCellSymbol]?: HTMLElement;
+}
+
+interface CellElement extends HTMLElement {
+    [PreviewCellSymbol]?: PreviewCellElement;
+}
+
+interface RowElement extends HTMLElement {
+    vIndex?: number;
+    index?: number;
+}
+
+interface ElementOffset {
+    left: number;
+    top: number;
+    right?: number;
+}
 
 /**
  * Handle cell mouse over event - show preview if content overflows
- * @param {DGTable} table - The DGTable instance
- * @param {HTMLElement} el - The cell element
  */
-export function cellMouseOverEvent(table, el) {
+export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): void {
     const o = table._o, p = table._p;
 
-    let elInner = el.firstElementChild;
+    const elInner = el.firstElementChild as HTMLElement;
+    if (!elInner) return;
 
     if (!((elInner.scrollWidth - elInner.clientWidth > 1) ||
         (elInner.scrollHeight - elInner.clientHeight > 1)))
@@ -37,12 +55,14 @@ export function cellMouseOverEvent(table, el) {
     hideCellPreview(table);
     p.abortCellPreview = false;
 
-    const rowEl = el.parentElement;
-    const previewCell = createElement('div');
+    const rowEl = el.parentElement as RowElement;
+    if (!rowEl) return;
+
+    const previewCell = createElement('div') as PreviewCellElement;
     previewCell.innerHTML = el.innerHTML;
     previewCell.className = o.cellPreviewClassName;
 
-    let isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
+    const isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
     if (isHeaderCell) {
         previewCell.classList.add('header');
         if (el.classList.contains('sortable')) {
@@ -57,17 +77,17 @@ export function cellMouseOverEvent(table, el) {
     const elStyle = getComputedStyle(el);
     const elInnerStyle = getComputedStyle(elInner);
 
-    let rtl = elStyle.float === 'right';
-    let prop = rtl ? 'right' : 'left';
+    const rtl = elStyle.float === 'right';
+    const prop = rtl ? 'right' : 'left';
 
-    let paddingL = parseFloat(elStyle.paddingLeft) || 0,
-        paddingR = parseFloat(elStyle.paddingRight) || 0,
-        paddingT = parseFloat(elStyle.paddingTop) || 0,
-        paddingB = parseFloat(elStyle.paddingBottom) || 0;
+    const paddingL = parseFloat(elStyle.paddingLeft) || 0;
+    const paddingR = parseFloat(elStyle.paddingRight) || 0;
+    const paddingT = parseFloat(elStyle.paddingTop) || 0;
+    const paddingB = parseFloat(elStyle.paddingBottom) || 0;
 
     let requiredWidth = elInner.scrollWidth + (el.clientWidth - elInner.offsetWidth);
 
-    let borderBox = elStyle.boxSizing === 'border-box';
+    const borderBox = elStyle.boxSizing === 'border-box';
     if (borderBox) {
         previewCell.style.boxSizing = 'border-box';
     } else {
@@ -77,7 +97,7 @@ export function cellMouseOverEvent(table, el) {
 
     if (!p.transparentBgColor1) {
         // Detect browser's transparent spec
-        let tempDiv = document.createElement('div');
+        const tempDiv = document.createElement('div');
         document.body.appendChild(tempDiv);
         tempDiv.style.backgroundColor = 'transparent';
         p.transparentBgColor1 = getComputedStyle(tempDiv).backgroundColor;
@@ -86,7 +106,7 @@ export function cellMouseOverEvent(table, el) {
         tempDiv.remove();
     }
 
-    let css = {
+    const css: Record<string, string | number> = {
         'box-sizing': borderBox ? 'border-box' : 'content-box',
         'width': requiredWidth,
         'min-height': Math.max(getElementHeight(el), /%/.test(elStyle.minHeight) ? 0 : (parseFloat(elStyle.minHeight) || 0)) + 'px',
@@ -112,13 +132,15 @@ export function cellMouseOverEvent(table, el) {
     css['background-color'] = bgColor;
 
     setCssProps(previewCell, css);
-    setCssProps(previewCell.firstChild, {
-        'direction': elInnerStyle.direction,
-        'white-space': elInnerStyle.whiteSpace,
-        'min-height': elInnerStyle.minHeight,
-        'line-height': elInnerStyle.lineHeight,
-        'font': elInnerStyle.font,
-    });
+    if (previewCell.firstChild) {
+        setCssProps(previewCell.firstChild as HTMLElement, {
+            'direction': elInnerStyle.direction,
+            'white-space': elInnerStyle.whiteSpace,
+            'min-height': elInnerStyle.minHeight,
+            'line-height': elInnerStyle.lineHeight,
+            'font': elInnerStyle.font,
+        });
+    }
 
     table.el.appendChild(previewCell);
 
@@ -126,26 +148,26 @@ export function cellMouseOverEvent(table, el) {
         disableCssSelect(previewCell);
     }
 
-    previewCell['rowVIndex'] = rowEl['vIndex'];
-    let rowIndex = previewCell['rowIndex'] = rowEl['index'];
-    previewCell['columnName'] = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)].name;
+    previewCell.rowVIndex = rowEl.vIndex;
+    const rowIndex = previewCell.rowIndex = rowEl.index;
+    previewCell.columnName = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)]?.name;
 
     try {
-        let selection = SelectionHelper.saveSelection(el);
+        const selection = SelectionHelper.saveSelection(el);
         if (selection)
             SelectionHelper.restoreSelection(previewCell, selection);
-    } catch (ignored) { /* we're ok with this */ }
+    } catch {
+        /* we're ok with this */
+    }
 
-    table.emit(
-        'cellpreview', {
-            el: previewCell.firstElementChild,
-            name: previewCell['columnName'],
-            rowIndex: rowIndex ?? null,
-            rowData: rowIndex == null ? null : p.rows[rowIndex],
-            cell: el,
-            cellEl: elInner,
-        },
-    );
+    table.emit('cellpreview', {
+        el: previewCell.firstElementChild,
+        name: previewCell.columnName,
+        rowIndex: rowIndex ?? null,
+        rowData: rowIndex == null ? null : p.rows[rowIndex] as RowData,
+        cell: el,
+        cellEl: elInner,
+    });
 
     if (p.abortCellPreview) {
         previewCell.remove();
@@ -153,68 +175,78 @@ export function cellMouseOverEvent(table, el) {
     }
 
     if (rowIndex != null) {
-        previewCell.addEventListener('click', event => {
+        previewCell.addEventListener('click', (event: MouseEvent) => {
             table.emit('rowclick', {
                 event: event,
-                filteredRowIndex: rowEl['vIndex'],
+                filteredRowIndex: rowEl.vIndex,
                 rowIndex: rowIndex,
                 rowEl: rowEl,
-                rowData: p.rows[rowIndex],
+                rowData: p.rows[rowIndex] as RowData,
             });
         });
     }
 
-    let parent = table.el;
-    let scrollParent = parent === window ? document : parent;
+    const parent = table.el;
+    const scrollParent = parent === (window as unknown as HTMLElement) ? document : parent;
 
     const parentStyle = getComputedStyle(parent);
 
-    let offset = getElementOffset(el);
-    let parentOffset = getElementOffset(parent);
+    const offset = getElementOffset(el) as ElementOffset;
+    const parentOffset = getElementOffset(parent) as ElementOffset;
 
     // Handle RTL, go from the other side
     if (rtl) {
-        let windowWidth = window.innerWidth;
+        const windowWidth = window.innerWidth;
         offset.right = windowWidth - (offset.left + getElementWidth(el, true, true, true));
         parentOffset.right = windowWidth - (parentOffset.left + getElementWidth(parent, true, true, true));
     }
 
     // If the parent has borders, then it would offset the offset...
     offset.left -= parseFloat(parentStyle.borderLeftWidth) || 0;
-    if (prop === 'right')
+    if (prop === 'right' && offset.right !== undefined && parentOffset.right !== undefined)
         offset.right -= parseFloat(parentStyle.borderRightWidth) || 0;
     offset.top -= parseFloat(parentStyle.borderTopWidth) || 0;
 
     // Handle border widths of the element being offset
-    offset[prop] += parseFloat(elStyle[`border-${prop}-width`]) || 0;
+    const borderPropWidth = prop === 'left' ? 'borderLeftWidth' : 'borderRightWidth';
+    if (prop === 'left') {
+        offset.left += parseFloat(elStyle.borderLeftWidth) || 0;
+    } else if (offset.right !== undefined) {
+        offset.right += parseFloat(elStyle.borderRightWidth) || 0;
+    }
     offset.top += parseFloat(elStyle.borderTopWidth) || parseFloat(elStyle.borderBottomWidth) || 0;
 
     // Subtract offsets to get offset relative to parent
     offset.left -= parentOffset.left;
-    if (prop === 'right')
+    if (prop === 'right' && offset.right !== undefined && parentOffset.right !== undefined)
         offset.right -= parentOffset.right;
     offset.top -= parentOffset.top;
 
     // Constrain horizontally
-    let minHorz = 0,
-        maxHorz = getElementWidth(parent, false, false, false) - getElementWidth(previewCell, true, true, true);
-    offset[prop] = offset[prop] < minHorz ?
-        minHorz :
-        (offset[prop] > maxHorz ? maxHorz : offset[prop]);
+    const minHorz = 0;
+    const maxHorz = getElementWidth(parent, false, false, false) - getElementWidth(previewCell, true, true, true);
+    const horzOffset = prop === 'left' ? offset.left : (offset.right ?? 0);
+    const constrainedHorz = horzOffset < minHorz ? minHorz : (horzOffset > maxHorz ? maxHorz : horzOffset);
+    if (prop === 'left') {
+        offset.left = constrainedHorz;
+    } else {
+        offset.right = constrainedHorz;
+    }
 
     // Constrain vertically
-    let totalHeight = getElementHeight(el, true, true, true);
-    let maxTop = scrollParent.scrollTop + getElementHeight(parent, true) - totalHeight;
+    const totalHeight = getElementHeight(el, true, true, true);
+    const scrollTop = 'scrollTop' in scrollParent ? scrollParent.scrollTop : 0;
+    const maxTop = scrollTop + getElementHeight(parent, true) - totalHeight;
     if (offset.top > maxTop) {
         offset.top = Math.max(0, maxTop);
     }
 
     // Apply css to preview cell
-    let previewCss = {
+    const previewCss: Record<string, string | number> = {
         'top': offset.top + 'px',
         'z-index': 9999,
     };
-    previewCss[prop] = offset[prop] + 'px';
+    previewCss[prop] = (prop === 'left' ? offset.left : offset.right) + 'px';
     setCssProps(previewCell, previewCss);
 
     previewCell[OriginalCellSymbol] = el;
@@ -233,49 +265,51 @@ export function cellMouseOverEvent(table, el) {
 
 /**
  * Handle cell mouse out event
- * @param {DGTable} table - The DGTable instance
- * @param {HTMLElement} _el - The cell element (unused)
  */
-export function cellMouseOutEvent(table, _el) {
+export function cellMouseOutEvent(table: DGTableInterface, _el: HTMLElement): void {
     hideCellPreview(table);
 }
 
 /**
  * Hide the current cell preview
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function hideCellPreview(table) {
+export function hideCellPreview(table: DGTableInterface): DGTableInterface {
     const p = table._p;
 
     if (p.cellPreviewCell) {
-        let previewCell = p.cellPreviewCell;
-        let origCell = previewCell[OriginalCellSymbol];
+        const previewCell = p.cellPreviewCell as PreviewCellElement;
+        const origCell = previewCell[OriginalCellSymbol] as CellElement;
         let selection;
 
         try {
             selection = SelectionHelper.saveSelection(previewCell);
-        } catch (ignored) { /* we're ok with this */ }
+        } catch {
+            /* we're ok with this */
+        }
 
         p.cellPreviewCell.remove();
-        p._unbindCellHoverOut(origCell);
+        if (origCell) p._unbindCellHoverOut(origCell);
         p._unbindCellHoverOut(previewCell);
 
         try {
-            if (selection)
+            if (selection && origCell)
                 SelectionHelper.restoreSelection(origCell, selection);
-        } catch (ignored) { /* we're ok with this */ }
+        } catch {
+            /* we're ok with this */
+        }
 
         table.emit('cellpreviewdestroy', {
             el: previewCell.firstChild,
-            name: previewCell['columnName'],
-            rowIndex: previewCell['rowIndex'] ?? null,
-            rowData: previewCell['rowIndex'] == null ? null : p.rows[previewCell['rowIndex']],
+            name: previewCell.columnName,
+            rowIndex: previewCell.rowIndex ?? null,
+            rowData: previewCell.rowIndex == null ? null : p.rows[previewCell.rowIndex] as RowData,
             cell: origCell,
-            cellEl: origCell.firstChild,
+            cellEl: origCell?.firstChild,
         });
 
-        delete origCell[PreviewCellSymbol];
+        if (origCell) {
+            delete origCell[PreviewCellSymbol];
+        }
         delete previewCell[OriginalCellSymbol];
 
         p.cellPreviewCell = null;

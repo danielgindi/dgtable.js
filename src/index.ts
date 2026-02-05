@@ -1,19 +1,17 @@
 /* eslint-env browser */
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 
-'use strict';
-
-import {  htmlEncode } from './util.js';
-import RowCollection from './row_collection.js';
-import ColumnCollection from './column_collection.js';
-import {
-    getScrollHorz,
-    setScrollHorz,
-} from '@danielgindi/dom-utils/lib/ScrollHelper.js';
-import {
-    getElementHeight,
-} from '@danielgindi/dom-utils/lib/Css.js';
+import { htmlEncode } from './util';
+import RowCollection from './row_collection';
+import ColumnCollection from './column_collection';
+// @ts-ignore - No type declarations available for this module
+import { getScrollHorz, setScrollHorz } from '@danielgindi/dom-utils/lib/ScrollHelper.js';
+// @ts-ignore - No type declarations available for this module
+import { getElementHeight } from '@danielgindi/dom-utils/lib/Css.js';
+// @ts-ignore - No type declarations available for this module
 import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
-import ByColumnFilter from './by_column_filter.js';
+import ByColumnFilter from './by_column_filter';
+// @ts-ignore - No type declarations available for this module
 import DomEventsSink from '@danielgindi/dom-utils/lib/DomEventsSink.js';
 import mitt from 'mitt';
 
@@ -26,7 +24,7 @@ import {
     OriginalCellSymbol,
     ColumnWidthMode,
     Width,
-} from './constants.js';
+} from './constants';
 
 // Helpers
 import {
@@ -34,20 +32,20 @@ import {
     calculateWidthAvailableForColumns,
     calculateTbodyWidth,
     serializeColumnWidth,
-} from './helpers.js';
+} from './helpers';
 
 // Cell Preview
 import {
     cellMouseOverEvent,
     cellMouseOutEvent,
     hideCellPreview,
-} from './cell_preview.js';
+} from './cell_preview';
 
 // Column Resize
 import {
     cancelColumnResize,
     onMouseDownColumnHeader as resizeOnMouseDownColumnHeader,
-} from './column_resize.js';
+} from './column_resize';
 
 // Header Events
 import {
@@ -62,7 +60,7 @@ import {
     onDragOverColumnHeader,
     onDragLeaveColumnHeader,
     onDropColumnHeader,
-} from './header_events.js';
+} from './header_events';
 
 // Rendering
 import {
@@ -77,186 +75,95 @@ import {
     resizeColumnElements,
     clearSortArrows,
     showSortArrow,
-} from './rendering.js';
+} from './rendering';
+
+// Types
+import type {
+    DGTableOptions,
+    DGTableInternalOptions,
+    DGTablePrivateState,
+    Column,
+    RowData,
+    ColumnSortOptions,
+    FilterFunction,
+    CellElement,
+    ColumnOptions,
+    CellFormatter,
+    HeaderCellFormatter,
+    OnComparatorRequired,
+    CustomSortingProvider,
+} from './types';
+import type { ColumnWidthModeType } from './constants';
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 // noinspection JSUnusedGlobalSymbols
 class DGTable {
-    /**
-     * @param {DGTable.Options?} options - initialization options
-     */
-    constructor(options) {
-        this._init(options);
+    // Static properties
+    static VERSION = '@@VERSION';
+    static Width = Width;
 
-        /**
-         * @public
-         * @expose
-         * @type {string}
-         */
+    // Instance properties
+    VERSION: string;
+    el!: HTMLElement;
+    _o!: DGTableInternalOptions;
+    _p!: DGTablePrivateState;
+    __removed?: boolean;
+
+    /**
+     * @param options - initialization options
+     */
+    constructor(options?: DGTableOptions) {
         this.VERSION = DGTable.VERSION;
-    }
 
-    /**
-     * @param {DGTable.Options?} options - initialization options
-     */
-    _init(options) {
-        options = options || {};
-
-        /**
-         * @private
-         * @type {DGTable.Options}
-         * */
-        let o = this._o = {};
-
-        /**
-         * @private
-         * This is for encapsulating private data */
-        let p = this._p = {
+        const o = this._o = {} as DGTableInternalOptions;
+        const p = this._p = {
             eventsSink: new DomEventsSink(),
             mitt: mitt(),
-            /** @type {boolean} */
             tableSkeletonNeedsRendering: true,
-        };
+        } as DGTablePrivateState;
 
-        /**
-         * @public
-         * @expose
-         * */
-        this.el = (options.el && options.el instanceof Element) ? options.el : document.createElement('div');
+        this.el = (options.el && options.el instanceof HTMLElement) ? options.el : document.createElement('div');
 
         if (this.el !== options.el) {
             this.el.classList.add(options.className || 'dgtable-wrapper');
         }
 
-        p.eventsSink.add(this.el, 'dragend.colresize', (e) => onDragEndColumnHeader(this, e));
+        p.eventsSink.add(this.el, 'dragend.colresize', (e: Event) => onDragEndColumnHeader(this, e as DragEvent));
 
-        /**
-         * @private
-         * @field {boolean} virtualTable */
+        // Initialize options with defaults
         o.virtualTable = options.virtualTable === undefined ? true : !!options.virtualTable;
-
-        /**
-         * @private
-         * @field {number} estimatedRowHeight */
         o.estimatedRowHeight = options.estimatedRowHeight || undefined;
-
-        /**
-         * @private
-         * @field {number} rowsBufferSize */
         o.rowsBufferSize = options.rowsBufferSize || 3;
-
-        /**
-         * @private
-         * @field {number} minColumnWidth */
         o.minColumnWidth = Math.max(options.minColumnWidth || 35, 0);
-
-        /**
-         * @private
-         * @field {number} resizeAreaWidth */
         o.resizeAreaWidth = options.resizeAreaWidth || 8;
-
-        /**
-         * @private
-         * @field {boolean} resizableColumns */
         o.resizableColumns = options.resizableColumns === undefined ? true : !!options.resizableColumns;
-
-        /**
-         * @private
-         * @field {boolean} movableColumns */
         o.movableColumns = options.movableColumns === undefined ? true : !!options.movableColumns;
-
-        /**
-         * @private
-         * @field {number} sortableColumns */
-        o.sortableColumns = options.sortableColumns === undefined ? 1 : (parseInt(options.sortableColumns, 10) || 1);
-
-        /**
-         * @private
-         * @field {boolean} adjustColumnWidthForSortArrow */
+        o.sortableColumns = options.sortableColumns === undefined ? 1 : (parseInt(String(options.sortableColumns), 10) || 1);
         o.adjustColumnWidthForSortArrow = options.adjustColumnWidthForSortArrow === undefined ? true : !!options.adjustColumnWidthForSortArrow;
-
-        /**
-         * @private
-         * @field {boolean} convertColumnWidthsToRelative */
         o.convertColumnWidthsToRelative = options.convertColumnWidthsToRelative === undefined ? false : !!options.convertColumnWidthsToRelative;
-
-        /**
-         * @private
-         * @field {boolean} autoFillTableWidth */
         o.autoFillTableWidth = options.autoFillTableWidth === undefined ? false : !!options.autoFillTableWidth;
-
-        /**
-         * @private
-         * @field {boolean} allowCancelSort */
         o.allowCancelSort = options.allowCancelSort === undefined ? true : !!options.allowCancelSort;
-
-        /**
-         * @private
-         * @field {string} cellClasses */
         o.cellClasses = options.cellClasses === undefined ? '' : options.cellClasses;
-
-        /**
-         * @private
-         * @field {string} resizerClassName */
         o.resizerClassName = options.resizerClassName === undefined ? 'dgtable-resize' : options.resizerClassName;
-
-        /**
-         * @private
-         * @field {string} tableClassName */
         o.tableClassName = options.tableClassName === undefined ? 'dgtable' : options.tableClassName;
-
-        /**
-         * @private
-         * @field {boolean} allowCellPreview */
         o.allowCellPreview = options.allowCellPreview === undefined ? true : options.allowCellPreview;
-
-        /**
-         * @private
-         * @field {boolean} allowHeaderCellPreview */
         o.allowHeaderCellPreview = options.allowHeaderCellPreview === undefined ? true : options.allowHeaderCellPreview;
-
-        /**
-         * @private
-         * @field {string} cellPreviewClassName */
         o.cellPreviewClassName = options.cellPreviewClassName === undefined ? 'dgtable-cell-preview' : options.cellPreviewClassName;
-
-        /**
-         * @private
-         * @field {boolean} cellPreviewAutoBackground */
         o.cellPreviewAutoBackground = options.cellPreviewAutoBackground === undefined ? true : options.cellPreviewAutoBackground;
-
-        /**
-         * @private
-         * @field {function(columnName: string, descending: boolean, defaultComparator: function(a,b):number):(function(a,b):number)} onComparatorRequired */
         o.onComparatorRequired = options.onComparatorRequired === undefined ? null : options.onComparatorRequired;
         if (!o.onComparatorRequired && typeof options['comparatorCallback'] === 'function') {
             o.onComparatorRequired = options['comparatorCallback'];
         }
-
         o.customSortingProvider = options.customSortingProvider === undefined ? null : options.customSortingProvider;
-
-        /**
-         * @private
-         * @field {boolean} width */
         o.width = options.width === undefined ? Width.NONE : options.width;
-
-        /**
-         * @private
-         * @field {boolean} relativeWidthGrowsToFillWidth */
         o.relativeWidthGrowsToFillWidth = options.relativeWidthGrowsToFillWidth === undefined ? true : !!options.relativeWidthGrowsToFillWidth;
-
-        /**
-         * @private
-         * @field {boolean} relativeWidthShrinksToFillWidth */
         o.relativeWidthShrinksToFillWidth = options.relativeWidthShrinksToFillWidth === undefined ? false : !!options.relativeWidthShrinksToFillWidth;
 
         this.setCellFormatter(options.cellFormatter);
         this.setHeaderCellFormatter(options.headerCellFormatter);
         this.setFilter(options.filter);
 
-        /** @private
-         * @field {number} height */
         o.height = options.height;
 
         // Prepare columns
@@ -267,31 +174,26 @@ class DGTable {
 
         if (options.sortColumn) {
 
-            let tmpSortColumns = options.sortColumn;
+            let tmpSortColumns: (string | ColumnSortOptions)[] = Array.isArray(options.sortColumn)
+                ? options.sortColumn
+                : [options.sortColumn];
 
-            if (tmpSortColumns && !Array.isArray(tmpSortColumns)) {
-                tmpSortColumns = [tmpSortColumns];
-            }
-
-            if (tmpSortColumns) {
-                for (let i = 0, len = tmpSortColumns.length; i < len; i++) {
-                    let sortColumn = tmpSortColumns[i];
-                    if (typeof sortColumn === 'string') {
-                        sortColumn = { column: sortColumn, descending: false };
-                    }
-                    let col = p.columns.get(sortColumn.column);
-                    if (!col) continue;
-
-                    sortColumns.push({
-                        column: sortColumn.column,
-                        comparePath: col.comparePath || col.dataPath,
-                        descending: sortColumn.descending,
-                    });
+            for (let i = 0, len = tmpSortColumns.length; i < len; i++) {
+                let sortColumn = tmpSortColumns[i];
+                if (typeof sortColumn === 'string') {
+                    sortColumn = { column: sortColumn, descending: false };
                 }
+                let col = p.columns.get(sortColumn.column);
+                if (!col) continue;
+
+                sortColumns.push({
+                    column: sortColumn.column,
+                    comparePath: col.comparePath || col.dataPath,
+                    descending: sortColumn.descending ?? false,
+                });
             }
         }
 
-        /** @field {RowCollection} _rows */
         p.rows = new RowCollection({ sortColumn: sortColumns });
         p.rows.onComparatorRequired = (column, descending, defaultComparator) => {
             if (o.onComparatorRequired) {
@@ -306,12 +208,10 @@ class DGTable {
             }
         };
 
-        /** @private
-         * @field {RowCollection} _filteredRows */
         p.filteredRows = null;
 
         p.scrollbarWidth = 0;
-        p.lastVirtualScrollHeight = 0;
+        p._lastVirtualScrollHeight = 0;
 
         this._setupHovers();
     }
@@ -319,13 +219,9 @@ class DGTable {
     _setupHovers() {
         const p = this._p;
 
-        /**
-         * @param {MouseEvent} event
-         * @this {HTMLElement}
-         * */
-        let hoverMouseOverHandler = (event) => {
-            let cell = event.currentTarget;
-            let target = event.relatedTarget;
+        const hoverMouseOverHandler = (event: MouseEvent) => {
+            let cell = event.currentTarget as CellElement;
+            let target = event.relatedTarget as Node;
             if (target === cell || cell.contains(target))
                 return;
             if (cell[PreviewCellSymbol] &&
@@ -334,14 +230,10 @@ class DGTable {
             cellMouseOverEvent(this, cell);
         };
 
-        /**
-         * @param {MouseEvent} event
-         * @this {HTMLElement}
-         * */
-        let hoverMouseOutHandler = (event) => {
-            let cell = event.currentTarget[OriginalCellSymbol] || event.currentTarget;
-            let target = event.relatedTarget;
-            if (target === this || cell.contains(target))
+        const hoverMouseOutHandler = (event: MouseEvent) => {
+            let cell = ((event.currentTarget as CellElement)[OriginalCellSymbol] || event.currentTarget) as CellElement;
+            let target = event.relatedTarget as Node;
+            if (target === this.el || cell.contains(target))
                 return;
             if (cell[PreviewCellSymbol] &&
                 (target === cell[PreviewCellSymbol] || cell[PreviewCellSymbol].contains(target)))
@@ -349,93 +241,31 @@ class DGTable {
             cellMouseOutEvent(this, cell);
         };
 
-        /**
-         * @param {HTMLElement} el cell or header-cell
-         * */
-        p._bindCellHoverIn = el => {
+        p._bindCellHoverIn = (el: CellElement) => {
             if (!el[HoverInEventSymbol]) {
                 el.addEventListener('mouseover', el[HoverInEventSymbol] = hoverMouseOverHandler);
             }
         };
 
-        /**
-         * @param {HTMLElement} el cell or header-cell
-         * */
-        p._unbindCellHoverIn = el => {
+        p._unbindCellHoverIn = (el: CellElement) => {
             if (el[HoverInEventSymbol]) {
                 el.removeEventListener('mouseover', el[HoverInEventSymbol]);
                 el[HoverInEventSymbol] = null;
             }
         };
 
-        /**
-         * @param {HTMLElement} el cell or header-cell
-         * @returns {DGTable} self
-         * */
-        p._bindCellHoverOut = (el) => {
+        p._bindCellHoverOut = (el: CellElement) => {
             if (!el[HoverOutEventSymbol]) {
                 el.addEventListener('mouseout', el[HoverOutEventSymbol] = hoverMouseOutHandler);
             }
         };
 
-        /**
-         * @param {HTMLElement} el cell or header-cell
-         * @returns {DGTable} self
-         * */
-        p._unbindCellHoverOut = el => {
+        p._unbindCellHoverOut = (el: CellElement) => {
             if (el[HoverOutEventSymbol]) {
                 el.removeEventListener('mouseout', el[HoverOutEventSymbol]);
                 el[HoverOutEventSymbol] = null;
             }
         };
-    }
-
-    _onMouseDownColumnHeader(event) {
-        return resizeOnMouseDownColumnHeader(this, event);
-    }
-
-    _onMouseMoveColumnHeader(event) {
-        onMouseMoveColumnHeader(this, event);
-    }
-
-    _onMouseUpColumnHeader(event) {
-        onMouseUpColumnHeader(this, event);
-    }
-
-    _onMouseLeaveColumnHeader(event) {
-        onMouseLeaveColumnHeader(this, event);
-    }
-
-    _onTouchStartColumnHeader(event) {
-        onTouchStartColumnHeader(this, event);
-    }
-
-    _onSortOnColumnHeaderEvent(event) {
-        onSortOnColumnHeaderEvent(this, event);
-    }
-
-    _onStartDragColumnHeader(event) {
-        return onStartDragColumnHeader(this, event);
-    }
-
-    _onDragEndColumnHeader(event) {
-        onDragEndColumnHeader(this, event);
-    }
-
-    _onDragEnterColumnHeader(event) {
-        onDragEnterColumnHeader(this, event);
-    }
-
-    _onDragOverColumnHeader(event) {
-        onDragOverColumnHeader(this, event);
-    }
-
-    _onDragLeaveColumnHeader(event) {
-        onDragLeaveColumnHeader(this, event);
-    }
-
-    _onDropColumnHeader(event) {
-        onDropColumnHeader(this, event);
     }
 
     _onTableScrolledHorizontally() {
@@ -444,20 +274,21 @@ class DGTable {
         syncHorizontalStickies(this);
     }
 
-    _bindHeaderColumnEvents(columnEl) {
-        const inner = columnEl.firstChild;
-        columnEl.addEventListener('mousedown', this._onMouseDownColumnHeader.bind(this));
-        columnEl.addEventListener('mousemove', this._onMouseMoveColumnHeader.bind(this));
-        columnEl.addEventListener('mouseup', this._onMouseUpColumnHeader.bind(this));
-        columnEl.addEventListener('mouseleave', this._onMouseLeaveColumnHeader.bind(this));
-        columnEl.addEventListener('touchstart', this._onTouchStartColumnHeader.bind(this));
-        columnEl.addEventListener('dragstart', this._onStartDragColumnHeader.bind(this));
-        columnEl.addEventListener('click', this._onSortOnColumnHeaderEvent.bind(this));
-        columnEl.addEventListener('contextmenu', event => { event.preventDefault(); });
-        inner.addEventListener('dragenter', this._onDragEnterColumnHeader.bind(this));
-        inner.addEventListener('dragover', this._onDragOverColumnHeader.bind(this));
-        inner.addEventListener('dragleave', this._onDragLeaveColumnHeader.bind(this));
-        inner.addEventListener('drop', this._onDropColumnHeader.bind(this));
+    _bindHeaderColumnEvents(columnEl: HTMLElement) {
+        const inner = columnEl.firstChild as HTMLElement;
+
+        columnEl.addEventListener('mousedown', (evt: MouseEvent) => resizeOnMouseDownColumnHeader(this, evt));
+        columnEl.addEventListener('mousemove', (evt: MouseEvent) => onMouseMoveColumnHeader(this, evt));
+        columnEl.addEventListener('mouseup', (evt: MouseEvent) => onMouseUpColumnHeader(this, evt));
+        columnEl.addEventListener('mouseleave', (evt: MouseEvent) => onMouseLeaveColumnHeader(this, evt));
+        columnEl.addEventListener('touchstart', (evt: TouchEvent) => onTouchStartColumnHeader(this, evt));
+        columnEl.addEventListener('dragstart', (evt: DragEvent) => onStartDragColumnHeader(this, evt));
+        columnEl.addEventListener('click', (evt: Event) => onSortOnColumnHeaderEvent(this, evt));
+        columnEl.addEventListener('contextmenu', (evt: Event) => evt.preventDefault());
+        inner.addEventListener('dragenter', (evt: DragEvent) => onDragEnterColumnHeader(this, evt));
+        inner.addEventListener('dragover', (evt: DragEvent) => onDragOverColumnHeader(this, evt));
+        inner.addEventListener('dragleave', (evt: DragEvent) => onDragLeaveColumnHeader(this, evt));
+        inner.addEventListener('drop', (evt: DragEvent) => onDropColumnHeader(this, evt));
     }
 
     _unbindCellEventsForTable() {
@@ -467,7 +298,7 @@ class DGTable {
             for (let i = 0, rows = p.headerRow.childNodes, rowCount = rows.length; i < rowCount; i++) {
                 let rowToClean = rows[i];
                 for (let j = 0, cells = rowToClean.childNodes, cellCount = cells.length; j < cellCount; j++) {
-                    p._unbindCellHoverIn(cells[j]);
+                    p._unbindCellHoverIn(cells[j] as CellElement);
                 }
             }
         }
@@ -475,24 +306,20 @@ class DGTable {
         return this;
     }
 
-    _unbindCellEventsForRow(rowToClean) {
+    _unbindCellEventsForRow(rowToClean: HTMLElement) {
         const p = this._p;
         for (let i = 0, cells = rowToClean.childNodes, cellCount = cells.length; i < cellCount; i++) {
-            p._unbindCellHoverIn(cells[i]);
+            p._unbindCellHoverIn(cells[i] as CellElement);
         }
         return this;
     }
 
     /**
      * Detect column width mode
-     * @private
-     * @param {Number|string} width
-     * @param {number} minWidth
-     * @returns {Object} parsed width
      */
-    _parseColumnWidth(width, minWidth) {
-        let widthSize = Math.max(0, parseFloat(width)),
-            widthMode = ColumnWidthMode.AUTO;
+    _parseColumnWidth(width: number | string | null | undefined, minWidth: number): { width: number; mode: ColumnWidthModeType } {
+        let widthSize = Math.max(0, parseFloat(width as string) || 0),
+            widthMode: ColumnWidthModeType = ColumnWidthMode.AUTO;
 
         if (widthSize > 0) {
             if (width === widthSize + '%') {
@@ -511,14 +338,10 @@ class DGTable {
         return { width: widthSize, mode: widthMode };
     }
 
-    /**
-     * @private
-     * @param {COLUMN_OPTIONS} columnData
-     */
-    _initColumnFromData(columnData) {
+    _initColumnFromData(columnData: ColumnOptions): Column {
         let parsedWidth = this._parseColumnWidth(columnData.width, columnData.ignoreMin ? 0 : this._o.minColumnWidth);
 
-        let col = {
+        let col: Column = {
             name: columnData.name,
             label: columnData.label === undefined ? columnData.name : columnData.label,
             width: parsedWidth.width,
@@ -529,26 +352,21 @@ class DGTable {
             visible: columnData.visible === undefined ? true : columnData.visible,
             cellClasses: columnData.cellClasses === undefined ? this._o.cellClasses : columnData.cellClasses,
             ignoreMin: columnData.ignoreMin === undefined ? false : !!columnData.ignoreMin,
-            sticky: columnData.sticky === undefined ? null : columnData.sticky,
+            sticky: columnData.sticky === undefined ? null : (columnData.sticky || null),
+            dataPath: [],
+            comparePath: [],
+            order: 0,
         };
 
-        col.dataPath = columnData.dataPath === undefined ? col.name : columnData.dataPath;
-        col.comparePath = columnData.comparePath === undefined ? col.dataPath : columnData.comparePath;
+        const rawDataPath = columnData.dataPath === undefined ? [col.name] : columnData.dataPath;
+        col.dataPath = typeof rawDataPath === 'string' ? rawDataPath.split('.') : rawDataPath;
 
-        if (typeof col.dataPath === 'string') {
-            col.dataPath = col.dataPath.split('.');
-        }
-        if (typeof col.comparePath === 'string') {
-            col.comparePath = col.comparePath.split('.');
-        }
+        const rawComparePath = columnData.comparePath === undefined ? col.dataPath : columnData.comparePath;
+        col.comparePath = typeof rawComparePath === 'string' ? rawComparePath.split('.') : rawComparePath;
 
         return col;
     }
 
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
     _ensureVisibleColumns() {
         const p = this._p;
 
@@ -561,33 +379,23 @@ class DGTable {
         return this;
     }
 
-    /**
-     * @private
-     * @returns {DGTable} self
-     */
     _refilter() {
         const p = this._p;
 
         if (p.filteredRows && p.filterArgs) {
-            let filterFunc = this._o.filter || ByColumnFilter;
+            let filterFunc = (this._o.filter || ByColumnFilter) as FilterFunction;
             p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
         }
         return this;
     }
 
-    /**
-     * Returns the HTML string for a specific cell.
-     * @private
-     * @param {Object} rowData - row data
-     * @param {Object} column - column data
-     * @returns {string} HTML string for the specified cell
-     */
-    _getHtmlForCell(rowData, column) {
+    /** Returns the HTML string for a specific cell */
+    _getHtmlForCell(rowData: RowData, column: Column): string {
         let dataPath = column.dataPath;
-        let colValue = rowData[dataPath[0]];
+        let colValue: unknown = rowData[dataPath[0]];
         for (let dataPathIndex = 1; dataPathIndex < dataPath.length; dataPathIndex++) {
             if (colValue == null) break;
-            colValue = colValue && colValue[dataPath[dataPathIndex]];
+            colValue = colValue && (colValue as Record<string, unknown>)[dataPath[dataPathIndex]];
         }
 
         const formatter = this._o.cellFormatter;
@@ -616,25 +424,15 @@ class DGTable {
     // PUBLIC API - Events
     // =========================================================================
 
-    /**
-     * Register an event handler
-     * @param {(string|'*')?} event
-     * @param {function(any)} handler
-     * @returns {DGTable}
-     */
-    on(event, handler) {
+    /** Register an event handler */
+    on(event: string, handler: (value: unknown) => void) {
         this._p.mitt.on(event, handler);
         return this;
     }
 
-    /**
-     * Register a one time event handler
-     * @param {(string|'*')?} event
-     * @param {function(any)} handler
-     * @returns {DGTable}
-     */
-    once(event, handler) {
-        let wrapped = (value) => {
+    /** Register a one time event handler */
+    once(event: string, handler: (value: unknown) => void) {
+        const wrapped = (value: unknown) => {
             this._p.mitt.off(event, wrapped);
             handler(value);
         };
@@ -642,14 +440,9 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Remove an `handler` for `event`, all events for `event`, or all events completely.
-     * @param {(string|'*')?} event
-     * @param {function(any)} handler
-     * @returns {DGTable}
-     */
-    off(event, handler) {
-        if (!event && !event) {
+    /** Remove an handler for event, all events for event, or all events completely */
+    off(event?: string, handler?: (value: unknown) => void) {
+        if (!event && !handler) {
             this._p.mitt.all.clear();
         } else {
             this._p.mitt.off(event, handler);
@@ -657,13 +450,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Emit an event
-     * @param {string} event
-     * @param {any?} value
-     * @returns {DGTable}
-     */
-    emit(event, value) {
+    /** Emit an event */
+    emit(event: string, value?: unknown) {
         this._p.mitt.emit(event, value);
         return this;
     }
@@ -674,14 +462,12 @@ class DGTable {
 
     /**
      * Destroy, releasing all memory, events and DOM elements
-     * @public
-     * @expose
      */
     destroy() {
-        let p = this._p || {},
-            el = this.el;
+        const p = this._p;
+        const el = this.el;
 
-        if (this.__removed) {
+        if (this.__removed || !p) {
             return this;
         }
 
@@ -742,11 +528,7 @@ class DGTable {
     // PUBLIC API - Rendering
     // =========================================================================
 
-    /**
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** Render the table */
     render() {
         const o = this._o, p = this._p;
 
@@ -811,14 +593,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Forces a full render of the table
-     * @public
-     * @expose
-     * @param {boolean=true} render - Should render now?
-     * @returns {DGTable} self
-     */
-    clearAndRender(render) {
+    /** Forces a full render of the table */
+    clearAndRender(render?: boolean) {
         let p = this._p;
 
         p.tableSkeletonNeedsRendering = true;
@@ -835,15 +611,8 @@ class DGTable {
     // PUBLIC API - Columns
     // =========================================================================
 
-    /**
-     * Sets the columns of the table
-     * @public
-     * @expose
-     * @param {COLUMN_OPTIONS[]} columns - Column definitions array
-     * @param {boolean=true} render - Should render now?
-     * @returns {DGTable} self
-     */
-    setColumns(columns, render) {
+    /** Sets the columns of the table */
+    setColumns(columns?: ColumnOptions[] | null, render?: boolean) {
         const p = this._p;
 
         columns = columns || [];
@@ -875,23 +644,17 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Add a column to the table
-     * @public
-     * @expose
-     * @param {COLUMN_OPTIONS} columnData column properties
-     * @param {string|number} [before=-1] column name or order to be inserted before
-     * @param {boolean=true} render - Should render now?
-     * @returns {DGTable} self
-     */
-    addColumn(columnData, before, render) {
+    /** Add a column to the table */
+    addColumn(columnData: ColumnOptions, before?: string | number, render?: boolean) {
         const p = this._p;
         let columns = p.columns;
 
         if (columnData && !columns.get(columnData.name)) {
             let beforeColumn = null;
             if (before !== undefined) {
-                beforeColumn = columns.get(before) || columns.getByOrder(before);
+                beforeColumn = typeof before === 'string'
+                    ? columns.get(before)
+                    : columns.getByOrder(before);
             }
 
             let column = this._initColumnFromData(columnData);
@@ -915,15 +678,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Remove a column from the table
-     * @public
-     * @expose
-     * @param {string} column column name
-     * @param {boolean=true} render - Should render now?
-     * @returns {DGTable} self
-     */
-    removeColumn(column, render) {
+    /** Remove a column from the table */
+    removeColumn(column: string, render?: boolean) {
         const p = this._p;
         let columns = p.columns;
 
@@ -940,15 +696,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Set a new label to a column
-     * @public
-     * @expose
-     * @param {string} column Name of the column
-     * @param {string} label New label for the column
-     * @returns {DGTable} self
-     */
-    setColumnLabel(column, label) {
+    /** Set a new label to a column */
+    setColumnLabel(column: string, label: string) {
         const p = this._p;
 
         let col = p.columns.get(column);
@@ -968,16 +717,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Move a column to a new position
-     * @public
-     * @expose
-     * @param {string|number} src Name or position of the column to be moved
-     * @param {string|number} dest Name of the column currently in the desired position, or the position itself
-     * @param {boolean} [visibleOnly=true] Should consider only visible columns and visible-relative indexes
-     * @returns {DGTable} self
-     */
-    moveColumn(src, dest, visibleOnly = true) {
+    /** Move a column to a new position */
+    moveColumn(src: string | number, dest: string | number, visibleOnly = true) {
         const o = this._o, p = this._p;
 
         let columns = p.columns,
@@ -1015,18 +756,18 @@ class DGTable {
                         fromPos = srcOrder;
                     headerCells[0].parentNode.insertBefore(headerCells[fromPos], headerCells[beforePos]);
 
-                    let srcWidth = p.visibleColumns[srcOrder];
-                    srcWidth = (srcWidth.actualWidthConsideringScrollbarWidth || srcWidth.actualWidth) + 'px';
-                    let destWidth = p.visibleColumns[destOrder];
-                    destWidth = (destWidth.actualWidthConsideringScrollbarWidth || destWidth.actualWidth) + 'px';
+                    let srcCol = p.visibleColumns[srcOrder];
+                    let srcWidth = ((srcCol.actualWidthConsideringScrollbarWidth || srcCol.actualWidth) ?? 0) + 'px';
+                    let destCol = p.visibleColumns[destOrder];
+                    let destWidth = ((destCol.actualWidthConsideringScrollbarWidth || destCol.actualWidth) ?? 0) + 'px';
 
                     let tbodyChildren = p.tbody.childNodes;
                     for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                        let row = tbodyChildren[i];
+                        let row = tbodyChildren[i] as HTMLElement;
                         if (row.nodeType !== 1) continue;
                         row.insertBefore(row.childNodes[fromPos], row.childNodes[beforePos]);
-                        row.childNodes[destOrder].firstChild.style.width = destWidth;
-                        row.childNodes[srcOrder].firstChild.style.width = srcWidth;
+                        ((row.childNodes[destOrder] as HTMLElement).firstChild as HTMLElement).style.width = destWidth;
+                        ((row.childNodes[srcOrder] as HTMLElement).firstChild as HTMLElement).style.width = srcWidth;
                     }
                 }
             }
@@ -1036,15 +777,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Show or hide a column
-     * @public
-     * @expose
-     * @param {string} column Unique column name
-     * @param {boolean} visible New visibility mode for the column
-     * @returns {DGTable} self
-     */
-    setColumnVisible(column, visible) {
+    /** Show or hide a column */
+    setColumnVisible(column: string, visible: boolean) {
         const p = this._p;
 
         let col = p.columns.get(column);
@@ -1061,13 +795,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Get the visibility mode of a column
-     * @public
-     * @expose
-     * @returns {boolean} true if visible
-     */
-    isColumnVisible(column) {
+    /** Get the visibility mode of a column */
+    isColumnVisible(column: string): boolean {
         const p = this._p;
         let col = p.columns.get(column);
         if (col) {
@@ -1076,14 +805,8 @@ class DGTable {
         return false;
     }
 
-    /**
-     * Globally set the minimum column width
-     * @public
-     * @expose
-     * @param {number} minColumnWidth Minimum column width
-     * @returns {DGTable} self
-     */
-    setMinColumnWidth(minColumnWidth) {
+    /** Globally set the minimum column width */
+    setMinColumnWidth(minColumnWidth: number) {
         let o = this._o;
         minColumnWidth = Math.max(minColumnWidth, 0);
         if (o.minColumnWidth !== minColumnWidth) {
@@ -1093,25 +816,13 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Get the current minimum column width
-     * @public
-     * @expose
-     * @returns {number} Minimum column width
-     */
-    getMinColumnWidth() {
+    /** Get the current minimum column width */
+    getMinColumnWidth(): number {
         return this._o.minColumnWidth;
     }
 
-    /**
-     * Set a new width to a column
-     * @public
-     * @expose
-     * @param {string} column name of the column to resize
-     * @param {number|string} width new column as pixels, or relative size (0.5, 50%)
-     * @returns {DGTable} self
-     */
-    setColumnWidth(column, width) {
+    /** Set a new width to a column */
+    setColumnWidth(column: string, width: number | string) {
         const p = this._p;
 
         let col = p.columns.get(column);
@@ -1135,13 +846,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * @public
-     * @expose
-     * @param {string} column name of the column
-     * @returns {string|null} the serialized width of the specified column, or null if column not found
-     */
-    getColumnWidth(column) {
+    /** Get the serialized width of the specified column */
+    getColumnWidth(column: string): string | number | null {
         const p = this._p;
 
         let col = p.columns.get(column);
@@ -1151,13 +857,8 @@ class DGTable {
         return null;
     }
 
-    /**
-     * @public
-     * @expose
-     * @param {string} column name of the column
-     * @returns {SERIALIZED_COLUMN|null} configuration for all columns
-     */
-    getColumnConfig(column) {
+    /** Get configuration for a specific column */
+    getColumnConfig(column: string) {
         const p = this._p;
         let col = p.columns.get(column);
         if (col) {
@@ -1171,16 +872,11 @@ class DGTable {
         return null;
     }
 
-    /**
-     * Returns a config object for the columns, to allow saving configurations for next time...
-     * @public
-     * @expose
-     * @returns {Object} configuration for all columns
-     */
+    /** Returns a config object for all columns */
     getColumnsConfig() {
         const p = this._p;
 
-        let config = {};
+        let config: Record<string, ReturnType<typeof this.getColumnConfig>> = {};
         for (let i = 0; i < p.columns.length; i++) {
             config[p.columns[i].name] = this.getColumnConfig(p.columns[i].name);
         }
@@ -1191,14 +887,8 @@ class DGTable {
     // PUBLIC API - Sorting
     // =========================================================================
 
-    /**
-     * Set the limit on concurrent columns sorted
-     * @public
-     * @expose
-     * @param {number} sortableColumns How many sortable columns to allow?
-     * @returns {DGTable} self
-     */
-    setSortableColumns(sortableColumns) {
+    /** Set the limit on concurrent columns sorted */
+    setSortableColumns(sortableColumns: number) {
         const p = this._p, o = this._o;
         if (o.sortableColumns !== sortableColumns) {
             o.sortableColumns = sortableColumns;
@@ -1213,23 +903,13 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Get the limit on concurrent columns sorted
-     * @public
-     * @expose
-     * @returns {number} How many sortable columns are allowed?
-     */
-    getSortableColumns() {
+    /** Get the limit on concurrent columns sorted */
+    getSortableColumns(): number {
         return this._o.sortableColumns;
     }
 
-    /**
-     * @public
-     * @expose
-     * @param {boolean?} movableColumns=true are the columns movable?
-     * @returns {DGTable} self
-     */
-    setMovableColumns(movableColumns) {
+    /** Set whether columns are movable */
+    setMovableColumns(movableColumns?: boolean) {
         let o = this._o;
         movableColumns = movableColumns === undefined ? true : !!movableColumns;
         if (o.movableColumns !== movableColumns) {
@@ -1238,22 +918,13 @@ class DGTable {
         return this;
     }
 
-    /**
-     * @public
-     * @expose
-     * @returns {boolean} are the columns movable?
-     */
-    getMovableColumns() {
+    /** Get whether columns are movable */
+    getMovableColumns(): boolean {
         return this._o.movableColumns;
     }
 
-    /**
-     * @public
-     * @expose
-     * @param {boolean} resizableColumns=true are the columns resizable?
-     * @returns {DGTable} self
-     */
-    setResizableColumns(resizableColumns) {
+    /** Set whether columns are resizable */
+    setResizableColumns(resizableColumns?: boolean) {
         let o = this._o;
         resizableColumns = resizableColumns === undefined ? true : !!resizableColumns;
         if (o.resizableColumns !== resizableColumns) {
@@ -1262,23 +933,13 @@ class DGTable {
         return this;
     }
 
-    /**
-     * @public
-     * @expose
-     * @returns {boolean} are the columns resizable?
-     */
-    getResizableColumns() {
+    /** Get whether columns are resizable */
+    getResizableColumns(): boolean {
         return this._o.resizableColumns;
     }
 
-    /**
-     * Sets a functions that supplies comparators dynamically
-     * @public
-     * @expose
-     * @param {{function(columnName: string, descending: boolean, defaultComparator: {function(a:any,b:any):number}):{function(a:any,b:any):number}}|null|undefined} comparatorCallback a function that returns the comparator for a specific column
-     * @returns {DGTable} self
-     */
-    setOnComparatorRequired(comparatorCallback) {
+    /** Sets a function that supplies comparators dynamically */
+    setOnComparatorRequired(comparatorCallback: OnComparatorRequired | null) {
         let o = this._o;
         if (o.onComparatorRequired !== comparatorCallback) {
             o.onComparatorRequired = comparatorCallback;
@@ -1287,18 +948,12 @@ class DGTable {
     }
 
     // Backwards compatibility
-    setComparatorCallback(comparatorCallback) {
+    setComparatorCallback(comparatorCallback: OnComparatorRequired | null) {
         return this.setOnComparatorRequired(comparatorCallback);
     }
 
-    /**
-     * sets custom sorting function for a data set
-     * @public
-     * @expose
-     * @param {{function(data: any[], sort: function(any[]):any[]):any[]}|null|undefined} customSortingProvider provides a custom sorting function
-     * @returns {DGTable} self
-     */
-    setCustomSortingProvider(customSortingProvider) {
+    /** Sets custom sorting function for a data set */
+    setCustomSortingProvider(customSortingProvider: CustomSortingProvider | null) {
         let o = this._o;
         if (o.customSortingProvider !== customSortingProvider) {
             o.customSortingProvider = customSortingProvider;
@@ -1306,16 +961,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Sort the table
-     * @public
-     * @expose
-     * @param {string?} column Name of the column to sort on (or null to remove sort arrow)
-     * @param {boolean=} descending Sort in descending order
-     * @param {boolean} [add=false] Should this sort be on top of the existing sort?
-     * @returns {DGTable} self
-     */
-    sort(column, descending, add) {
+    /** Sort the table by column */
+    sort(column?: string, descending?: boolean, add?: boolean) {
         const o = this._o, p = this._p;
 
         let columns = p.columns,
@@ -1367,11 +1014,10 @@ class DGTable {
 
         p.rows.sortColumn = currentSort;
 
-        let comparator;
         if (currentSort.length) {
-            comparator = p.rows.sort(!!p.filteredRows);
+            p.rows.sort();
             if (p.filteredRows) {
-                p.filteredRows.sort(!!p.filteredRows);
+                p.filteredRows.sort();
             }
         }
 
@@ -1382,17 +1028,12 @@ class DGTable {
         for (let i = 0; i < currentSort.length; i++) {
             sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
         }
-        this.emit('sort', { sorts: sorts, comparator: comparator });
+        this.emit('sort', { sorts: sorts });
 
         return this;
     }
 
-    /**
-     * Re-sort the table using current sort specifiers
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** Re-sort the table using current sort specifiers */
     resort() {
         const p = this._p;
         let columns = p.columns;
@@ -1406,12 +1047,11 @@ class DGTable {
                 }
             }
 
-            let comparator;
             p.rows.sortColumn = currentSort;
             if (currentSort.length) {
-                comparator = p.rows.sort(!!p.filteredRows);
+                p.rows.sort();
                 if (p.filteredRows) {
-                    p.filteredRows.sort(!!p.filteredRows);
+                    p.filteredRows.sort();
                 }
             }
 
@@ -1419,18 +1059,13 @@ class DGTable {
             for (let i = 0; i < currentSort.length; i++) {
                 sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
             }
-            this.emit('sort', { sorts: sorts, resort: true, comparator: comparator });
+            this.emit('sort', { sorts: sorts, resort: true });
         }
 
         return this;
     }
 
-    /**
-     * Returns an array of the currently sorted columns
-     * @public
-     * @expose
-     * @returns {Array.<SERIALIZED_COLUMN_SORT>} configuration for all columns
-     */
+    /** Returns an array of the currently sorted columns */
     getSortedColumns() {
         const p = this._p;
 
@@ -1446,17 +1081,12 @@ class DGTable {
     // PUBLIC API - Formatters & Filters
     // =========================================================================
 
-    /**
-     * Sets a new cell formatter.
-     * @public
-     * @expose
-     * @param {function(value: *, columnName: string, row: Object):string|null} [formatter=null] - The cell formatter. Should return an HTML.
-     * @returns {DGTable} self
-     */
-    setCellFormatter(formatter) {
+    /** Sets a new cell formatter */
+    setCellFormatter(formatter?: CellFormatter | null) {
         if (!formatter) {
-            formatter = val => (typeof val === 'string') ? htmlEncode(val) : val;
-            formatter[IsSafeSymbol] = true;
+            const defaultFormatter = (val: unknown) => (typeof val === 'string') ? htmlEncode(val) : val;
+            (defaultFormatter as unknown as Record<symbol, boolean>)[IsSafeSymbol] = true;
+            formatter = defaultFormatter as unknown as CellFormatter;
         }
 
         this._o.cellFormatter = formatter;
@@ -1464,42 +1094,26 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Sets a new header cell formatter.
-     * @public
-     * @expose
-     * @param {function(label: string, columnName: string):string|null} [formatter=null] - The cell formatter. Should return an HTML.
-     * @returns {DGTable} self
-     */
-    setHeaderCellFormatter(formatter) {
-        this._o.headerCellFormatter = formatter || function (val) {
+    /** Sets a new header cell formatter */
+    setHeaderCellFormatter(formatter?: HeaderCellFormatter | null) {
+        this._o.headerCellFormatter = formatter || function (val: string) {
             return (typeof val === 'string') ? htmlEncode(val) : val;
         };
 
         return this;
     }
 
-    /**
-     * @public
-     * @expose
-     * @param {function(row:Object,args:Object):boolean|null} [filterFunc=null] - The filter function to work with filters.
-     * @returns {DGTable} self
-     */
-    setFilter(filterFunc) {
+    /** Set the filter function */
+    setFilter(filterFunc?: FilterFunction | null) {
         this._o.filter = filterFunc;
         return this;
     }
 
-    /**
-     * @public
-     * @expose
-     * @param {Object|null} args - Options to pass to the filter function
-     * @returns {DGTable} self
-     */
-    filter(args) {
+    /** Filter the table rows */
+    filter(args?: unknown) {
         const p = this._p;
 
-        let filterFunc = this._o.filter || ByColumnFilter;
+        let filterFunc = (this._o.filter || ByColumnFilter) as FilterFunction;
 
         // Deprecated use of older by-column filter
         if (typeof arguments[0] === 'string' && typeof arguments[1] === 'string') {
@@ -1535,11 +1149,7 @@ class DGTable {
         return this;
     }
 
-    /**
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** Clear the current filter */
     clearFilter() {
         const p = this._p;
 
@@ -1557,15 +1167,8 @@ class DGTable {
     // PUBLIC API - Row Operations
     // =========================================================================
 
-    /**
-     * Returns the HTML string for a specific cell.
-     * @public
-     * @expose
-     * @param {number} rowIndex - index of the row
-     * @param {string} columnName - name of the column
-     * @returns {string|null} HTML string for the specified cell
-     */
-    getHtmlForRowCell(rowIndex, columnName) {
+    /** Returns the HTML string for a specific cell by row index */
+    getHtmlForRowCell(rowIndex: number, columnName: string): string | null {
         const p = this._p;
 
         if (rowIndex < 0 || rowIndex > p.rows.length - 1) return null;
@@ -1576,15 +1179,8 @@ class DGTable {
         return this._getHtmlForCell(rowData, column);
     }
 
-    /**
-     * Returns the HTML string for a specific cell.
-     * @public
-     * @expose
-     * @param {Object} rowData - row data
-     * @param {Object} columnName - column data
-     * @returns {string|null} HTML string for the specified cell
-     */
-    getHtmlForRowDataCell(rowData, columnName) {
+    /** Returns the HTML string for a specific cell by row data */
+    getHtmlForRowDataCell(rowData: RowData, columnName: string): string | null {
         const p = this._p;
 
         let column = p.columns.get(columnName);
@@ -1593,113 +1189,59 @@ class DGTable {
         return this._getHtmlForCell(rowData, column);
     }
 
-    /**
-     * Returns the y pos of a row by index
-     * @public
-     * @expose
-     * @param {number} rowIndex - index of the row
-     * @returns {number|null} Y pos
-     */
-    getRowYPos(rowIndex) {
+    /** Returns the y position of a row by index */
+    getRowYPos(rowIndex: number): number | null {
         const p = this._p;
 
         return p.virtualListHelper.getItemPosition(rowIndex) || null;
     }
 
-    /**
-     * Returns the row data for a specific row
-     * @public
-     * @expose
-     * @param {number} row index of the row
-     * @returns {Object} Row data
-     */
-    getDataForRow(row) {
+    /** Returns the row data for a specific row */
+    getDataForRow(row: number): RowData | null {
         const p = this._p;
 
         if (row < 0 || row > p.rows.length - 1) return null;
         return p.rows[row];
     }
 
-    /**
-     * Gets the number of rows
-     * @public
-     * @expose
-     * @returns {number} Row count
-     */
-    getRowCount() {
+    /** Gets the number of rows */
+    getRowCount(): number {
         const p = this._p;
         return p.rows ? p.rows.length : 0;
     }
 
-    /**
-     * Returns the actual row index for specific row
-     * @public
-     * @expose
-     * @param {Object} rowData - Row data to find
-     * @returns {number} Row index
-     */
-    getIndexForRow(rowData) {
+    /** Returns the actual row index for specific row data */
+    getIndexForRow(rowData: RowData): number {
         const p = this._p;
         return p.rows.indexOf(rowData);
     }
 
-    /**
-     * Gets the number of filtered rows
-     * @public
-     * @expose
-     * @returns {number} Filtered row count
-     */
-    getFilteredRowCount() {
+    /** Gets the number of filtered rows */
+    getFilteredRowCount(): number {
         const p = this._p;
         return (p.filteredRows || p.rows).length;
     }
 
-    /**
-     * Returns the filtered row index for specific row
-     * @public
-     * @expose
-     * @param {Object} rowData - Row data to find
-     * @returns {number} Row index
-     */
-    getIndexForFilteredRow(rowData) {
+    /** Returns the filtered row index for specific row data */
+    getIndexForFilteredRow(rowData: RowData): number {
         const p = this._p;
         return (p.filteredRows || p.rows).indexOf(rowData);
     }
 
-    /**
-     * Returns the row data for a specific row
-     * @public
-     * @expose
-     * @param {number} row index of the filtered row
-     * @returns {Object} Row data
-     */
-    getDataForFilteredRow(row) {
+    /** Returns the row data for a specific filtered row */
+    getDataForFilteredRow(row: number): RowData | null {
         const p = this._p;
         if (row < 0 || row > (p.filteredRows || p.rows).length - 1) return null;
         return (p.filteredRows || p.rows)[row];
     }
 
-    /**
-     * Returns DOM element of the header row
-     * @public
-     * @expose
-     * @returns {Element} Row element
-     */
-    getHeaderRowElement() {
+    /** Returns DOM element of the header row */
+    getHeaderRowElement(): HTMLElement | undefined {
         return this._p.headerRow;
     }
 
-    /**
-     * Add rows to the table
-     * @public
-     * @expose
-     * @param {Object[]} data - array of rows to add to the table
-     * @param {number} [at=-1] - where to add the rows at
-     * @param {boolean} [resort=false] - should resort all rows?
-     * @param {boolean} [render=true]
-     * @returns {DGTable} self
-     */
-    addRows(data, at, resort, render) {
+    /** Add rows to the table */
+    addRows(data: RowData | RowData[], at?: number | boolean, resort?: boolean, render?: boolean) {
         let p = this._p;
 
         if (typeof at === 'boolean') {
@@ -1715,6 +1257,9 @@ class DGTable {
             at = p.rows.length;
 
         render = (render === undefined) ? true : !!render;
+
+        const dataArray = Array.isArray(data) ? data : [data];
+        const dataCount = dataArray.length;
 
         if (data) {
             p.rows.add(data, at);
@@ -1735,7 +1280,7 @@ class DGTable {
                 }
 
             } else if (render) {
-                p.virtualListHelper.addItemsAt(data.length, at);
+                p.virtualListHelper.addItemsAt(dataCount, at);
 
                 if (this._o.virtualTable) {
                     updateVirtualHeight(this);
@@ -1750,21 +1295,13 @@ class DGTable {
                 }
             }
 
-            this.emit('addrows', { count: data.length, clear: false });
+            this.emit('addrows', { count: dataCount, clear: false });
         }
         return this;
     }
 
-    /**
-     * Removes a row from the table
-     * @public
-     * @expose
-     * @param {number} rowIndex - index
-     * @param {number} count - how many rows to remove
-     * @param {boolean=true} render
-     * @returns {DGTable} self
-     */
-    removeRows(rowIndex, count, render) {
+    /** Removes rows from the table */
+    removeRows(rowIndex: number, count: number, render?: boolean) {
         let p = this._p;
 
         if (typeof count !== 'number' || count <= 0) return this;
@@ -1802,27 +1339,13 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Removes a row from the table
-     * @public
-     * @expose
-     * @param {number} rowIndex - index
-     * @param {boolean=true} render
-     * @returns {DGTable} self
-     */
-    removeRow(rowIndex, render) {
+    /** Removes a single row from the table */
+    removeRow(rowIndex: number, render?: boolean) {
         return this.removeRows(rowIndex, 1, render);
     }
 
-    /**
-     * Refreshes the row specified
-     * @public
-     * @expose
-     * @param {number} rowIndex index
-     * @param {boolean} render should render the changes immediately?
-     * @returns {DGTable} self
-     */
-    refreshRow(rowIndex, render = true) {
+    /** Refreshes the row specified */
+    refreshRow(rowIndex: number, render = true) {
         let p = this._p;
 
         if (rowIndex < 0 || rowIndex > p.rows.length - 1)
@@ -1845,14 +1368,8 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Get the DOM element for the specified row, if it exists
-     * @public
-     * @expose
-     * @param {number} rowIndex index
-     * @returns {Element|null} row or null
-     */
-    getRowElement(rowIndex) {
+    /** Get the DOM element for the specified row, if it exists */
+    getRowElement(rowIndex: number): HTMLElement | null {
         let p = this._p;
 
         if (rowIndex < 0 || rowIndex > p.rows.length - 1)
@@ -1870,27 +1387,15 @@ class DGTable {
         return p.virtualListHelper.getItemElementAt(filteredRowIndex) || null;
     }
 
-    /**
-     * Refreshes all virtual rows
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** Refreshes all virtual rows */
     refreshAllVirtualRows() {
         const p = this._p;
         p.virtualListHelper.invalidate().render();
         return this;
     }
 
-    /**
-     * Replace the whole dataset
-     * @public
-     * @expose
-     * @param {Object[]} data array of rows to add to the table
-     * @param {boolean} [resort=false] should resort all rows?
-     * @returns {DGTable} self
-     */
-    setRows(data, resort) {
+    /** Replace the whole dataset */
+    setRows(data: RowData[], resort?: boolean) {
         let p = this._p;
 
         p.rows.reset(data);
@@ -1910,15 +1415,8 @@ class DGTable {
     // PUBLIC API - Size Changes
     // =========================================================================
 
-    /**
-     * Notify the table that its width has changed
-     * @public
-     * @expose
-     * @param {boolean} [forceUpdate=false]
-     * @param {boolean} [renderColumns=true]
-     * @returns {DGTable} self
-     */
-    tableWidthChanged(forceUpdate, renderColumns) {
+    /** Notify the table that its width has changed */
+    tableWidthChanged(forceUpdate?: boolean, renderColumns?: boolean) {
         let o = this._o,
             p = this._p,
             detectedWidth = calculateWidthAvailableForColumns(this),
@@ -2136,12 +1634,7 @@ class DGTable {
         return this;
     }
 
-    /**
-     * Notify the table that its height has changed
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** Notify the table that its height has changed */
     tableHeightChanged() {
         let o = this._o,
             p = this._p;
@@ -2176,35 +1669,19 @@ class DGTable {
     // PUBLIC API - Cell Preview
     // =========================================================================
 
-    /**
-     * Hides the current cell preview,
-     * or prevents the one that is currently trying to show (in the 'cellpreview' event)
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** Hides the current cell preview */
     hideCellPreview() {
         hideCellPreview(this);
         return this;
     }
 
-    /**
-     * A synonym for hideCellPreview()
-     * @public
-     * @expose
-     * @returns {DGTable} self
-     */
+    /** A synonym for hideCellPreview() */
     abortCellPreview() {
         this.hideCellPreview();
         return this;
     }
 
-    /**
-     * Cancel a resize in progress
-     * @expose
-     * @private
-     * @returns {DGTable} self
-     */
+    /** Cancel a resize in progress */
     cancelColumnResize() {
         cancelColumnResize(this);
         return this;
@@ -2214,60 +1691,42 @@ class DGTable {
     // PUBLIC API - Web Workers
     // =========================================================================
 
-    /**
-     * Creates a URL representing the data in the specified element.
-     * This uses the Blob or BlobBuilder of the modern browsers.
-     * The url can be used for a Web Worker.
-     * @public
-     * @expose
-     * @param {string} id Id of the element containing your data
-     * @returns {string|null} the url, or null if not supported
-     */
-    getUrlForElementContent(id) {
+    /** Creates a URL representing the data in the specified element (for Web Workers) */
+    getUrlForElementContent(id: string): string | null {
         let blob,
             el = document.getElementById(id);
         if (el) {
             let data = el.textContent;
             if (typeof Blob === 'function') {
-                blob = new Blob([data]);
+                blob = new Blob([data || '']);
             } else {
-                let BlobBuilder = window.BlobBuilder || window.WebKitBlobBuilder || window.MozBlobBuilder || window.MSBlobBuilder;
+                // Legacy BlobBuilder support (deprecated)
+                const win = window as unknown as Record<string, unknown>;
+                const BlobBuilder = win.BlobBuilder || win.WebKitBlobBuilder || win.MozBlobBuilder || win.MSBlobBuilder;
                 if (!BlobBuilder) {
                     return null;
                 }
-                let builder = new BlobBuilder();
-                builder.append(data);
+                const builder = new (BlobBuilder as new () => { append(data: string): void; getBlob(): Blob })();
+                builder.append(data || '');
                 blob = builder.getBlob();
             }
-            return (window.URL || window.webkitURL).createObjectURL(blob);
+            return (window.URL || (window as unknown as { webkitURL: typeof URL }).webkitURL).createObjectURL(blob);
         }
         return null;
     }
 
-    /**
-     * @public
-     * @expose
-     * @returns {boolean} A value indicating whether Web Workers are supported
-     */
-    isWorkerSupported() {
+    /** Check if Web Workers are supported */
+    isWorkerSupported(): boolean {
         return window['Worker'] instanceof Function;
     }
 
-    /**
-     * Creates a Web Worker for updating the table.
-     * @public
-     * @expose
-     * @param {string} url Url to the script for the Web Worker
-     * @param {boolean} [start=true] if true, starts the Worker immediately
-     * @param {boolean} [resort=false]
-     * @returns {Worker|null} the Web Worker, or null if not supported
-     */
-    createWebWorker(url, start, resort) {
+    /** Creates a Web Worker for updating the table */
+    createWebWorker(url: string, start?: boolean, resort?: boolean): Worker | null {
         if (this.isWorkerSupported()) {
             let p = this._p;
 
             let worker = new Worker(url);
-            let listener = (evt) => {
+            let listener = (evt: MessageEvent) => {
                 if (evt.data.append) {
                     this.addRows(evt.data.rows, resort);
                 } else {
@@ -2287,14 +1746,8 @@ class DGTable {
         return null;
     }
 
-    /**
-     * Unbinds a Web Worker from the table, stopping updates.
-     * @public
-     * @expose
-     * @param {Worker} worker the Web Worker
-     * @returns {DGTable} self
-     */
-    unbindWebWorker(worker) {
+    /** Unbinds a Web Worker from the table, stopping updates */
+    unbindWebWorker(worker: Worker) {
         let p = this._p;
 
         if (p.workerListeners) {
@@ -2311,101 +1764,23 @@ class DGTable {
     }
 }
 
-// =========================================================================
-// STATIC PROPERTIES
-// =========================================================================
-
-/**
- * @public
- * @expose
- * @type {string}
- */
-DGTable.VERSION = '@@VERSION';
-
-/**
- * @enum {DGTable.Width|string|undefined}
- * @const
- * @typedef {DGTable.Width}
- */
-DGTable.Width = Width;
-
-// =========================================================================
-// TYPE DEFINITIONS
-// =========================================================================
-
-/**
- * @typedef {Object} SERIALIZED_COLUMN
- * @property {number|null|undefined} [order=0]
- * @property {string|null|undefined} [width='auto']
- * @property {boolean|null|undefined} [visible=true]
- * */
-
-/**
- * @typedef {Object} SERIALIZED_COLUMN_SORT
- * @property {string|null|undefined} [column='']
- * @property {boolean|null|undefined} [descending=false]
- * */
-
-
-/**
- * @expose
- * @typedef {Object} COLUMN_SORT_OPTIONS
- * @property {string|null|undefined} column
- * @property {boolean|null|undefined} [descending=false]
- * */
-
-/**
- * @expose
- * @typedef {Object} COLUMN_OPTIONS
- * @property {string|null|undefined} width
- * @property {string|null|undefined} name
- * @property {string|null|undefined} label
- * @property {string|null|undefined} dataPath - defaults to `name`
- * @property {string|null|undefined} comparePath - defaults to `dataPath`
- * @property {number|string|null|undefined} comparePath
- * @property {boolean|null|undefined} [resizable=true]
- * @property {boolean|null|undefined} [movable=true]
- * @property {boolean|null|undefined} [sortable=true]
- * @property {boolean|null|undefined} [visible=true]
- * @property {string|null|undefined} [cellClasses]
- * @property {boolean|null|undefined} [ignoreMin=false]
- * @property {'start'|'end'|false|null|undefined} [sticky=false]
- * */
-
-/**
- * @typedef {Object} DGTable.Options
- * @property {COLUMN_OPTIONS[]} [columns]
- * @property {number} [height]
- * @property {DGTable.Width} [width]
- * @property {boolean|null|undefined} [virtualTable=true]
- * @property {number|null|undefined} [estimatedRowHeight=40]
- * @property {boolean|null|undefined} [resizableColumns=true]
- * @property {boolean|null|undefined} [movableColumns=true]
- * @property {number|null|undefined} [sortableColumns=1]
- * @property {boolean|null|undefined} [adjustColumnWidthForSortArrow=true]
- * @property {boolean|null|undefined} [relativeWidthGrowsToFillWidth=true]
- * @property {boolean|null|undefined} [relativeWidthShrinksToFillWidth=false]
- * @property {boolean|null|undefined} [convertColumnWidthsToRelative=false]
- * @property {boolean|null|undefined} [autoFillTableWidth=false]
- * @property {boolean|null|undefined} [allowCancelSort=true]
- * @property {string|null|undefined} [cellClasses]
- * @property {string|string[]|COLUMN_SORT_OPTIONS|COLUMN_SORT_OPTIONS[]} [sortColumn]
- * @property {Function|null|undefined} [cellFormatter=null]
- * @property {Function|null|undefined} [headerCellFormatter=null]
- * @property {number|null|undefined} [rowsBufferSize=10]
- * @property {number|null|undefined} [minColumnWidth=35]
- * @property {number|null|undefined} [resizeAreaWidth=8]
- * @property {function(columnName: string, descending: boolean, defaultComparator: function(a,b):number):{function(a,b):number}} [onComparatorRequired]
- * @property {function(data: any[], sort: function(any[]):any[]):any[]} [customSortingProvider]
- * @property {string|null|undefined} [resizerClassName=undefined]
- * @property {string|null|undefined} [tableClassName=undefined]
- * @property {boolean|null|undefined} [allowCellPreview=true]
- * @property {boolean|null|undefined} [allowHeaderCellPreview=true]
- * @property {string|null|undefined} [cellPreviewClassName=undefined]
- * @property {boolean|null|undefined} [cellPreviewAutoBackground=true]
- * @property {Element|null|undefined} [el=undefined]
- * @property {string|null|undefined} [className=undefined]
- * @property {Function|null|undefined} [filter=undefined]
- * */
-
 export default DGTable;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

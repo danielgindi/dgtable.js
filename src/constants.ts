@@ -1,5 +1,3 @@
-'use strict';
-
 // Symbols for internal use
 export const IsSafeSymbol = Symbol('safe');
 export const HoverInEventSymbol = Symbol('hover_in');
@@ -7,27 +5,27 @@ export const HoverOutEventSymbol = Symbol('hover_out');
 export const RowClickEventSymbol = Symbol('row_click');
 export const PreviewCellSymbol = Symbol('preview_cell');
 export const OriginalCellSymbol = Symbol('cell');
-export const RelatedTouch = Symbol('related_touch');
+export const RelatedTouchSymbol = Symbol('related_touch');
 
 /**
- * @enum {ColumnWidthMode|number|undefined}
- * @const
- * @typedef {ColumnWidthMode}
+ * Column width mode enumeration
  */
 export const ColumnWidthMode = {
-    /** @const*/ AUTO: 0,
-    /** @const*/ ABSOLUTE: 1,
-    /** @const*/ RELATIVE: 2,
-};
+    AUTO: 0,
+    ABSOLUTE: 1,
+    RELATIVE: 2,
+} as const;
+
+export type ColumnWidthModeType = typeof ColumnWidthMode[keyof typeof ColumnWidthMode];
 
 /**
- * @enum {Width|string|undefined}
- * @const
- * @typedef {Width}
+ * Table width mode enumeration
  */
 export const Width = {
-    /** @const*/ NONE: 'none',
-    /** @const*/ AUTO: 'auto',
-    /** @const*/ SCROLL: 'scroll',
-};
+    NONE: 'none',
+    AUTO: 'auto',
+    SCROLL: 'scroll',
+} as const;
+
+export type WidthType = typeof Width[keyof typeof Width];
 

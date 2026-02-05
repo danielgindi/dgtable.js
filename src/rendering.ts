@@ -1,56 +1,59 @@
-'use strict';
-
 /**
  * Rendering functionality for DGTable
  */
 
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore - No type declarations available for this module
 import VirtualListHelper from '@danielgindi/virtual-list-helper';
-import {
-    getElementWidth,
-    getElementHeight,
-    setElementWidth,
-    setCssProps,
-} from '@danielgindi/dom-utils/lib/Css.js';
+// @ts-ignore - No type declarations available for this module
+import { getElementWidth, getElementHeight, setElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
+// @ts-ignore - No type declarations available for this module
 import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
-import { RowClickEventSymbol, ColumnWidthMode } from './constants.js';
-import { Width } from './constants.js';
+import { RowClickEventSymbol, ColumnWidthMode, Width } from './constants';
 import {
     relativizeElement,
     webkitRenderBugfix,
     calculateTbodyWidth,
     isTableRtl,
     disableCssSelect,
-} from './helpers.js';
+} from './helpers';
+import type { DGTableInterface, RowData } from './types';
 
 const nativeIndexOf = Array.prototype.indexOf;
-let createElement = document.createElement.bind(document);
+const createElement = document.createElement.bind(document);
+
+interface CellElement extends HTMLDivElement {
+    columnName?: string;
+}
+
+interface HeaderCellElement extends HTMLDivElement {
+    columnName?: string;
+}
 
 /**
  * Setup virtual table rendering
- * @param {DGTable} table - The DGTable instance
  */
-export function setupVirtualTable(table) {
+export function setupVirtualTable(table: DGTableInterface): void {
     const p = table._p, o = table._o;
 
-    const tableClassName = o.tableClassName,
-        rowClassName = tableClassName + '-row',
-        altRowClassName = tableClassName + '-row-alt',
-        cellClassName = tableClassName + '-cell',
-        stickyClassName = tableClassName + '-sticky';
+    const tableClassName = o.tableClassName;
+    const rowClassName = tableClassName + '-row';
+    const altRowClassName = tableClassName + '-row-alt';
+    const cellClassName = tableClassName + '-cell';
+    const stickyClassName = tableClassName + '-sticky';
 
-    let visibleColumns = p.visibleColumns,
-        colCount = visibleColumns.length;
+    let visibleColumns = p.visibleColumns;
+    let colCount = visibleColumns.length;
 
     p.notifyRendererOfColumnsConfig = () => {
         visibleColumns = p.visibleColumns;
         colCount = visibleColumns.length;
 
-        for (let colIndex = 0, column; colIndex < colCount; colIndex++) {
-            column = visibleColumns[colIndex];
+        for (let colIndex = 0; colIndex < colCount; colIndex++) {
+            const column = visibleColumns[colIndex];
             column._finalWidth = (column.actualWidthConsideringScrollbarWidth || column.actualWidth);
         }
     };
-
 
     p.virtualListHelper = new VirtualListHelper({
         list: p.table,
@@ -62,10 +65,10 @@ export function setupVirtualTable(table) {
         itemElementCreatorFn: () => {
             return createElement('div');
         },
-        onItemRender: (row, virtualIndex) => {
-            const rows = p.filteredRows || p.rows,
-                isDataFiltered = !!p.filteredRows,
-                allowCellPreview = o.allowCellPreview;
+        onItemRender: (row: HTMLElement, virtualIndex: number) => {
+            const rows = p.filteredRows || p.rows;
+            const isDataFiltered = !!p.filteredRows;
+            const allowCellPreview = o.allowCellPreview;
 
             const isStickyColumns = p.isStickyColumns;
 
@@ -73,26 +76,26 @@ export function setupVirtualTable(table) {
             if ((virtualIndex % 2) === 1)
                 row.className += ' ' + altRowClassName;
 
-            let rowData = rows[virtualIndex];
-            let rowIndex = isDataFiltered ? rowData['__i'] : virtualIndex;
+            const rowData = rows[virtualIndex] as RowData;
+            const rowIndex = isDataFiltered ? rowData['__i'] : virtualIndex;
 
-            row['vIndex'] = virtualIndex;
-            row['index'] = rowIndex;
+            (row as any).vIndex = virtualIndex;
+            (row as any).index = rowIndex;
 
             for (let colIndex = 0; colIndex < colCount; colIndex++) {
-                let column = visibleColumns[colIndex];
-                let cell = createElement('div');
-                cell['columnName'] = column.name;
+                const column = visibleColumns[colIndex];
+                const cell = createElement('div') as CellElement;
+                cell.columnName = column.name;
                 cell.setAttribute('data-column', column.name);
                 cell.className = cellClassName;
-                cell.style.width = column._finalWidth + 'px';
+                cell.style.width = (column._finalWidth ?? 0) + 'px';
                 if (column.cellClasses)
                     cell.className += ' ' + column.cellClasses;
 
                 if (column.stickyPos) {
                     cell.className += ' ' + stickyClassName;
                     cell.style.position = 'sticky';
-                    cell.style[column.stickyPos.direction] = column.stickyPos.offset + 'px';
+                    (cell.style as any)[column.stickyPos.direction] = column.stickyPos.offset + 'px';
 
                     const isStickySide = isStickyColumns?.get(colIndex);
                     if (isStickySide === 'left')
@@ -105,13 +108,13 @@ export function setupVirtualTable(table) {
                     p._bindCellHoverIn(cell);
                 }
 
-                let cellInner = cell.appendChild(createElement('div'));
+                const cellInner = cell.appendChild(createElement('div'));
                 cellInner.innerHTML = table._getHtmlForCell(rowData, column);
 
                 row.appendChild(cell);
             }
 
-            row.addEventListener('click', row[RowClickEventSymbol] = event => {
+            row.addEventListener('click', (row as any)[RowClickEventSymbol] = (event: MouseEvent) => {
                 table.emit('rowclick', {
                     event: event,
                     filteredRowIndex: virtualIndex,
@@ -129,9 +132,9 @@ export function setupVirtualTable(table) {
             });
         },
 
-        onItemUnrender: (row) => {
-            if (row[RowClickEventSymbol]) {
-                row.removeEventListener('click', row[RowClickEventSymbol]);
+        onItemUnrender: (row: HTMLElement) => {
+            if ((row as any)[RowClickEventSymbol]) {
+                row.removeEventListener('click', (row as any)[RowClickEventSymbol]!);
             }
 
             table._unbindCellEventsForRow(row);
@@ -139,9 +142,9 @@ export function setupVirtualTable(table) {
             table.emit('rowdestroy', row);
         },
 
-        onScrollHeightChange: height => {
+        onScrollHeightChange: (height: number) => {
             if (height > p._lastVirtualScrollHeight && !p.scrollbarWidth) {
-                table._updateLastCellWidthFromScrollbar();
+                updateLastCellWidthFromScrollbar(table);
             }
 
             p._lastVirtualScrollHeight = height;
@@ -155,12 +158,10 @@ export function setupVirtualTable(table) {
 
 /**
  * Render the skeleton base (header structure)
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function renderSkeletonBase(table) {
-    let p = table._p,
-        o = table._o;
+export function renderSkeletonBase(table: DGTableInterface): DGTableInterface {
+    const p = table._p;
+    const o = table._o;
 
     // Clean up old elements
     p.virtualListHelper?.destroy();
@@ -168,7 +169,8 @@ export function renderSkeletonBase(table) {
 
     if (p.table && o.virtualTable) {
         p.table.remove();
-        p.table = p.tbody = null;
+        p.table = undefined;
+        p.tbody = undefined;
     }
 
     destroyHeaderCells(table);
@@ -178,9 +180,9 @@ export function renderSkeletonBase(table) {
     }
 
     // Create new base elements
-    let tableClassName = o.tableClassName,
-        header = createElement('div'),
-        headerRow = createElement('div');
+    const tableClassName = o.tableClassName;
+    const header = createElement('div');
+    const headerRow = createElement('div');
 
     header.className = `${tableClassName}-header`;
     headerRow.className = `${tableClassName}-header-row`;
@@ -207,21 +209,19 @@ export function renderSkeletonBase(table) {
 
 /**
  * Render skeleton body
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function renderSkeletonBody(table) {
-    let p = table._p,
-        o = table._o;
+export function renderSkeletonBody(table: DGTableInterface): DGTableInterface {
+    const p = table._p;
+    const o = table._o;
 
-    let tableClassName = o.tableClassName;
+    const tableClassName = o.tableClassName;
 
     // Calculate virtual row heights
     if (o.virtualTable && !p.virtualRowHeight) {
-        let createDummyRow = () => {
-            let row = createElement('div'),
-                cell = row.appendChild(createElement('div')),
-                cellInner = cell.appendChild(createElement('div'));
+        const createDummyRow = () => {
+            const row = createElement('div');
+            const cell = row.appendChild(createElement('div'));
+            const cellInner = cell.appendChild(createElement('div'));
             row.className = `${tableClassName}-row`;
             cell.className = `${tableClassName}-cell`;
             cellInner.innerHTML = '0';
@@ -233,7 +233,7 @@ export function renderSkeletonBody(table) {
         const dummyWrapper = createElement('div');
         dummyWrapper.className = table.el.className;
         setCssProps(dummyWrapper, {
-            'z-index': -1,
+            'z-index': '-1',
             'position': 'absolute',
             'left': '0',
             'top': '-9999px',
@@ -252,23 +252,22 @@ export function renderSkeletonBody(table) {
 
         document.body.appendChild(dummyWrapper);
 
-        let row1 = createDummyRow(), row2 = createDummyRow(), row3 = createDummyRow();
+        const row1 = createDummyRow(), row2 = createDummyRow(), row3 = createDummyRow();
         dummyTbody.appendChild(row1);
         dummyTbody.appendChild(row2);
         dummyTbody.appendChild(row3);
 
-        p.virtualRowHeightFirst = getElementHeight(row1, true, true, true);
+        // Use the middle row for the virtual row height calculation
         p.virtualRowHeight = getElementHeight(row2, true, true, true);
-        p.virtualRowHeightLast = getElementHeight(row3, true, true, true);
 
         dummyWrapper.remove();
     }
 
     // Create inner table and tbody
     if (!p.table) {
-        let fragment = document.createDocumentFragment();
+        const fragment = document.createDocumentFragment();
 
-        let tableEl = createElement('div');
+        const tableEl = createElement('div');
         tableEl.className = tableClassName;
 
         if (o.virtualTable) {
@@ -277,14 +276,13 @@ export function renderSkeletonBody(table) {
 
         const tableStyle = getComputedStyle(tableEl);
 
-        let tableHeight = (o.height - getElementHeight(p.header, true, true, true));
+        let tableHeight = ((o.height ?? 0) - getElementHeight(p.header!, true, true, true));
         if (tableStyle.boxSizing !== 'border-box') {
             tableHeight -= parseFloat(tableStyle.borderTopWidth) || 0;
             tableHeight -= parseFloat(tableStyle.borderBottomWidth) || 0;
             tableHeight -= parseFloat(tableStyle.paddingTop) || 0;
             tableHeight -= parseFloat(tableStyle.paddingBottom) || 0;
         }
-        p.visibleHeight = tableHeight;
         setCssProps(tableEl, {
             height: o.height ? tableHeight + 'px' : 'auto',
             display: 'block',
@@ -293,7 +291,7 @@ export function renderSkeletonBody(table) {
         });
         fragment.appendChild(tableEl);
 
-        let tbody = createElement('div');
+        const tbody = createElement('div');
         tbody.className = o.tableClassName + '-body';
         tbody.style.minHeight = '1px';
         p.table = tableEl;
@@ -313,35 +311,33 @@ export function renderSkeletonBody(table) {
 
 /**
  * Render skeleton header cells
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function renderSkeletonHeaderCells(table) {
-    let p = table._p,
-        o = table._o;
+export function renderSkeletonHeaderCells(table: DGTableInterface): DGTableInterface {
+    const p = table._p;
+    const o = table._o;
 
-    let allowCellPreview = o.allowCellPreview,
-        allowHeaderCellPreview = o.allowHeaderCellPreview;
+    const allowCellPreview = o.allowCellPreview;
+    const allowHeaderCellPreview = o.allowHeaderCellPreview;
 
-    let tableClassName = o.tableClassName,
-        headerCellClassName = tableClassName + '-header-cell',
-        headerRow = p.headerRow;
+    const tableClassName = o.tableClassName;
+    const headerCellClassName = tableClassName + '-header-cell';
+    const headerRow = p.headerRow!;
 
     // Create header cells
     for (let i = 0; i < p.visibleColumns.length; i++) {
-        let column = p.visibleColumns[i];
+        const column = p.visibleColumns[i];
         if (column.visible) {
-            let cell = createElement('div');
+            const cell = createElement('div') as HeaderCellElement;
             cell.draggable = true;
             cell.className = headerCellClassName;
-            cell.style.width = column.actualWidth + 'px';
+            cell.style.width = (column.actualWidth ?? 0) + 'px';
             if (o.sortableColumns && column.sortable) {
                 cell.className += ' sortable';
             }
-            cell['columnName'] = column.name;
+            cell.columnName = column.name;
             cell.setAttribute('data-column', column.name);
 
-            let cellInside = createElement('div');
+            const cellInside = createElement('div');
             cellInside.innerHTML = o.headerCellFormatter(column.label, column.name);
             cell.appendChild(cellInside);
             if (allowCellPreview && allowHeaderCellPreview) {
@@ -366,32 +362,28 @@ export function renderSkeletonHeaderCells(table) {
 
 /**
  * Destroy header cells
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function destroyHeaderCells(table) {
-    let p = table._p;
+export function destroyHeaderCells(table: DGTableInterface): DGTableInterface {
+    const p = table._p;
 
     if (p.headerRow) {
-        p.headerRow = null;
+        p.headerRow = undefined;
     }
     return table;
 }
 
 /**
  * Update virtual height
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function updateVirtualHeight(table) {
+export function updateVirtualHeight(table: DGTableInterface): DGTableInterface {
     const o = table._o, p = table._p;
 
     if (!p.tbody)
         return table;
 
-    if (o.virtualTable) {
+    if (o.virtualTable && p.virtualListHelper) {
         const virtualHeight = p.virtualListHelper.estimateFullHeight();
-        p.lastVirtualScrollHeight = virtualHeight;
+        p._lastVirtualScrollHeight = virtualHeight;
         p.tbody.style.height = virtualHeight + 'px';
     } else {
         p.tbody.style.height = '';
@@ -402,33 +394,33 @@ export function updateVirtualHeight(table) {
 
 /**
  * Update last cell width from scrollbar
- * @param {DGTable} table - The DGTable instance
- * @param {boolean} [force]
- * @returns {DGTable}
  */
-export function updateLastCellWidthFromScrollbar(table, force) {
+export function updateLastCellWidthFromScrollbar(table: DGTableInterface, force?: boolean): DGTableInterface {
     const p = table._p;
 
-    let scrollbarWidth = p.table.offsetWidth - p.table.clientWidth;
+    if (!p.table) return table;
+
+    const scrollbarWidth = p.table.offsetWidth - p.table.clientWidth;
     if (scrollbarWidth !== p.scrollbarWidth || force) {
         p.scrollbarWidth = scrollbarWidth;
         for (let i = 0; i < p.columns.length; i++) {
             p.columns[i].actualWidthConsideringScrollbarWidth = null;
         }
 
-        if (p.scrollbarWidth > 0 && p.visibleColumns.length > 0) {
-            let lastColIndex = p.visibleColumns.length - 1;
+        if (p.scrollbarWidth > 0 && p.visibleColumns.length > 0 && p.tbody && p.headerRow) {
+            const lastColIndex = p.visibleColumns.length - 1;
 
-            p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth = p.visibleColumns[lastColIndex].actualWidth - p.scrollbarWidth;
-            let lastColWidth = p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth + 'px';
-            let tbodyChildren = p.tbody.childNodes;
+            p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth =
+                (p.visibleColumns[lastColIndex].actualWidth ?? 0) - p.scrollbarWidth;
+            const lastColWidth = p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth + 'px';
+            const tbodyChildren = p.tbody.childNodes;
             for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                let row = tbodyChildren[i];
+                const row = tbodyChildren[i] as HTMLElement;
                 if (row.nodeType !== 1) continue;
-                row.childNodes[lastColIndex].style.width = lastColWidth;
+                (row.childNodes[lastColIndex] as HTMLElement).style.width = lastColWidth;
             }
 
-            p.headerRow.childNodes[lastColIndex].style.width = lastColWidth;
+            (p.headerRow.childNodes[lastColIndex] as HTMLElement).style.width = lastColWidth;
         }
 
         updateStickyColumnPositions(table);
@@ -441,13 +433,13 @@ export function updateLastCellWidthFromScrollbar(table, force) {
 
 /**
  * Update table width
- * @param {DGTable} table - The DGTable instance
- * @param {boolean} parentSizeMayHaveChanged
- * @returns {DGTable}
  */
-export function updateTableWidth(table, parentSizeMayHaveChanged) {
+export function updateTableWidth(table: DGTableInterface, parentSizeMayHaveChanged?: boolean): DGTableInterface {
     const o = table._o, p = table._p;
-    let width = calculateTbodyWidth(table);
+
+    if (!p.tbody || !p.table || !p.headerRow) return table;
+
+    const width = calculateTbodyWidth(table);
 
     p.tbody.style.minWidth = width + 'px';
     p.headerRow.style.minWidth = (width + (p.scrollbarWidth || 0)) + 'px';
@@ -461,17 +453,20 @@ export function updateTableWidth(table, parentSizeMayHaveChanged) {
     } else if (o.width === Width.SCROLL) {
 
         if (parentSizeMayHaveChanged) {
-            let lastScrollTop = p.table ? p.table.scrollTop : 0,
-                lastScrollLeft = p.table ? p.table.scrollLeft : 0;
+            const lastScrollTop = p.table ? p.table.scrollTop : 0;
+            const lastScrollLeft = p.table ? p.table.scrollLeft : 0;
 
             webkitRenderBugfix(table.el);
 
             p.table.scrollTop = lastScrollTop;
             p.table.scrollLeft = lastScrollLeft;
-            p.header.scrollLeft = lastScrollLeft;
+            if (p.header) {
+                p.header.scrollLeft = lastScrollLeft;
+            }
         }
 
-        p.eventsSink.add(p.table, 'scroll', table._onTableScrolledHorizontally.bind(table));
+        const boundHandler = (table as unknown as { _onTableScrolledHorizontally(): void })._onTableScrolledHorizontally.bind(table);
+        p.eventsSink.add(p.table, 'scroll', boundHandler);
     }
 
     return table;
@@ -479,29 +474,30 @@ export function updateTableWidth(table, parentSizeMayHaveChanged) {
 
 /**
  * Update sticky column positions
- * @param {DGTable} table - The DGTable instance
  */
-export function updateStickyColumnPositions(table) {
-    const p = table._p,
-        o = table._o;
+export function updateStickyColumnPositions(table: DGTableInterface): void {
+    const p = table._p;
+    const o = table._o;
 
-    const tableClassName = o.tableClassName,
-        stickyClassName = tableClassName + '-sticky',
-        headerRow = p.headerRow;
+    if (!p.headerRow) return;
+
+    const tableClassName = o.tableClassName;
+    const stickyClassName = tableClassName + '-sticky';
+    const headerRow = p.headerRow;
 
     const rtl = isTableRtl(table);
     const scrollbarWidth = p.scrollbarWidth ?? 0;
 
     let stickColLeft = 0;
     let stickColRight = 0;
-    let boxSizing = null;
+    let boxSizing: string | null = null;
 
-    const stickiesLeft = [];
-    const stickiesRight = [];
-    let stickyLeftGroup = null;
-    let stickyRightGroup = [];
+    const stickiesLeft: [HTMLElement, ...HTMLElement[]][] = [];
+    const stickiesRight: [HTMLElement, ...HTMLElement[]][] = [];
+    let stickyLeftGroup: HTMLElement[] | null = null;
+    let stickyRightGroup: HTMLElement[] = [];
 
-    for (let currentCellEl = headerRow.firstElementChild; currentCellEl; currentCellEl = currentCellEl.nextElementSibling) {
+    for (let currentCellEl = headerRow.firstElementChild as HTMLElement | null; currentCellEl; currentCellEl = currentCellEl.nextElementSibling as HTMLElement | null) {
         const columnName = currentCellEl.getAttribute('data-column');
         if (!columnName)
             continue;
@@ -513,9 +509,9 @@ export function updateStickyColumnPositions(table) {
             currentCellEl.className += ' ' + stickyClassName;
             currentCellEl.style.position = 'sticky';
 
-            let colFullWidth = column.actualWidth;
+            let colFullWidth = column.actualWidth ?? 0;
 
-            let computedStyle = null;
+            let computedStyle: CSSStyleDeclaration | null = null;
             if (boxSizing === null) {
                 computedStyle = getComputedStyle(currentCellEl);
                 boxSizing = computedStyle.boxSizing;
@@ -530,7 +526,7 @@ export function updateStickyColumnPositions(table) {
                     (parseFloat(computedStyle.borderRightWidth) || 0);
             }
 
-            const isLeft = column.sticky === 'start' && !rtl || column.sticky === 'end' && rtl;
+            const isLeft = (column.sticky === 'start' && !rtl) || (column.sticky === 'end' && rtl);
 
             if (isLeft) {
                 column.stickyPos = { direction: 'left', offset: stickColLeft };
@@ -540,13 +536,13 @@ export function updateStickyColumnPositions(table) {
                 stickyRightGroup.length = 0;
 
                 stickyLeftGroup = [currentCellEl];
-                stickiesLeft.push(stickyLeftGroup);
+                stickiesLeft.push(stickyLeftGroup as [HTMLElement, ...HTMLElement[]]);
             } else {
                 column.stickyPos = { direction: 'right', offset: stickColRight };
                 currentCellEl.style.right = (stickColRight + scrollbarWidth) + 'px';
                 stickColRight += colFullWidth;
 
-                stickiesRight.push([currentCellEl, ...stickyRightGroup]);
+                stickiesRight.push([currentCellEl, ...stickyRightGroup] as [HTMLElement, ...HTMLElement[]]);
                 stickyRightGroup.length = 0;
             }
         } else {
@@ -571,18 +567,19 @@ export function updateStickyColumnPositions(table) {
 
 /**
  * Sync horizontal stickies
- * @param {DGTable} table - The DGTable instance
  */
-export function syncHorizontalStickies(table) {
+export function syncHorizontalStickies(table: DGTableInterface): void {
     const p = table._p;
+
+    if (!p.table || !p.headerRow || !p.tbody) return;
 
     const stickiesLeft = p.stickiesLeft;
     const stickiesRight = p.stickiesRight;
 
     const oldStickiesSetLeft = p.stickiesSetLeft;
     const oldStickiesSetRight = p.stickiesSetRight;
-    const stickiesSetLeft = p.stickiesSetLeft = new Set();
-    const stickiesSetRight = p.stickiesSetRight = new Set();
+    const stickiesSetLeft = p.stickiesSetLeft = new Set<number>();
+    const stickiesSetRight = p.stickiesSetRight = new Set<number>();
 
     if (stickiesLeft?.length || !stickiesRight?.length) {
         const scrollLeft = p.table.scrollLeft;
@@ -593,10 +590,8 @@ export function syncHorizontalStickies(table) {
         const allHeaderCells = p.headerRow.children;
         const tolerance = 1.5;
 
-        const processStickies = (stickies, isLeft, indicesSet) => {
+        const processStickies = (stickies: [HTMLElement, ...HTMLElement[]][] | undefined, isLeft: boolean, indicesSet: Set<number>) => {
             if (!stickies || !stickies.length) return;
-
-            let stackSize = 0;
 
             for (const sticky of stickies) {
                 const el = sticky[0];
@@ -626,8 +621,6 @@ export function syncHorizontalStickies(table) {
                 if (overlapsFollowing) {
                     indicesSet.add(nativeIndexOf.call(allHeaderCells, el));
                 }
-
-                stackSize += sRect.width || el.offsetWidth || 0;
             }
         };
 
@@ -635,8 +628,8 @@ export function syncHorizontalStickies(table) {
         processStickies(stickiesRight, false, stickiesSetRight);
     }
 
-    const newStickies = [];
-    const removeStickies = [];
+    const newStickies: { index: number; left?: boolean; right?: boolean }[] = [];
+    const removeStickies: { index: number; left?: boolean; right?: boolean }[] = [];
 
     for (const idx of stickiesSetLeft)
         if (!oldStickiesSetLeft?.has(idx))
@@ -661,7 +654,7 @@ export function syncHorizontalStickies(table) {
     if (!newStickies.length && !removeStickies.length)
         return;
 
-    let rowEl = p.tbody.firstElementChild;
+    let rowEl = p.tbody.firstElementChild as HTMLElement | null;
     while (rowEl) {
         const children = rowEl.children;
 
@@ -671,7 +664,7 @@ export function syncHorizontalStickies(table) {
         for (const sticky of newStickies)
             children[sticky.index]?.classList.add(sticky.left ? 'is-sticky-left' : 'is-sticky-right');
 
-        rowEl = rowEl.nextElementSibling;
+        rowEl = rowEl.nextElementSibling as HTMLElement | null;
     }
 
     p.isStickyColumns = new Map();
@@ -681,27 +674,28 @@ export function syncHorizontalStickies(table) {
 
 /**
  * Resize column elements
- * @param {DGTable} table - The DGTable instance
- * @param {number} cellIndex
- * @returns {DGTable}
  */
-export function resizeColumnElements(table, cellIndex) {
-    let p = table._p;
+export function resizeColumnElements(table: DGTableInterface, cellIndex: number): DGTableInterface {
+    const p = table._p;
     const o = table._o;
 
-    const headerCells = p.headerRow.querySelectorAll(`div.${o.tableClassName}-header-cell`);
+    if (!p.headerRow || !p.tbody) return table;
+
+    const headerCells = p.headerRow.querySelectorAll(`div.${o.tableClassName}-header-cell`) as NodeListOf<HeaderCellElement>;
     const headerCell = headerCells[cellIndex];
-    let col = p.columns.get(headerCell['columnName']);
+    if (!headerCell) return table;
+
+    const col = p.columns.get(headerCell.columnName!);
 
     if (col) {
-        headerCell.style.width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth) + 'px';
+        headerCell.style.width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth || 0) + 'px';
 
-        let width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth) + 'px';
-        let tbodyChildren = p.tbody.childNodes;
+        const width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth || 0) + 'px';
+        const tbodyChildren = p.tbody.childNodes;
         for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-            let rowEl = tbodyChildren[i];
+            const rowEl = tbodyChildren[i] as HTMLElement;
             if (rowEl.nodeType !== 1) continue;
-            rowEl.childNodes[cellIndex].style.width = width;
+            (rowEl.childNodes[cellIndex] as HTMLElement).style.width = width;
         }
     }
 
@@ -710,21 +704,24 @@ export function resizeColumnElements(table, cellIndex) {
 
 /**
  * Clear sort arrows
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function clearSortArrows(table) {
-    let p = table._p;
+export function clearSortArrows(table: DGTableInterface): DGTableInterface {
+    const p = table._p;
     const o = table._o;
 
-    if (p.table) {
-        let tableClassName = o.tableClassName;
-        let sortedColumns = scopedSelectorAll(p.headerRow, `>div.${tableClassName}-header-cell.sorted`);
-        let arrows = Array.prototype.slice.call(sortedColumns, 0).map((el) => el.querySelector(':scope>div>.sort-arrow')).filter((el) => !!el);
+    if (p.table && p.headerRow) {
+        const tableClassName = o.tableClassName;
+        const sortedColumns = scopedSelectorAll(p.headerRow, `>div.${tableClassName}-header-cell.sorted`);
+        const arrows = Array.prototype.slice.call(sortedColumns, 0)
+            .map((el: HTMLElement) => el.querySelector(':scope>div>.sort-arrow'))
+            .filter((el): el is HTMLElement => !!el);
         for (const arrow of arrows) {
-            let col = p.columns.get(arrow.parentNode.parentNode['columnName']);
-            if (col) {
-                col.arrowProposedWidth = 0;
+            const colEl = arrow.parentNode?.parentNode as HeaderCellElement | null;
+            if (colEl) {
+                const col = p.columns.get(colEl.columnName!);
+                if (col) {
+                    col.arrowProposedWidth = 0;
+                }
             }
             arrow.remove();
         }
@@ -737,24 +734,20 @@ export function clearSortArrows(table) {
 
 /**
  * Show sort arrow
- * @param {DGTable} table - The DGTable instance
- * @param {string} column
- * @param {boolean} descending
- * @returns {boolean}
  */
-export function showSortArrow(table, column, descending) {
-    let p = table._p;
+export function showSortArrow(table: DGTableInterface, column: string, descending: boolean): boolean {
+    const p = table._p;
     const o = table._o;
 
-    let col = p.columns.get(column);
+    const col = p.columns.get(column);
     if (!col) return false;
 
-    let arrow = createElement('span');
+    const arrow = createElement('span');
     arrow.className = 'sort-arrow';
 
     if (col.element) {
         col.element.className += descending ? ' sorted desc' : ' sorted';
-        col.element.firstChild.insertBefore(arrow, col.element.firstChild.firstChild);
+        col.element.firstChild?.insertBefore(arrow, col.element.firstChild.firstChild);
     }
 
     if (col.widthMode !== ColumnWidthMode.RELATIVE && o.adjustColumnWidthForSortArrow) {

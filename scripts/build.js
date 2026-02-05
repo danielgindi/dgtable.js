@@ -1,18 +1,19 @@
 /* eslint-disable no-console */
 
 import Path from 'node:path';
-import { readFile, writeFile, rmdir, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, rm, mkdir } from 'node:fs/promises';
 import { rollup } from 'rollup';
 import MagicString from 'magic-string';
 import { babel } from '@rollup/plugin-babel';
 import PluginTerser from '@rollup/plugin-terser';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
 import PluginCommonjs from '@rollup/plugin-commonjs';
+import typescript from '@rollup/plugin-typescript';
 import { fileURLToPath } from 'node:url';
 
 (async () => {
 
-    await rmdir('./dist', { recursive: true });
+    await rm('./dist', { recursive: true, force: true });
     await mkdir('./dist');
 
     const rollupTasks = [{
@@ -65,7 +66,7 @@ import { fileURLToPath } from 'node:url';
         ecmaVersion: 6,
     }];
 
-    const inputFile = 'src/index.js';
+    const inputFile = 'src/index.ts';
 
     for (let task of rollupTasks) {
         console.info('Generating ' + task.dest + '...');
@@ -73,8 +74,21 @@ import { fileURLToPath } from 'node:url';
         let plugins = [
             nodeResolve({
                 mainFields: ['module', 'main'],
+                extensions: ['.ts', '.js'],
             }),
             PluginCommonjs({}),
+            typescript({
+                tsconfig: './tsconfig.json',
+                declaration: false,
+                declarationMap: false,
+                sourceMap: !!task.sourceMap,
+                noEmitOnError: false,
+                compilerOptions: {
+                    strict: false,
+                    noImplicitAny: false,
+                    skipLibCheck: true,
+                },
+            }),
         ];
 
         const pkg = JSON.parse(await readFile(Path.join(Path.dirname(fileURLToPath(import.meta.url)), '../package.json'), { encoding: 'utf8' }));
@@ -101,6 +115,7 @@ import { fileURLToPath } from 'node:url';
                 retainLines: true,
                 babelHelpers: 'bundled',
                 exclude: 'node_modules/**/core-js/**/*',
+                extensions: ['.js', '.ts'],
             }));
         }
 
@@ -172,3 +187,4 @@ import { fileURLToPath } from 'node:url';
     console.info('Done.');
 
 })();
+

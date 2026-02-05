@@ -26,6 +26,7 @@ export default [
             "dist/**/*",
             "connectors/jquery/dist/**/*",
             "example/**/*",
+            "src/**/*.ts",
         ],
     },
     ...compat.extends("eslint:recommended"),

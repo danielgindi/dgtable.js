@@ -1,56 +1,74 @@
-'use strict';
-
 /**
  * Column resize functionality for DGTable
  */
 
-import {
-    getElementWidth,
-    getElementHeight,
-    getElementOffset,
-    setCssProps,
-} from '@danielgindi/dom-utils/lib/Css.js';
-import { ColumnWidthMode, RelatedTouch, OriginalCellSymbol } from './constants.js';
-import { isTableRtl, horizontalPadding } from './helpers.js';
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore - No type declarations available for this module
+import { getElementWidth, getElementHeight, getElementOffset, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
+import { ColumnWidthMode, RelatedTouchSymbol, OriginalCellSymbol } from './constants';
+import { isTableRtl, horizontalPadding } from './helpers';
+import type { DGTableInterface, Column } from './types';
 
-let createElement = document.createElement.bind(document);
+const createElement = document.createElement.bind(document);
+
+// Extended element types
+interface HeaderCellElement extends HTMLElement {
+    columnName?: string;
+    [OriginalCellSymbol]?: HTMLElement;
+}
+
+interface ResizerElement extends HTMLDivElement {
+    columnName?: string;
+}
+
+type PositionHost = {
+    pageX: number;
+    clientX?: number;
+};
+
+type TouchOrMouseEvent = (MouseEvent | TouchEvent) & {
+    [RelatedTouchSymbol]?: PositionHost;
+};
 
 /**
  * Reverse-calculate the column to resize from mouse position
- * @param {DGTable} table - The DGTable instance
- * @param {MouseEvent|TouchEvent} event
- * @returns {string|null} name of the column which the mouse is over
  */
-export function getColumnByResizePosition(table, event) {
-    let o = table._o,
-        rtl = isTableRtl(table);
+export function getColumnByResizePosition(table: DGTableInterface, event: Event): string | null {
+    const o = table._o;
+    const rtl = isTableRtl(table);
 
-    let headerCell = event.target.closest(`div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`);
+    let headerCell = (event.target as HTMLElement).closest(
+        `div.${o.tableClassName}-header-cell,div.${o.cellPreviewClassName}`
+    ) as HeaderCellElement | null;
+
+    if (!headerCell) return null;
+
     if (headerCell[OriginalCellSymbol]) {
-        headerCell = headerCell[OriginalCellSymbol];
+        headerCell = headerCell[OriginalCellSymbol] as HeaderCellElement;
     }
 
-    let previousElementSibling = headerCell.previousSibling;
+    let previousElementSibling = headerCell.previousSibling as HTMLElement | null;
     while (previousElementSibling && previousElementSibling.nodeType !== 1) {
-        previousElementSibling = previousElementSibling.previousSibling;
+        previousElementSibling = previousElementSibling.previousSibling as HTMLElement | null;
     }
 
-    let firstCol = !previousElementSibling;
+    const firstCol = !previousElementSibling;
 
-    const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
-    let mouseX = (positionHost.pageX || positionHost.clientX) - getElementOffset(headerCell).left;
+    const touchEvent = event as TouchEvent;
+    const positionHost = (event as TouchOrMouseEvent)[RelatedTouchSymbol] ?? touchEvent.changedTouches?.[0] ?? event as unknown as PositionHost;
+    const mouseX = (positionHost.pageX || positionHost.clientX || 0) - getElementOffset(headerCell).left;
 
     if (rtl) {
         if (!firstCol && getElementWidth(headerCell, true, true, true) - mouseX <= o.resizeAreaWidth / 2) {
-            return previousElementSibling['columnName'];
+            return (previousElementSibling as HeaderCellElement)?.columnName ?? null;
         } else if (mouseX <= o.resizeAreaWidth / 2) {
-            return headerCell['columnName'];
+            return headerCell.columnName ?? null;
         }
     } else {
         if (!firstCol && mouseX <= o.resizeAreaWidth / 2) {
-            return previousElementSibling['columnName'];
+            return (previousElementSibling as HeaderCellElement)?.columnName ?? null;
         } else if (getElementWidth(headerCell, true, true, true) - mouseX <= o.resizeAreaWidth / 2) {
-            return headerCell['columnName'];
+            return headerCell.columnName ?? null;
         }
     }
 
@@ -59,10 +77,8 @@ export function getColumnByResizePosition(table, event) {
 
 /**
  * Cancel a resize in progress
- * @param {DGTable} table - The DGTable instance
- * @returns {DGTable}
  */
-export function cancelColumnResize(table) {
+export function cancelColumnResize(table: DGTableInterface): DGTableInterface {
     const p = table._p;
 
     if (p.resizer) {
@@ -76,55 +92,54 @@ export function cancelColumnResize(table) {
 
 /**
  * Handle mouse down on column header for resize
- * @param {DGTable} table - The DGTable instance
- * @param {MouseEvent|TouchEvent} event
  */
-export function onMouseDownColumnHeader(table, event) {
-    if (event.type === 'mousedown' && event.button !== 0)
+export function onMouseDownColumnHeader(table: DGTableInterface, event: Event): boolean | void {
+    const mouseEvent = event as MouseEvent;
+    if (event.type === 'mousedown' && mouseEvent.button !== 0)
         return;
 
-    let o = table._o,
-        p = table._p,
-        col = getColumnByResizePosition(table, event);
+    const o = table._o;
+    const p = table._p;
+    const col = getColumnByResizePosition(table, event);
 
     if (col) {
-        let column = p.columns.get(col);
+        const column = p.columns.get(col);
         if (!o.resizableColumns || !column || !column.resizable) {
             return false;
         }
 
-        let rtl = isTableRtl(table);
+        const rtl = isTableRtl(table);
 
         if (p.resizer) {
             p.resizer.remove();
         }
-        p.resizer = createElement('div');
+        p.resizer = createElement('div') as ResizerElement;
         p.resizer.className = o.resizerClassName;
         setCssProps(p.resizer, {
             position: 'absolute',
             display: 'block',
-            zIndex: -1,
+            zIndex: '-1',
             visibility: 'hidden',
             width: '2px',
             background: '#000',
-            opacity: 0.7,
+            opacity: '0.7',
         });
         table.el.appendChild(p.resizer);
 
-        let selectedHeaderCell = column.element,
-            commonAncestor = p.resizer.parentNode;
+        const selectedHeaderCell = column.element!;
+        const commonAncestor = p.resizer.parentNode as HTMLElement;
 
         const commonAncestorStyle = getComputedStyle(commonAncestor);
         const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
 
-        let posCol = getElementOffset(selectedHeaderCell),
-            posRelative = getElementOffset(commonAncestor);
+        const posCol = getElementOffset(selectedHeaderCell);
+        const posRelative = getElementOffset(commonAncestor);
         posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
         posRelative.top += parseFloat(commonAncestorStyle.borderTopWidth) || 0;
         posCol.left -= posRelative.left;
         posCol.top -= posRelative.top;
         posCol.top -= parseFloat(selectedHeaderCellStyle.borderTopWidth) || 0;
-        let resizerWidth = getElementWidth(p.resizer, true, true, true);
+        const resizerWidth = getElementWidth(p.resizer, true, true, true);
         if (rtl) {
             posCol.left -= Math.ceil((parseFloat(selectedHeaderCellStyle.borderLeftWidth) || 0) / 2);
             posCol.left -= Math.ceil(resizerWidth / 2);
@@ -141,16 +156,16 @@ export function onMouseDownColumnHeader(table, event) {
             'top': posCol.top + 'px',
             'height': getElementHeight(table.el, false, false, false) + 'px',
         });
-        p.resizer['columnName'] = selectedHeaderCell['columnName'];
+        (p.resizer as ResizerElement).columnName = (selectedHeaderCell as HeaderCellElement).columnName;
 
         try { p.resizer.style.zIndex = ''; }
-        catch (ignored) { /* we're ok with this */ }
+        catch { /* we're ok with this */ }
 
         p.eventsSink
-            .add(document, 'mousemove.colresize', (e) => onMouseMoveResizeArea(table, e))
-            .add(document, 'touchmove.colresize', (e) => onMouseMoveResizeArea(table, e))
-            .add(document, 'mouseup.colresize', (e) => onResizerPointerUp(table, e))
-            .add(document, 'touchend.colresize', (e) => onResizerPointerUp(table, e));
+            .add(document, 'mousemove.colresize', (e: Event) => onMouseMoveResizeArea(table, e))
+            .add(document, 'touchmove.colresize', (e: Event) => onMouseMoveResizeArea(table, e))
+            .add(document, 'mouseup.colresize', (e: Event) => onResizerPointerUp(table, e))
+            .add(document, 'touchend.colresize', (e: Event) => onResizerPointerUp(table, e));
 
         event.preventDefault();
     }
@@ -158,30 +173,33 @@ export function onMouseDownColumnHeader(table, event) {
 
 /**
  * Handle mouse move during column resize
- * @param {DGTable} table - The DGTable instance
- * @param {MouseEvent|TouchEvent} event
  */
-export function onMouseMoveResizeArea(table, event) {
-    let p = table._p;
+export function onMouseMoveResizeArea(table: DGTableInterface, event: Event): void {
+    const p = table._p;
 
-    let column = p.columns.get(p.resizer['columnName']);
-    let rtl = isTableRtl(table);
+    if (!p.resizer) return;
 
-    let selectedHeaderCell = column.element,
-        commonAncestor = p.resizer.parentNode;
+    const column = p.columns.get((p.resizer as ResizerElement).columnName!);
+    if (!column) return;
+
+    const rtl = isTableRtl(table);
+
+    const selectedHeaderCell = column.element!;
+    const commonAncestor = p.resizer.parentNode as HTMLElement;
 
     const commonAncestorStyle = getComputedStyle(commonAncestor);
     const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
 
-    let posCol = getElementOffset(selectedHeaderCell),
-        posRelative = getElementOffset(commonAncestor);
+    const posCol = getElementOffset(selectedHeaderCell);
+    const posRelative = getElementOffset(commonAncestor);
     posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
     posCol.left -= posRelative.left;
-    let resizerWidth = getElementWidth(p.resizer, true, true, true);
+    const resizerWidth = getElementWidth(p.resizer, true, true, true);
 
-    let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
+    const isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
 
-    const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
+    const touchEvent = event as TouchEvent;
+    const positionHost = (event as TouchOrMouseEvent)[RelatedTouchSymbol] ?? touchEvent.changedTouches?.[0] ?? event as unknown as PositionHost;
     let actualX = positionHost.pageX - posRelative.left;
     let minX = posCol.left;
 
@@ -217,39 +235,44 @@ export function onMouseMoveResizeArea(table, event) {
 
 /**
  * Handle pointer up after resize
- * @param {DGTable} table - The DGTable instance
- * @param {MouseEvent|TouchEvent} event
  */
-export function onResizerPointerUp(table, event) {
-    let o = table._o,
-        p = table._p;
+export function onResizerPointerUp(table: DGTableInterface, event: Event): void {
+    const o = table._o;
+    const p = table._p;
 
     if (!p.resizer)
         return;
 
     p.eventsSink.remove(document, '.colresize');
 
-    let column = p.columns.get(p.resizer['columnName']);
-    let rtl = isTableRtl(table);
+    const column = p.columns.get((p.resizer as ResizerElement).columnName!);
+    if (!column) {
+        p.resizer.remove();
+        p.resizer = null;
+        return;
+    }
 
-    let selectedHeaderCell = column.element,
-        selectedHeaderCellInner = selectedHeaderCell.firstChild,
-        commonAncestor = p.resizer.parentNode;
+    const rtl = isTableRtl(table);
+
+    const selectedHeaderCell = column.element!;
+    const selectedHeaderCellInner = selectedHeaderCell.firstChild as HTMLElement | null;
+    const commonAncestor = p.resizer.parentNode as HTMLElement;
 
     const commonAncestorStyle = getComputedStyle(commonAncestor);
     const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
 
-    let posCol = getElementOffset(selectedHeaderCell),
-        posRelative = getElementOffset(commonAncestor);
+    const posCol = getElementOffset(selectedHeaderCell);
+    const posRelative = getElementOffset(commonAncestor);
     posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
     posCol.left -= posRelative.left;
-    let resizerWidth = getElementWidth(p.resizer, true, true, true);
+    const resizerWidth = getElementWidth(p.resizer, true, true, true);
 
-    let isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
+    const isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
 
-    const positionHost = event[RelatedTouch] ?? event.changedTouches?.[0] ?? event;
+    const touchEvent = event as TouchEvent;
+    const positionHost = (event as any)[RelatedTouchSymbol] as PositionHost ?? touchEvent.changedTouches?.[0] as PositionHost ?? event as any as PositionHost;
     let actualX = positionHost.pageX - posRelative.left;
-    let baseX = posCol.left, minX = posCol.left;
+    let baseX = posCol.left;
     let width = 0;
 
     baseX -= Math.ceil(resizerWidth / 2);
@@ -265,7 +288,7 @@ export function onResizerPointerUp(table, event) {
 
         baseX += getElementWidth(selectedHeaderCell, true, true, true);
 
-        minX = baseX - (column.ignoreMin ? 0 : table._o.minColumnWidth);
+        const minX = baseX - (column.ignoreMin ? 0 : table._o.minColumnWidth);
         if (actualX > minX) {
             actualX = minX;
         }
@@ -280,7 +303,7 @@ export function onResizerPointerUp(table, event) {
             actualX -= column.arrowProposedWidth || 0;
         }
 
-        minX = baseX + (column.ignoreMin ? 0 : table._o.minColumnWidth);
+        const minX = baseX + (column.ignoreMin ? 0 : table._o.minColumnWidth);
         if (actualX < minX) {
             actualX = minX;
         }
@@ -291,33 +314,33 @@ export function onResizerPointerUp(table, event) {
     p.resizer.remove();
     p.resizer = null;
 
-    let sizeToSet = width;
+    let sizeToSet: number | string = width;
 
     if (column.widthMode === ColumnWidthMode.RELATIVE) {
-        let sizeLeft = table._calculateWidthAvailableForColumns();
+        let sizeLeft = calculateWidthAvailableForColumns(table);
 
         let totalRelativePercentage = 0;
         let relatives = 0;
 
         for (let i = 0; i < p.visibleColumns.length; i++) {
-            let col = p.visibleColumns[i];
+            const col = p.visibleColumns[i];
             if (col.name === column.name) continue;
 
             if (col.widthMode === ColumnWidthMode.RELATIVE) {
                 totalRelativePercentage += col.width;
                 relatives++;
             } else {
-                sizeLeft -= col.actualWidth;
+                sizeLeft -= col.actualWidth ?? 0;
             }
         }
 
         sizeLeft = Math.max(1, sizeLeft);
-        if (sizeLeft === 1)
+        if (sizeLeft === 1 && p.table)
             sizeLeft = p.table.clientWidth;
         sizeToSet = width / sizeLeft;
 
         if (relatives > 0) {
-            let unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
+            const unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
 
             totalRelativePercentage += sizeToSet;
 
@@ -328,9 +351,12 @@ export function onResizerPointerUp(table, event) {
         }
 
         sizeToSet *= 100;
-        sizeToSet += '%';
+        sizeToSet = sizeToSet + '%';
     }
 
-    table.setColumnWidth(column.name, sizeToSet);
+    (table as unknown as { setColumnWidth(name: string, width: number | string): void }).setColumnWidth(column.name, sizeToSet);
 }
+
+// Import helper function for resize calculations
+import { calculateWidthAvailableForColumns } from './helpers';
 

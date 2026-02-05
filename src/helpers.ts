@@ -1,38 +1,33 @@
-'use strict';
-
 /**
  * Helper functions for DGTable
  * These are extracted to keep the main class focused on public API
  */
 
-import {
-    getElementWidth,
-    setCssProps,
-} from '@danielgindi/dom-utils/lib/Css.js';
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+// @ts-ignore - No type declarations available for this module
+import { getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
 
-import { ColumnWidthMode } from './constants.js';
+import { ColumnWidthMode } from './constants';
+import type { Column, DGTableInterface } from './types';
 
-let createElement = document.createElement.bind(document);
+const createElement = document.createElement.bind(document);
 
 /**
  * BUGFIX: WebKit has a bug where it does not relayout
- * @param {HTMLElement} el
- * @returns {HTMLElement}
  */
-export function webkitRenderBugfix(el) {
-    let oldDisplay = el.style.display;
+export function webkitRenderBugfix(el: HTMLElement): HTMLElement {
+    const oldDisplay = el.style.display;
     el.style.display = 'none';
-    //noinspection BadExpressionStatementJS
-    el.offsetHeight; // No need to store this anywhere, the reference is enough
+    // No need to store this anywhere, the reference is enough
+    void el.offsetHeight;
     el.style.display = oldDisplay;
     return el;
 }
 
 /**
  * Make element relative if not already positioned
- * @param {HTMLElement} el
  */
-export function relativizeElement(el) {
+export function relativizeElement(el: HTMLElement): void {
     if (!['relative', 'absolute', 'fixed'].includes(getComputedStyle(el).position)) {
         el.style.position = 'relative';
     }
@@ -40,17 +35,16 @@ export function relativizeElement(el) {
 
 /**
  * Check if event target is an input element
- * @param {Event} event
- * @returns {boolean}
  */
-export const isInputElementEvent = event => /^(?:INPUT|TEXTAREA|BUTTON|SELECT)$/.test(event.target.tagName);
+export function isInputElementEvent(event: Event): boolean {
+    const target = event.target as HTMLElement;
+    return /^(?:INPUT|TEXTAREA|BUTTON|SELECT)$/.test(target.tagName);
+}
 
 /**
  * Calculate horizontal padding of an element
- * @param {HTMLElement} el
- * @returns {number}
  */
-export function horizontalPadding(el) {
+export function horizontalPadding(el: Element): number {
     const style = getComputedStyle(el);
     return ((parseFloat(style.paddingLeft) || 0) +
         (parseFloat(style.paddingRight) || 0));
@@ -58,10 +52,8 @@ export function horizontalPadding(el) {
 
 /**
  * Calculate horizontal border width of an element
- * @param {HTMLElement} el
- * @returns {number}
  */
-export function horizontalBorderWidth(el) {
+export function horizontalBorderWidth(el: Element): number {
     const style = getComputedStyle(el);
     return ((parseFloat(style.borderLeftWidth) || 0) +
         (parseFloat(style.borderRightWidth) || 0));
@@ -69,10 +61,9 @@ export function horizontalBorderWidth(el) {
 
 /**
  * Disable CSS text selection on an element
- * @param {HTMLElement} el
  */
-export function disableCssSelect(el) {
-    const style = el.style;
+export function disableCssSelect(el: HTMLElement): void {
+    const style = el.style as CSSStyleDeclaration & Record<string, string>;
     style['-webkit-touch-callout'] = 'none';
     style['-webkit-user-select'] = 'none';
     style['-moz-user-select'] = 'none';
@@ -83,12 +74,9 @@ export function disableCssSelect(el) {
 
 /**
  * Get text width by measuring in a temporary element
- * @param {DGTable} table - The DGTable instance
- * @param {string} text
- * @returns {number}
  */
-export function getTextWidth(table, text) {
-    let tableClassName = table._o.tableClassName;
+export function getTextWidth(table: DGTableInterface, text: string): number {
+    const tableClassName = table._o.tableClassName;
 
     const tableWrapper = createElement('div');
     tableWrapper.className = table.el.className;
@@ -113,7 +101,7 @@ export function getTextWidth(table, text) {
 
     document.body.appendChild(tableWrapper);
 
-    let width = getElementWidth(cell);
+    const width = getElementWidth(cell);
 
     tableWrapper.remove();
 
@@ -122,14 +110,14 @@ export function getTextWidth(table, text) {
 
 /**
  * Calculate width available for columns
- * @param {DGTable} table - The DGTable instance
- * @returns {number}
  */
-export function calculateWidthAvailableForColumns(table) {
+export function calculateWidthAvailableForColumns(table: DGTableInterface): number {
     const o = table._o, p = table._p;
 
     // Changing display mode briefly, to prevent taking in account the parent's scrollbar width when we are the cause for it
-    let oldDisplay, lastScrollTop, lastScrollLeft;
+    let oldDisplay: string | undefined;
+    let lastScrollTop = 0;
+    let lastScrollLeft = 0;
     if (p.table) {
         lastScrollTop = p.table ? p.table.scrollTop : 0;
         lastScrollLeft = p.table ? p.table.scrollLeft : 0;
@@ -143,38 +131,40 @@ export function calculateWidthAvailableForColumns(table) {
     let detectedWidth = getElementWidth(table.el);
 
     if (p.table) {
-        if (o.virtualTable) {
+        if (o.virtualTable && oldDisplay !== undefined) {
             p.table.style.display = oldDisplay;
         }
 
         p.table.scrollTop = lastScrollTop;
         p.table.scrollLeft = lastScrollLeft;
-        p.header.scrollLeft = lastScrollLeft;
+        if (p.header) {
+            p.header.scrollLeft = lastScrollLeft;
+        }
     }
 
-    let tableClassName = o.tableClassName;
+    const tableClassName = o.tableClassName;
 
     const thisWrapper = createElement('div');
     thisWrapper.className = table.el.className;
     setCssProps(thisWrapper, {
-        'z-index': -1,
+        'z-index': '-1',
         'position': 'absolute',
         left: '0',
         top: '-9999px',
     });
-    let header = createElement('div');
+    const header = createElement('div');
     header.className = `${tableClassName}-header`;
     thisWrapper.appendChild(header);
-    let headerRow = createElement('div');
+    const headerRow = createElement('div') as HTMLDivElement & { index: null; vIndex: null };
     headerRow.index = null;
     headerRow.vIndex = null;
     headerRow.className = `${tableClassName}-header-row`;
     header.appendChild(headerRow);
     for (let i = 0; i < p.visibleColumns.length; i++) {
         const column = p.visibleColumns[i];
-        const cell = createElement('div');
+        const cell = createElement('div') as HTMLDivElement & { columnName: string };
         cell.className = `${tableClassName}-header-cell ${column.cellClasses || ''}`;
-        cell['columnName'] = column.name;
+        cell.columnName = column.name;
         cell.appendChild(createElement('div'));
         headerRow.appendChild(cell);
     }
@@ -182,17 +172,17 @@ export function calculateWidthAvailableForColumns(table) {
 
     detectedWidth -= horizontalBorderWidth(headerRow);
 
-    let cells = headerRow.querySelectorAll(`div.${tableClassName}-header-cell`);
+    const cells = headerRow.querySelectorAll(`div.${tableClassName}-header-cell`) as NodeListOf<HTMLDivElement & { columnName: string }>;
     for (const cell of cells) {
         const cellStyle = getComputedStyle(cell);
-        let isBoxing = cellStyle.boxSizing === 'border-box';
+        const isBoxing = cellStyle.boxSizing === 'border-box';
         if (!isBoxing) {
             detectedWidth -=
                 (parseFloat(cellStyle.borderRightWidth) || 0) +
                 (parseFloat(cellStyle.borderLeftWidth) || 0) +
                 (horizontalPadding(cell)); // CELL's padding
 
-            const colName = cell['columnName'];
+            const colName = cell.columnName;
             const column = p.columns.get(colName);
             if (column)
                 detectedWidth -= column.arrowProposedWidth || 0;
@@ -206,18 +196,16 @@ export function calculateWidthAvailableForColumns(table) {
 
 /**
  * Calculate the size required for the table body width
- * @param {DGTable} table - The DGTable instance
- * @returns {number}
  */
-export function calculateTbodyWidth(table) {
+export function calculateTbodyWidth(table: DGTableInterface): number {
     const p = table._p;
     const o = table._o;
 
-    let tableClassName = o.tableClassName,
-        rowClassName = tableClassName + '-row',
-        cellClassName = tableClassName + '-cell',
-        visibleColumns = p.visibleColumns,
-        colCount = visibleColumns.length;
+    const tableClassName = o.tableClassName;
+    const rowClassName = tableClassName + '-row';
+    const cellClassName = tableClassName + '-cell';
+    const visibleColumns = p.visibleColumns;
+    const colCount = visibleColumns.length;
 
     const row = createElement('div');
     row.className = rowClassName;
@@ -229,17 +217,17 @@ export function calculateTbodyWidth(table) {
         const column = visibleColumns[colIndex];
         const cell = createElement('div');
         cell.className = cellClassName;
-        cell.style.width = column.actualWidth + 'px';
+        cell.style.width = (column.actualWidth ?? 0) + 'px';
         if (column.cellClasses) cell.className += ' ' + column.cellClasses;
         cell.appendChild(createElement('div'));
         row.appendChild(cell);
-        sumActualWidth += column.actualWidth;
+        sumActualWidth += column.actualWidth ?? 0;
     }
 
     const thisWrapper = createElement('div');
     thisWrapper.className = table.el.className;
     setCssProps(thisWrapper, {
-        'z-index': -1,
+        'z-index': '-1',
         'position': 'absolute',
         'left': '0',
         'top': '-9999px',
@@ -269,8 +257,8 @@ export function calculateTbodyWidth(table) {
         top: '-9999px',
     });
     document.body.appendChild(fractionTest);
-    let fractionValue = parseFloat(getComputedStyle(fractionTest).borderWidth);
-    let hasFractions = Math.round(fractionValue) !== fractionValue;
+    const fractionValue = parseFloat(getComputedStyle(fractionTest).borderWidth);
+    const hasFractions = Math.round(fractionValue) !== fractionValue;
     fractionTest.remove();
 
     let width = getElementWidth(row, true, true, true);
@@ -286,19 +274,16 @@ export function calculateTbodyWidth(table) {
 
 /**
  * Check if table is RTL
- * @param {DGTable} table - The DGTable instance
- * @returns {boolean}
  */
-export function isTableRtl(table) {
-    return getComputedStyle(table._p.table).direction === 'rtl';
+export function isTableRtl(table: DGTableInterface): boolean {
+    const p = table._p;
+    return p.table ? getComputedStyle(p.table).direction === 'rtl' : false;
 }
 
 /**
  * Serialize column width to string
- * @param {Object} column
- * @returns {string}
  */
-export function serializeColumnWidth(column) {
+export function serializeColumnWidth(column: Column): string | number {
     return column.widthMode === ColumnWidthMode.AUTO ? 'auto' :
         column.widthMode === ColumnWidthMode.RELATIVE ? column.width * 100 + '%' :
             column.width;
