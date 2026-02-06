@@ -218,17 +218,23 @@ class DGTable {
     // PUBLIC API - Events
     // =========================================================================
 
-    /** Register an event handler */
+    /** 
+     * Register an event handler.
+     * Built-in events have typed handlers. Custom events use `unknown` data type.
+     */
     on<K extends keyof DGTableEventMap>(event: K, handler: (value: DGTableEventMap[K]) => void): this;
-    on(event: string, handler: (value: unknown) => void): this;
+    on<T = unknown>(event: string & {}, handler: (value: T) => void): this;
     on(event: string, handler: (value: unknown) => void) {
         this._p.mitt.on(event, handler);
         return this;
     }
 
-    /** Register a one time event handler */
+    /** 
+     * Register a one-time event handler.
+     * Built-in events have typed handlers. Custom events use `unknown` data type.
+     */
     once<K extends keyof DGTableEventMap>(event: K, handler: (value: DGTableEventMap[K]) => void): this;
-    once(event: string, handler: (value: unknown) => void): this;
+    once<T = unknown>(event: string & {}, handler: (value: T) => void): this;
     once(event: string, handler: (value: unknown) => void) {
         const wrapped = (value: unknown) => {
             this._p.mitt.off(event, wrapped);
@@ -238,9 +244,12 @@ class DGTable {
         return this;
     }
 
-    /** Remove an handler for event, all events for event, or all events completely */
+    /** 
+     * Remove a handler for an event, all handlers for an event, or all handlers completely.
+     * Built-in events have typed handlers. Custom events use `unknown` data type.
+     */
     off<K extends keyof DGTableEventMap>(event?: K, handler?: (value: DGTableEventMap[K]) => void): this;
-    off(event?: string, handler?: (value: unknown) => void): this;
+    off<T = unknown>(event?: string & {}, handler?: (value: T) => void): this;
     off(event?: string, handler?: (value: unknown) => void) {
         if (!event && !handler) {
             this._p.mitt.all.clear();
@@ -250,9 +259,12 @@ class DGTable {
         return this;
     }
 
-    /** Emit an event */
+    /** 
+     * Emit an event.
+     * Built-in events have typed data. Custom events accept any data type.
+     */
     emit<K extends keyof DGTableEventMap>(event: K, value?: DGTableEventMap[K]): this;
-    emit(event: string, value?: unknown): this;
+    emit<T = unknown>(event: string & {}, value?: T): this;
     emit(event: string, value?: unknown) {
         this._p.mitt.emit(event, value);
         return this;

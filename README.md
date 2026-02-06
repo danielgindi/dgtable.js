@@ -276,10 +276,21 @@ table.on('rowclick', (data) => {
     console.log(data.rowIndex, data.rowData);
 });
 
-table.on(event, handler)      // Add event listener (typed)
+// Custom events are also supported (for using table as event bus)
+table.on('my-custom-event', (data) => {
+    // data is typed as `unknown` by default
+    console.log(data);
+});
+
+// You can specify the type for custom events
+table.on<{ customField: string }>('my-typed-event', (data) => {
+    console.log(data.customField); // TypeScript knows the type
+});
+
+table.on(event, handler)      // Add event listener (typed for built-in events)
 table.once(event, handler)    // Add one-time listener (typed)
 table.off(event, handler)     // Remove listener
-table.emit(event, data)       // Emit event (typed)
+table.emit(event, data)       // Emit event (typed for built-in events)
 ```
 
 #### Lifecycle
@@ -294,7 +305,9 @@ table.remove()   // Alias for destroy()
 
 ### Events
 
-Subscribe to events using `table.on(eventName, handler)`.
+Subscribe to events using `table.on(eventName, handler)`. 
+
+Built-in events have fully typed handlers with autocompletion. You can also use the table's event system as an event bus for your own custom events.
 
 #### Rendering Events
 
