@@ -10,11 +10,18 @@ import { nodeResolve } from '@rollup/plugin-node-resolve';
 import PluginCommonjs from '@rollup/plugin-commonjs';
 import typescript from '@rollup/plugin-typescript';
 import { fileURLToPath } from 'node:url';
+import { execSync } from 'node:child_process';
 
 (async () => {
 
     await rm('./dist', { recursive: true, force: true });
     await mkdir('./dist');
+
+    // Generate TypeScript declaration files first
+    console.info('Generating TypeScript declarations...');
+    execSync('npx tsc --emitDeclarationOnly --declaration --declarationMap --outDir ./dist', {
+        stdio: 'inherit',
+    });
 
     const rollupTasks = [{
         dest: 'dist/lib.es6.js',
