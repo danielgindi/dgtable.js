@@ -65,8 +65,8 @@ If you're migrating from the older jQuery version:
 
 ### Constructor Options
 
-```javascript
-new DGTable(options)
+```typescript
+new DGTable(options?: DGTableOptions)
 ```
 
 #### Table Options
@@ -85,7 +85,7 @@ new DGTable(options)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `columns` | `Column[]` | `[]` | Array of column definitions |
+| `columns` | `ColumnOptions[]` | `[]` | Array of column definitions |
 | `minColumnWidth` | `number` | `35` | Minimum column width in pixels |
 | `resizableColumns` | `boolean` | `true` | Allow column resizing |
 | `movableColumns` | `boolean` | `true` | Allow column reordering |
@@ -96,23 +96,25 @@ new DGTable(options)
 | `relativeWidthShrinksToFillWidth` | `boolean` | `false` | Shrink relative columns to fit |
 | `convertColumnWidthsToRelative` | `boolean` | `false` | Convert auto widths to relative |
 | `autoFillTableWidth` | `boolean` | `false` | Stretch columns to fill table width |
+| `resizeAreaWidth` | `number` | `8` | Width of resize drag area in pixels |
 
 #### Column Definition
 
-```javascript
+```typescript
 {
-    name: 'columnName',           // Required: unique identifier
-    label: 'Display Label',       // Header text (defaults to name)
-    width: 100,                   // number (px), '30%', or 0.3 (relative)
-    dataPath: 'nested.property',  // Path to data (defaults to name)
-    comparePath: 'sortKey',       // Path for sorting (defaults to dataPath)
-    resizable: true,              // Allow resizing this column
-    sortable: true,               // Allow sorting by this column
-    movable: true,                // Allow moving this column
-    visible: true,                // Column visibility
-    sticky: 'start' | 'end',      // Pin to start or end
-    cellClasses: 'custom-class',  // Additional CSS classes
-    ignoreMin: false,             // Ignore minColumnWidth for this column
+    name: string;                  // Required: unique identifier
+    label?: string;                // Header text (defaults to name)
+    width?: number | string;       // number (px), '30%', or 0.3 (relative)
+    dataPath?: string | string[];  // Path to data (defaults to [name])
+    comparePath?: string | string[]; // Path for sorting (defaults to dataPath)
+    resizable?: boolean;           // Allow resizing this column (default: true)
+    sortable?: boolean;            // Allow sorting by this column (default: true)
+    movable?: boolean;             // Allow moving this column (default: true)
+    visible?: boolean;             // Column visibility (default: true)
+    sticky?: 'start' | 'end' | false | null; // Pin to start or end
+    cellClasses?: string;          // Additional CSS classes for cells
+    ignoreMin?: boolean;           // Ignore minColumnWidth for this column
+    order?: number;                // Column order
 }
 ```
 
@@ -120,12 +122,13 @@ new DGTable(options)
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `cellFormatter` | `function(value, columnName, rowData): string` | Custom cell HTML renderer |
-| `headerCellFormatter` | `function(label, columnName): string` | Custom header cell renderer |
-| `filter` | `function(row, args): boolean` | Custom filter function |
-| `sortColumn` | `string \| object \| array` | Initial sort configuration |
-| `onComparatorRequired` | `function(column, desc, defaultCmp): function` | Custom comparator provider |
-| `customSortingProvider` | `function(data, sortFn): array` | Custom sorting implementation |
+| `cellFormatter` | `(value: unknown, columnName: string, rowData: RowData) => string` | Custom cell HTML renderer |
+| `headerCellFormatter` | `(label: string, columnName: string) => string` | Custom header cell renderer |
+| `filter` | `(row: RowData, args: unknown) => boolean` | Custom filter function |
+| `sortColumn` | `string \| string[] \| ColumnSortOptions \| ColumnSortOptions[]` | Initial sort configuration |
+| `onComparatorRequired` | `(columnName: string, descending: boolean, defaultComparator: ComparatorFunction) => ComparatorFunction` | Custom comparator provider |
+| `comparatorCallback` | Same as `onComparatorRequired` | Deprecated alias |
+| `customSortingProvider` | `(data: RowData[], sort: (data: RowData[]) => RowData[]) => RowData[]` | Custom sorting implementation |
 
 #### Styling
 
@@ -309,6 +312,29 @@ table.remove()   // Alias for destroy()
 | `sort` | `{ sorts, resort?, comparator }` | Data sorted |
 | `filter` | `any` (filter args) | Filter applied |
 | `filterclear` | `{}` | Filter cleared |
+
+---
+
+## TypeScript Types
+
+The library exports the following types for TypeScript users:
+
+```typescript
+import type {
+    DGTableOptions,        // Constructor options
+    ColumnOptions,         // Column definition
+    ColumnSortOptions,     // Sort specification { column, descending? }
+    SerializedColumn,      // Saved column config
+    SerializedColumnSort,  // Saved sort config
+    RowData,               // Row data (Record<string, unknown>)
+    CellFormatter,         // Cell formatter function
+    HeaderCellFormatter,   // Header cell formatter function
+    FilterFunction,        // Filter function
+    ComparatorFunction,    // Row comparator function
+    OnComparatorRequired,  // Comparator provider callback
+    CustomSortingProvider, // Custom sorting function
+} from '@danielgindi/dgtable';
+```
 
 ---
 

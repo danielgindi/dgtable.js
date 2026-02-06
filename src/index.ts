@@ -1772,6 +1772,22 @@ class DGTable {
 
 export default DGTable;
 
+// Re-export types for TypeScript users
+export type {
+    DGTableOptions,
+    ColumnOptions,
+    ColumnSortOptions,
+    SerializedColumn,
+    SerializedColumnSort,
+    RowData,
+    CellFormatter,
+    HeaderCellFormatter,
+    FilterFunction,
+    ComparatorFunction,
+    OnComparatorRequired,
+    CustomSortingProvider,
+} from './types';
+
 
 
 
