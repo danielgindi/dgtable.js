@@ -17,6 +17,11 @@ import {
     isTableRtl,
     disableCssSelect,
 } from './helpers';
+import {
+    bindHeaderColumnEvents,
+    unbindCellEventsForRow,
+    getHtmlForCell, onTableScrolledHorizontally,
+} from './internal';
 import type { RowData } from './types';
 
 import {
@@ -114,7 +119,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
                 }
 
                 const cellInner = cell.appendChild(createElement('div'));
-                cellInner.innerHTML = table._getHtmlForCell(rowData, column);
+                cellInner.innerHTML = getHtmlForCell(o, rowData, column);
 
                 row.appendChild(cell);
             }
@@ -142,7 +147,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
                 row.removeEventListener('click', (row as any)[RowClickEventSymbol]!);
             }
 
-            table._unbindCellEventsForRow(row);
+            unbindCellEventsForRow(table, row);
 
             table.emit('rowdestroy', row);
         },
@@ -353,7 +358,7 @@ export function renderSkeletonHeaderCells(table: DGTableInterface): DGTableInter
 
             p.visibleColumns[i].element = cell;
 
-            table._bindHeaderColumnEvents(cell);
+            bindHeaderColumnEvents(table, cell);
             disableCssSelect(cell);
         }
     }
@@ -470,7 +475,7 @@ export function updateTableWidth(table: DGTableInterface, parentSizeMayHaveChang
             }
         }
 
-        const boundHandler = (table as unknown as { _onTableScrolledHorizontally(): void })._onTableScrolledHorizontally.bind(table);
+        const boundHandler = () => onTableScrolledHorizontally(table);
         p.eventsSink.add(p.table, 'scroll', boundHandler);
     }
 

@@ -39,22 +39,11 @@ import {
 // Column Resize
 import {
     cancelColumnResize,
-    onMouseDownColumnHeader as resizeOnMouseDownColumnHeader,
 } from './column_resize';
 
 // Header Events
 import {
-    onTouchStartColumnHeader,
-    onMouseMoveColumnHeader,
-    onMouseUpColumnHeader,
-    onMouseLeaveColumnHeader,
-    onSortOnColumnHeaderEvent,
-    onStartDragColumnHeader,
     onDragEndColumnHeader,
-    onDragEnterColumnHeader,
-    onDragOverColumnHeader,
-    onDragLeaveColumnHeader,
-    onDropColumnHeader,
 } from './header_events';
 
 // Rendering
@@ -66,11 +55,20 @@ import {
     updateVirtualHeight,
     updateLastCellWidthFromScrollbar,
     updateTableWidth,
-    syncHorizontalStickies,
     resizeColumnElements,
     clearSortArrows,
     showSortArrow,
 } from './rendering';
+
+// Internal helpers (not exposed on class)
+import {
+    setupHovers,
+    parseColumnWidth,
+    initColumnFromData,
+    ensureVisibleColumns,
+    refilter,
+    getHtmlForCell,
+} from './internal';
 
 // Types
 import {
@@ -92,17 +90,11 @@ import {
 import type {
     DGTableInternalOptions,
     DGTablePrivateState,
-    InternalColumn,
 } from './private_types';
 import {
     IsSafeSymbol,
-    HoverInEventSymbol,
-    HoverOutEventSymbol,
-    PreviewCellSymbol,
-    OriginalCellSymbol,
 } from './private_types';
 
-import type { ColumnWidthModeType } from './constants';
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
 
@@ -161,9 +153,6 @@ class DGTable {
         o.cellPreviewClassName = options.cellPreviewClassName === undefined ? 'dgtable-cell-preview' : options.cellPreviewClassName;
         o.cellPreviewAutoBackground = options.cellPreviewAutoBackground === undefined ? true : options.cellPreviewAutoBackground;
         o.onComparatorRequired = options.onComparatorRequired === undefined ? null : options.onComparatorRequired;
-        if (!o.onComparatorRequired && typeof options['comparatorCallback'] === 'function') {
-            o.onComparatorRequired = options['comparatorCallback'];
-        }
         o.customSortingProvider = options.customSortingProvider === undefined ? null : options.customSortingProvider;
         o.width = options.width === undefined ? Width.NONE : options.width;
         o.relativeWidthGrowsToFillWidth = options.relativeWidthGrowsToFillWidth === undefined ? true : !!options.relativeWidthGrowsToFillWidth;
@@ -222,211 +211,7 @@ class DGTable {
         p.scrollbarWidth = 0;
         p._lastVirtualScrollHeight = 0;
 
-        this._setupHovers();
-    }
-
-    _setupHovers() {
-        const p = this._p;
-
-        const hoverMouseOverHandler = (event: MouseEvent) => {
-            let cell = event.currentTarget as HTMLElement;
-            let target = event.relatedTarget as Node;
-            if (target === cell || cell.contains(target))
-                return;
-            if ((cell as any)[PreviewCellSymbol] &&
-                (target === (cell as any)[PreviewCellSymbol] || (cell as any)[PreviewCellSymbol].contains(target)))
-                return;
-            cellMouseOverEvent(this, cell);
-        };
-
-        const hoverMouseOutHandler = (event: MouseEvent) => {
-            let cell = ((event.currentTarget as any)[OriginalCellSymbol] || event.currentTarget) as HTMLElement;
-            let target = event.relatedTarget as Node;
-            if (target === this.el || cell.contains(target))
-                return;
-            if ((cell as any)[PreviewCellSymbol] &&
-                (target === (cell as any)[PreviewCellSymbol] || (cell as any)[PreviewCellSymbol].contains(target)))
-                return;
-            cellMouseOutEvent(this, cell);
-        };
-
-        p._bindCellHoverIn = (el: HTMLElement) => {
-            if (!(el as any)[HoverInEventSymbol]) {
-                el.addEventListener('mouseover', (el as any)[HoverInEventSymbol] = hoverMouseOverHandler);
-            }
-        };
-
-        p._unbindCellHoverIn = (el: HTMLElement) => {
-            if ((el as any)[HoverInEventSymbol]) {
-                el.removeEventListener('mouseover', (el as any)[HoverInEventSymbol]);
-                (el as any)[HoverInEventSymbol] = null;
-            }
-        };
-
-        p._bindCellHoverOut = (el: HTMLElement) => {
-            if (!(el as any)[HoverOutEventSymbol]) {
-                el.addEventListener('mouseout', (el as any)[HoverOutEventSymbol] = hoverMouseOutHandler);
-            }
-        };
-
-        p._unbindCellHoverOut = (el: HTMLElement) => {
-            if ((el as any)[HoverOutEventSymbol]) {
-                el.removeEventListener('mouseout', (el as any)[HoverOutEventSymbol]);
-                (el as any)[HoverOutEventSymbol] = null;
-            }
-        };
-    }
-
-    _onTableScrolledHorizontally() {
-        const p = this._p;
-        p.header.scrollLeft = p.table.scrollLeft;
-        syncHorizontalStickies(this);
-    }
-
-    _bindHeaderColumnEvents(columnEl: HTMLElement) {
-        const inner = columnEl.firstChild as HTMLElement;
-
-        columnEl.addEventListener('mousedown', (evt: MouseEvent) => resizeOnMouseDownColumnHeader(this, evt));
-        columnEl.addEventListener('mousemove', (evt: MouseEvent) => onMouseMoveColumnHeader(this, evt));
-        columnEl.addEventListener('mouseup', (evt: MouseEvent) => onMouseUpColumnHeader(this, evt));
-        columnEl.addEventListener('mouseleave', (evt: MouseEvent) => onMouseLeaveColumnHeader(this, evt));
-        columnEl.addEventListener('touchstart', (evt: TouchEvent) => onTouchStartColumnHeader(this, evt));
-        columnEl.addEventListener('dragstart', (evt: DragEvent) => onStartDragColumnHeader(this, evt));
-        columnEl.addEventListener('click', (evt: Event) => onSortOnColumnHeaderEvent(this, evt));
-        columnEl.addEventListener('contextmenu', (evt: Event) => evt.preventDefault());
-        inner.addEventListener('dragenter', (evt: DragEvent) => onDragEnterColumnHeader(this, evt));
-        inner.addEventListener('dragover', (evt: DragEvent) => onDragOverColumnHeader(this, evt));
-        inner.addEventListener('dragleave', (evt: DragEvent) => onDragLeaveColumnHeader(this, evt));
-        inner.addEventListener('drop', (evt: DragEvent) => onDropColumnHeader(this, evt));
-    }
-
-    _unbindCellEventsForTable() {
-        const p = this._p;
-
-        if (p.headerRow) {
-            for (let i = 0, rows = p.headerRow.childNodes, rowCount = rows.length; i < rowCount; i++) {
-                let rowToClean = rows[i];
-                for (let j = 0, cells = rowToClean.childNodes, cellCount = cells.length; j < cellCount; j++) {
-                    p._unbindCellHoverIn(cells[j] as HTMLElement);
-                }
-            }
-        }
-
-        return this;
-    }
-
-    _unbindCellEventsForRow(rowToClean: HTMLElement) {
-        const p = this._p;
-        for (let i = 0, cells = rowToClean.childNodes, cellCount = cells.length; i < cellCount; i++) {
-            p._unbindCellHoverIn(cells[i] as HTMLElement);
-        }
-        return this;
-    }
-
-    /**
-     * Detect column width mode
-     */
-    _parseColumnWidth(width: number | string | null | undefined, minWidth: number): { width: number; mode: ColumnWidthModeType } {
-        let widthSize = Math.max(0, parseFloat(width as string) || 0),
-            widthMode: ColumnWidthModeType = ColumnWidthMode.AUTO;
-
-        if (widthSize > 0) {
-            if (width === widthSize + '%') {
-                widthMode = ColumnWidthMode.RELATIVE;
-                widthSize /= 100;
-            } else if (widthSize > 0 && widthSize < 1) {
-                widthMode = ColumnWidthMode.RELATIVE;
-            } else {
-                if (widthSize < minWidth) {
-                    widthSize = minWidth;
-                }
-                widthMode = ColumnWidthMode.ABSOLUTE;
-            }
-        }
-
-        return { width: widthSize, mode: widthMode };
-    }
-
-    _initColumnFromData(columnData: ColumnOptions): InternalColumn {
-        let parsedWidth = this._parseColumnWidth(columnData.width, columnData.ignoreMin ? 0 : this._o.minColumnWidth);
-
-        let col: InternalColumn = {
-            name: columnData.name,
-            label: columnData.label === undefined ? columnData.name : columnData.label,
-            width: parsedWidth.width,
-            widthMode: parsedWidth.mode,
-            resizable: columnData.resizable === undefined ? true : columnData.resizable,
-            sortable: columnData.sortable === undefined ? true : columnData.sortable,
-            movable: columnData.movable === undefined ? true : columnData.movable,
-            visible: columnData.visible === undefined ? true : columnData.visible,
-            cellClasses: columnData.cellClasses === undefined ? this._o.cellClasses : columnData.cellClasses,
-            ignoreMin: columnData.ignoreMin === undefined ? false : !!columnData.ignoreMin,
-            sticky: columnData.sticky === undefined ? null : (columnData.sticky || null),
-            dataPath: [],
-            comparePath: [],
-            order: 0,
-        };
-
-        const rawDataPath = columnData.dataPath === undefined ? [col.name] : columnData.dataPath;
-        col.dataPath = typeof rawDataPath === 'string' ? rawDataPath.split('.') : rawDataPath;
-
-        const rawComparePath = columnData.comparePath === undefined ? col.dataPath : columnData.comparePath;
-        col.comparePath = typeof rawComparePath === 'string' ? rawComparePath.split('.') : rawComparePath;
-
-        return col;
-    }
-
-    _ensureVisibleColumns() {
-        const p = this._p;
-
-        if (p.visibleColumns.length === 0 && p.columns.length) {
-            p.columns[0].visible = true;
-            p.visibleColumns.push(p.columns[0]);
-            this.emit('showcolumn', p.columns[0].name);
-        }
-
-        return this;
-    }
-
-    _refilter() {
-        const p = this._p;
-
-        if (p.filteredRows && p.filterArgs) {
-            let filterFunc = (this._o.filter || ByColumnFilter) as FilterFunction;
-            p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
-        }
-        return this;
-    }
-
-    /** Returns the HTML string for a specific cell */
-    _getHtmlForCell(rowData: RowData, column: InternalColumn): string {
-        let dataPath = column.dataPath;
-        let colValue: unknown = rowData[dataPath[0]];
-        for (let dataPathIndex = 1; dataPathIndex < dataPath.length; dataPathIndex++) {
-            if (colValue == null) break;
-            colValue = colValue && (colValue as Record<string, unknown>)[dataPath[dataPathIndex]];
-        }
-
-        const formatter = this._o.cellFormatter;
-        let content;
-
-        if (formatter[IsSafeSymbol]) {
-            content = formatter(colValue, column.name, rowData);
-        } else {
-            try {
-                content = formatter(colValue, column.name, rowData);
-            } catch (err) {
-                content = '[ERROR]';
-                // eslint-disable-next-line no-console
-                console.error('Failed to generate content for cell ' + column.name, err);
-            }
-        }
-
-        if (content === undefined || content === null) {
-            content = '';
-        }
-
-        return content;
+        setupHovers(this);
     }
 
     // =========================================================================
@@ -638,7 +423,7 @@ class DGTable {
         for (let i = 0, order = 0; i < columns.length; i++) {
 
             let columnData = columns[i];
-            let normalizedColumn = this._initColumnFromData(columnData);
+            let normalizedColumn = initColumnFromData(this._o, columnData);
 
             if (columnData.order !== undefined) {
                 if (columnData.order > order) {
@@ -656,7 +441,8 @@ class DGTable {
         p.columns = normalizedCols;
         p.visibleColumns = normalizedCols.getVisibleColumns();
 
-        this._ensureVisibleColumns().clearAndRender(render);
+        ensureVisibleColumns(this);
+        this.clearAndRender(render);
 
         return this;
     }
@@ -674,7 +460,7 @@ class DGTable {
                     : columns.getByOrder(before);
             }
 
-            let column = this._initColumnFromData(columnData);
+            let column = initColumnFromData(this._o, columnData);
             column.order = beforeColumn ? beforeColumn.order : (columns.getMaxOrder() + 1);
 
             for (let i = columns.getMaxOrder(), to = column.order; i >= to; i--) {
@@ -688,7 +474,8 @@ class DGTable {
             columns.normalizeOrder();
 
             p.visibleColumns = columns.getVisibleColumns();
-            this._ensureVisibleColumns().clearAndRender(render);
+            ensureVisibleColumns(this);
+            this.clearAndRender(render);
 
             this.emit('addcolumn', column.name);
         }
@@ -706,7 +493,8 @@ class DGTable {
             columns.normalizeOrder();
 
             p.visibleColumns = columns.getVisibleColumns();
-            this._ensureVisibleColumns().clearAndRender(render);
+            ensureVisibleColumns(this);
+            this.clearAndRender(render);
 
             this.emit('removecolumn', column);
         }
@@ -763,7 +551,7 @@ class DGTable {
                 p.visibleColumns.some((x, i) => x !== visibleColumns[i])) {
 
                 p.visibleColumns = visibleColumns;
-                this._ensureVisibleColumns();
+                ensureVisibleColumns(this);
 
                 if (o.virtualTable) {
                     this.clearAndRender();
@@ -806,7 +594,7 @@ class DGTable {
             col.visible = visible;
             p.visibleColumns = p.columns.getVisibleColumns();
             this.emit(visible ? 'showcolumn' : 'hidecolumn', column);
-            this._ensureVisibleColumns();
+            ensureVisibleColumns(this);
             this.clearAndRender();
         }
         return this;
@@ -844,7 +632,7 @@ class DGTable {
 
         let col = p.columns.get(column);
 
-        let parsedWidth = this._parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
+        let parsedWidth = parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
 
         if (col) {
             let oldWidth = serializeColumnWidth(col);
@@ -956,17 +744,12 @@ class DGTable {
     }
 
     /** Sets a function that supplies comparators dynamically */
-    setOnComparatorRequired(comparatorCallback: OnComparatorRequired | null) {
+    setOnComparatorRequired(comparatorProvider: OnComparatorRequired | null) {
         let o = this._o;
-        if (o.onComparatorRequired !== comparatorCallback) {
-            o.onComparatorRequired = comparatorCallback;
+        if (o.onComparatorRequired !== comparatorProvider) {
+            o.onComparatorRequired = comparatorProvider;
         }
         return this;
-    }
-
-    // Backwards compatibility
-    setComparatorCallback(comparatorCallback: OnComparatorRequired | null) {
-        return this.setOnComparatorRequired(comparatorCallback);
     }
 
     /** Sets custom sorting function for a data set */
@@ -1193,7 +976,7 @@ class DGTable {
         if (!column) return null;
         let rowData = p.rows[rowIndex];
 
-        return this._getHtmlForCell(rowData, column);
+        return getHtmlForCell(this._o, rowData, column);
     }
 
     /** Returns the HTML string for a specific cell by row data */
@@ -1203,7 +986,7 @@ class DGTable {
         let column = p.columns.get(columnName);
         if (!column) return null;
 
-        return this._getHtmlForCell(rowData, column);
+        return getHtmlForCell(this._o, rowData, column);
     }
 
     /** Returns the y position of a row by index */
@@ -1286,7 +1069,7 @@ class DGTable {
                 if (resort && p.rows.sortColumn.length) {
                     this.resort();
                 } else {
-                    this._refilter();
+                    refilter(this);
                 }
 
                 p.tableSkeletonNeedsRendering = true;
@@ -1329,7 +1112,7 @@ class DGTable {
         render = (render === undefined) ? true : !!render;
 
         if (p.filteredRows) {
-            this._refilter();
+            refilter(this);
 
             p.tableSkeletonNeedsRendering = true;
 
@@ -1420,7 +1203,7 @@ class DGTable {
         if (resort && p.rows.sortColumn.length) {
             this.resort();
         } else {
-            this._refilter();
+            refilter(this);
         }
 
         this.clearAndRender().emit('addrows', { count: data.length, clear: true });

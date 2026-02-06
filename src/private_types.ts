@@ -3,11 +3,11 @@ import type RowCollection from './row_collection';
 import type ColumnCollection from './column_collection';
 import type { Emitter } from 'mitt';
 import {
-    CellFormatter, ColumnOptions,
+    CellFormatter,
     CustomSortingProvider,
     FilterFunction,
     HeaderCellFormatter,
-    OnComparatorRequired, RowData
+    OnComparatorRequired,
 } from "@/types";
 
 // Symbols for internal use
@@ -152,9 +152,5 @@ export interface DGTableInterface {
     _o: DGTableInternalOptions;
     _p: DGTablePrivateState;
     emit(event: string, data?: unknown): void;
-    _bindHeaderColumnEvents(columnEl: HTMLElement): void;
-    _unbindCellEventsForRow(row: HTMLElement): void;
-    _getHtmlForCell(rowData: RowData, column: InternalColumn): string;
-    _initColumnFromData(columnData: ColumnOptions): InternalColumn;
     tableWidthChanged(forceUpdate?: boolean, renderColumns?: boolean): void;
 }

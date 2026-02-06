@@ -127,7 +127,6 @@ new DGTable(options?: DGTableOptions)
 | `filter` | `(row: RowData, args: unknown) => boolean` | Custom filter function |
 | `sortColumn` | `string \| string[] \| ColumnSortOptions \| ColumnSortOptions[]` | Initial sort configuration |
 | `onComparatorRequired` | `(columnName: string, descending: boolean, defaultComparator: ComparatorFunction) => ComparatorFunction` | Custom comparator provider |
-| `comparatorCallback` | Same as `onComparatorRequired` | Deprecated alias |
 | `customSortingProvider` | `(data: RowData[], sort: (data: RowData[]) => RowData[]) => RowData[]` | Custom sorting implementation |
 
 #### Styling
@@ -249,7 +248,6 @@ table.getResizableColumns()          // Get resizable state
 
 ```javascript
 table.setOnComparatorRequired(callback)   // Set comparator provider
-table.setComparatorCallback(callback)     // Alias (deprecated)
 table.setCustomSortingProvider(provider)  // Set custom sort provider
 ```
 

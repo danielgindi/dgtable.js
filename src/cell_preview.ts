@@ -13,6 +13,7 @@ import {
     OriginalCellSymbol,
     PreviewCellSymbol,
 } from './private_types';
+import { bindHeaderColumnEvents } from "./internal";
 
 const nativeIndexOf = Array.prototype.indexOf;
 const createElement = document.createElement.bind(document);
@@ -72,7 +73,7 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
 
         previewCell.draggable = true;
 
-        table._bindHeaderColumnEvents(previewCell);
+        bindHeaderColumnEvents(table, previewCell);
     }
 
     const elStyle = getComputedStyle(el);
