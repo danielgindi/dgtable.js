@@ -271,11 +271,17 @@ table.getHeaderRowElement()   // Get header row element
 
 #### Events
 
-```javascript
-table.on(event, handler)      // Add event listener
-table.once(event, handler)    // Add one-time listener
+```typescript
+// TypeScript users get full autocompletion and type checking!
+table.on('rowclick', (data) => {
+    // data is typed as RowClickEvent
+    console.log(data.rowIndex, data.rowData);
+});
+
+table.on(event, handler)      // Add event listener (typed)
+table.once(event, handler)    // Add one-time listener (typed)
 table.off(event, handler)     // Remove listener
-table.emit(event, data)       // Emit event
+table.emit(event, data)       // Emit event (typed)
 ```
 
 #### Lifecycle
@@ -290,28 +296,160 @@ table.remove()   // Alias for destroy()
 
 ### Events
 
-| Event | Data | Description |
-|-------|------|-------------|
-| `render` | - | Table finished rendering |
-| `renderskeleton` | - | Table structure rebuilt |
-| `rowcreate` | `{ filteredRowIndex, rowIndex, rowEl, rowData }` | Row element created |
-| `rowclick` | `{ event, filteredRowIndex, rowIndex, rowEl, rowData }` | Row clicked |
-| `rowdestroy` | `Element` | Row element about to be removed |
-| `cellpreview` | `{ el, rowIndex, name, rowData, cell, cellEl }` | Cell preview showing |
-| `cellpreviewdestroy` | `{ el, name, filteredRowIndex, rowIndex, cell, cellEl }` | Cell preview hiding |
-| `headerrowcreate` | `Element` | Header row created |
-| `headerrowdestroy` | `Element` | Header row removing |
-| `headercontextmenu` | `{ columnName, pageX, pageY, bounds }` | Header right-click |
-| `addrows` | `{ count, clear }` | Rows added |
-| `addcolumn` | `string` (column name) | Column added |
-| `removecolumn` | `string` (column name) | Column removed |
-| `movecolumn` | `{ name, src, dest }` | Column moved |
-| `showcolumn` | `string` (column name) | Column shown |
-| `hidecolumn` | `string` (column name) | Column hidden |
-| `columnwidth` | `{ name, width, oldWidth }` | Column resized |
-| `sort` | `{ sorts, resort?, comparator }` | Data sorted |
-| `filter` | `any` (filter args) | Filter applied |
+Subscribe to events using `table.on(eventName, handler)`.
+
+#### Rendering Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `render` | `undefined` | Table finished rendering |
+| `renderskeleton` | `undefined` | Table structure rebuilt |
+
+#### Row Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `rowcreate` | `RowCreateEvent` | Row element created |
+| `rowclick` | `RowClickEvent` | Row clicked |
+| `rowdestroy` | `HTMLElement` | Row element about to be removed |
+
+```typescript
+interface RowCreateEvent {
+    filteredRowIndex: number;  // Index in filtered data
+    rowIndex: number;          // Index in original data
+    rowEl: HTMLElement;        // The row DOM element
+    rowData: RowData;          // The row data object
+}
+
+interface RowClickEvent {
+    event: MouseEvent;         // The original mouse event
+    filteredRowIndex: number;  // Index in filtered data
+    rowIndex: number;          // Index in original data
+    rowEl: HTMLElement;        // The row DOM element
+    rowData: RowData;          // The row data object
+}
+```
+
+#### Cell Preview Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `cellpreview` | `CellPreviewEvent` | Cell preview showing |
+| `cellpreviewdestroy` | `CellPreviewDestroyEvent` | Cell preview hiding |
+
+```typescript
+interface CellPreviewEvent {
+    el: Element | null;        // Preview element's first child
+    name: string;              // Column name
+    rowIndex: number | null;   // Row index (null for header)
+    rowData: RowData | null;   // Row data (null for header)
+    cell: HTMLElement;         // Original cell element
+    cellEl: HTMLElement;       // Cell's inner element
+}
+
+interface CellPreviewDestroyEvent {
+    el: ChildNode | null;      // Preview element's first child
+    name: string;              // Column name
+    rowIndex: number | null;   // Row index (null for header)
+    rowData: RowData | null;   // Row data (null for header)
+    cell: HTMLElement | null;  // Original cell element
+    cellEl: ChildNode | null;  // Cell's inner element
+}
+```
+
+#### Header Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `headerrowcreate` | `HTMLElement` | Header row created |
+| `headercontextmenu` | `HeaderContextMenuEvent` | Header right-click |
+
+```typescript
+interface HeaderContextMenuEvent {
+    columnName: string;        // Column that was right-clicked
+    pageX: number;             // Mouse X position
+    pageY: number;             // Mouse Y position
+    bounds: {                  // Cell bounds
+        left: number;
+        top: number;
+        width: number;
+        height: number;
+    };
+}
+```
+
+#### Column Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `addcolumn` | `string` | Column name added |
+| `removecolumn` | `string` | Column name removed |
+| `movecolumn` | `MoveColumnEvent` | Column moved |
+| `showcolumn` | `string` | Column name shown |
+| `hidecolumn` | `string` | Column name hidden |
+| `columnwidth` | `ColumnWidthEvent` | Column resized |
+
+```typescript
+interface MoveColumnEvent {
+    name: string;              // Column name
+    src: number;               // Original order position
+    dest: number;              // New order position
+}
+
+interface ColumnWidthEvent {
+    name: string;              // Column name
+    width: number;             // New width
+    oldWidth: number;          // Previous width
+}
+```
+
+#### Data Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `addrows` | `AddRowsEvent` | Rows added |
+| `sort` | `SortEvent` | Data sorted |
+| `filter` | `unknown` | Filter applied (filter args) |
 | `filterclear` | `{}` | Filter cleared |
+
+```typescript
+interface AddRowsEvent {
+    count: number;             // Number of rows added
+    clear: boolean;            // Whether table was cleared first
+}
+
+interface SortEvent {
+    sorts: SerializedColumnSort[];  // Current sort state
+    resort?: boolean;          // True if re-sorting existing data
+}
+```
+
+#### Example Usage
+
+```typescript
+// Row click handler
+table.on('rowclick', (data) => {
+    console.log('Clicked row:', data.rowIndex, data.rowData);
+});
+
+// Column resize handler
+table.on('columnwidth', (data) => {
+    console.log(`Column ${data.name} resized from ${data.oldWidth} to ${data.width}`);
+});
+
+// Sort handler
+table.on('sort', (data) => {
+    console.log('Sorted by:', data.sorts);
+});
+
+// Cell preview handler
+table.on('cellpreview', (data) => {
+    // Customize preview content
+    if (data.el) {
+        data.el.innerHTML += '<span class="custom-badge">Preview</span>';
+    }
+});
+```
 
 ---
 
@@ -321,19 +459,51 @@ The library exports the following types for TypeScript users:
 
 ```typescript
 import type {
+    // Configuration types
     DGTableOptions,        // Constructor options
     ColumnOptions,         // Column definition
     ColumnSortOptions,     // Sort specification { column, descending? }
     SerializedColumn,      // Saved column config
     SerializedColumnSort,  // Saved sort config
     RowData,               // Row data (Record<string, unknown>)
+    
+    // Function types
     CellFormatter,         // Cell formatter function
     HeaderCellFormatter,   // Header cell formatter function
     FilterFunction,        // Filter function
     ComparatorFunction,    // Row comparator function
     OnComparatorRequired,  // Comparator provider callback
     CustomSortingProvider, // Custom sorting function
+    
+    // Event types
+    RowCreateEvent,        // 'rowcreate' event data
+    RowClickEvent,         // 'rowclick' event data
+    CellPreviewEvent,      // 'cellpreview' event data
+    CellPreviewDestroyEvent, // 'cellpreviewdestroy' event data
+    HeaderContextMenuEvent, // 'headercontextmenu' event data
+    MoveColumnEvent,       // 'movecolumn' event data
+    ColumnWidthEvent,      // 'columnwidth' event data
+    AddRowsEvent,          // 'addrows' event data
+    SortEvent,             // 'sort' event data
+    
+    // Event map (for advanced typing)
+    DGTableEventMap,       // Maps event names to their data types
 } from '@danielgindi/dgtable';
+```
+
+The `DGTableEventMap` interface provides full autocompletion when using `.on()`, `.once()`, `.off()`, and `.emit()`:
+
+```typescript
+// Event names autocomplete, and handler receives correctly typed data
+table.on('rowclick', (data) => {
+    // TypeScript knows: data.event, data.rowIndex, data.rowData, etc.
+    console.log(`Clicked row ${data.rowIndex}`);
+});
+
+table.on('columnwidth', (data) => {
+    // TypeScript knows: data.name, data.width, data.oldWidth
+    console.log(`Column ${data.name} resized to ${data.width}px`);
+});
 ```
 
 ---

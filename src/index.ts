@@ -82,7 +82,10 @@ import {
     CellFormatter,
     HeaderCellFormatter,
     OnComparatorRequired,
-    CustomSortingProvider, SerializedColumn, SerializedColumnSort,
+    CustomSortingProvider,
+    SerializedColumn,
+    SerializedColumnSort,
+    DGTableEventMap,
 } from './types';
 
 // Private types
@@ -431,12 +434,16 @@ class DGTable {
     // =========================================================================
 
     /** Register an event handler */
+    on<K extends keyof DGTableEventMap>(event: K, handler: (value: DGTableEventMap[K]) => void): this;
+    on(event: string, handler: (value: unknown) => void): this;
     on(event: string, handler: (value: unknown) => void) {
         this._p.mitt.on(event, handler);
         return this;
     }
 
     /** Register a one time event handler */
+    once<K extends keyof DGTableEventMap>(event: K, handler: (value: DGTableEventMap[K]) => void): this;
+    once(event: string, handler: (value: unknown) => void): this;
     once(event: string, handler: (value: unknown) => void) {
         const wrapped = (value: unknown) => {
             this._p.mitt.off(event, wrapped);
@@ -447,6 +454,8 @@ class DGTable {
     }
 
     /** Remove an handler for event, all events for event, or all events completely */
+    off<K extends keyof DGTableEventMap>(event?: K, handler?: (value: DGTableEventMap[K]) => void): this;
+    off(event?: string, handler?: (value: unknown) => void): this;
     off(event?: string, handler?: (value: unknown) => void) {
         if (!event && !handler) {
             this._p.mitt.all.clear();
@@ -457,6 +466,8 @@ class DGTable {
     }
 
     /** Emit an event */
+    emit<K extends keyof DGTableEventMap>(event: K, value?: DGTableEventMap[K]): this;
+    emit(event: string, value?: unknown): this;
     emit(event: string, value?: unknown) {
         this._p.mitt.emit(event, value);
         return this;
@@ -1774,18 +1785,32 @@ export default DGTable;
 
 // Re-export types for TypeScript users
 export type {
+    // Configuration types
     DGTableOptions,
     ColumnOptions,
     ColumnSortOptions,
     SerializedColumn,
     SerializedColumnSort,
     RowData,
+    // Function types
     CellFormatter,
     HeaderCellFormatter,
     FilterFunction,
     ComparatorFunction,
     OnComparatorRequired,
     CustomSortingProvider,
+    // Event types
+    RowCreateEvent,
+    RowClickEvent,
+    CellPreviewEvent,
+    CellPreviewDestroyEvent,
+    HeaderContextMenuEvent,
+    MoveColumnEvent,
+    ColumnWidthEvent,
+    AddRowsEvent,
+    SortEvent,
+    // Event map for typed handlers
+    DGTableEventMap,
 } from './types';
 
 
