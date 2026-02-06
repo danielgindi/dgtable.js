@@ -1,4 +1,10 @@
-import type { RowData, ComparatorFunction, OnComparatorRequired, CustomSortingProvider, SortColumn } from './types';
+import type { RowData, ComparatorFunction, OnComparatorRequired, CustomSortingProvider } from './types';
+
+// Private types
+import {
+    OriginalRowIndex,
+    SortColumn,
+} from './private_types';
 
 /**
  * Options for RowCollection initialization
@@ -78,7 +84,7 @@ class RowCollection extends Array<RowData> {
             for (let i = 0, len = this.length; i < len; i++) {
                 const row = this[i];
                 if (filterFunc(row, args)) {
-                    row['__i'] = i;
+                    (row as any)[OriginalRowIndex] = i;
                     rows.push(row);
                 }
             }

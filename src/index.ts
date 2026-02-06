@@ -17,11 +17,6 @@ import mitt from 'mitt';
 
 // Constants
 import {
-    IsSafeSymbol,
-    HoverInEventSymbol,
-    HoverOutEventSymbol,
-    PreviewCellSymbol,
-    OriginalCellSymbol,
     ColumnWidthMode,
     Width,
 } from './constants';
@@ -78,21 +73,32 @@ import {
 } from './rendering';
 
 // Types
-import type {
+import {
     DGTableOptions,
-    DGTableInternalOptions,
-    DGTablePrivateState,
-    Column,
     RowData,
     ColumnSortOptions,
     FilterFunction,
-    CellElement,
     ColumnOptions,
     CellFormatter,
     HeaderCellFormatter,
     OnComparatorRequired,
-    CustomSortingProvider,
+    CustomSortingProvider, SerializedColumn, SerializedColumnSort,
 } from './types';
+
+// Private types
+import type {
+    DGTableInternalOptions,
+    DGTablePrivateState,
+    InternalColumn,
+} from './private_types';
+import {
+    IsSafeSymbol,
+    HoverInEventSymbol,
+    HoverOutEventSymbol,
+    PreviewCellSymbol,
+    OriginalCellSymbol,
+} from './private_types';
+
 import type { ColumnWidthModeType } from './constants';
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -220,50 +226,50 @@ class DGTable {
         const p = this._p;
 
         const hoverMouseOverHandler = (event: MouseEvent) => {
-            let cell = event.currentTarget as CellElement;
+            let cell = event.currentTarget as HTMLElement;
             let target = event.relatedTarget as Node;
             if (target === cell || cell.contains(target))
                 return;
-            if (cell[PreviewCellSymbol] &&
-                (target === cell[PreviewCellSymbol] || cell[PreviewCellSymbol].contains(target)))
+            if ((cell as any)[PreviewCellSymbol] &&
+                (target === (cell as any)[PreviewCellSymbol] || (cell as any)[PreviewCellSymbol].contains(target)))
                 return;
             cellMouseOverEvent(this, cell);
         };
 
         const hoverMouseOutHandler = (event: MouseEvent) => {
-            let cell = ((event.currentTarget as CellElement)[OriginalCellSymbol] || event.currentTarget) as CellElement;
+            let cell = ((event.currentTarget as any)[OriginalCellSymbol] || event.currentTarget) as HTMLElement;
             let target = event.relatedTarget as Node;
             if (target === this.el || cell.contains(target))
                 return;
-            if (cell[PreviewCellSymbol] &&
-                (target === cell[PreviewCellSymbol] || cell[PreviewCellSymbol].contains(target)))
+            if ((cell as any)[PreviewCellSymbol] &&
+                (target === (cell as any)[PreviewCellSymbol] || (cell as any)[PreviewCellSymbol].contains(target)))
                 return;
             cellMouseOutEvent(this, cell);
         };
 
-        p._bindCellHoverIn = (el: CellElement) => {
-            if (!el[HoverInEventSymbol]) {
-                el.addEventListener('mouseover', el[HoverInEventSymbol] = hoverMouseOverHandler);
+        p._bindCellHoverIn = (el: HTMLElement) => {
+            if (!(el as any)[HoverInEventSymbol]) {
+                el.addEventListener('mouseover', (el as any)[HoverInEventSymbol] = hoverMouseOverHandler);
             }
         };
 
-        p._unbindCellHoverIn = (el: CellElement) => {
-            if (el[HoverInEventSymbol]) {
-                el.removeEventListener('mouseover', el[HoverInEventSymbol]);
-                el[HoverInEventSymbol] = null;
+        p._unbindCellHoverIn = (el: HTMLElement) => {
+            if ((el as any)[HoverInEventSymbol]) {
+                el.removeEventListener('mouseover', (el as any)[HoverInEventSymbol]);
+                (el as any)[HoverInEventSymbol] = null;
             }
         };
 
-        p._bindCellHoverOut = (el: CellElement) => {
-            if (!el[HoverOutEventSymbol]) {
-                el.addEventListener('mouseout', el[HoverOutEventSymbol] = hoverMouseOutHandler);
+        p._bindCellHoverOut = (el: HTMLElement) => {
+            if (!(el as any)[HoverOutEventSymbol]) {
+                el.addEventListener('mouseout', (el as any)[HoverOutEventSymbol] = hoverMouseOutHandler);
             }
         };
 
-        p._unbindCellHoverOut = (el: CellElement) => {
-            if (el[HoverOutEventSymbol]) {
-                el.removeEventListener('mouseout', el[HoverOutEventSymbol]);
-                el[HoverOutEventSymbol] = null;
+        p._unbindCellHoverOut = (el: HTMLElement) => {
+            if ((el as any)[HoverOutEventSymbol]) {
+                el.removeEventListener('mouseout', (el as any)[HoverOutEventSymbol]);
+                (el as any)[HoverOutEventSymbol] = null;
             }
         };
     }
@@ -298,7 +304,7 @@ class DGTable {
             for (let i = 0, rows = p.headerRow.childNodes, rowCount = rows.length; i < rowCount; i++) {
                 let rowToClean = rows[i];
                 for (let j = 0, cells = rowToClean.childNodes, cellCount = cells.length; j < cellCount; j++) {
-                    p._unbindCellHoverIn(cells[j] as CellElement);
+                    p._unbindCellHoverIn(cells[j] as HTMLElement);
                 }
             }
         }
@@ -309,7 +315,7 @@ class DGTable {
     _unbindCellEventsForRow(rowToClean: HTMLElement) {
         const p = this._p;
         for (let i = 0, cells = rowToClean.childNodes, cellCount = cells.length; i < cellCount; i++) {
-            p._unbindCellHoverIn(cells[i] as CellElement);
+            p._unbindCellHoverIn(cells[i] as HTMLElement);
         }
         return this;
     }
@@ -338,10 +344,10 @@ class DGTable {
         return { width: widthSize, mode: widthMode };
     }
 
-    _initColumnFromData(columnData: ColumnOptions): Column {
+    _initColumnFromData(columnData: ColumnOptions): InternalColumn {
         let parsedWidth = this._parseColumnWidth(columnData.width, columnData.ignoreMin ? 0 : this._o.minColumnWidth);
 
-        let col: Column = {
+        let col: InternalColumn = {
             name: columnData.name,
             label: columnData.label === undefined ? columnData.name : columnData.label,
             width: parsedWidth.width,
@@ -390,7 +396,7 @@ class DGTable {
     }
 
     /** Returns the HTML string for a specific cell */
-    _getHtmlForCell(rowData: RowData, column: Column): string {
+    _getHtmlForCell(rowData: RowData, column: InternalColumn): string {
         let dataPath = column.dataPath;
         let colValue: unknown = rowData[dataPath[0]];
         for (let dataPathIndex = 1; dataPathIndex < dataPath.length; dataPathIndex++) {
@@ -858,7 +864,7 @@ class DGTable {
     }
 
     /** Get configuration for a specific column */
-    getColumnConfig(column: string) {
+    getColumnConfig(column: string): SerializedColumn | null {
         const p = this._p;
         let col = p.columns.get(column);
         if (col) {
@@ -1066,7 +1072,7 @@ class DGTable {
     }
 
     /** Returns an array of the currently sorted columns */
-    getSortedColumns() {
+    getSortedColumns(): SerializedColumnSort[] {
         const p = this._p;
 
         let sorted = [];

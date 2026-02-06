@@ -9,7 +9,7 @@ import VirtualListHelper from '@danielgindi/virtual-list-helper';
 import { getElementWidth, getElementHeight, setElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
 // @ts-ignore - No type declarations available for this module
 import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
-import { RowClickEventSymbol, ColumnWidthMode, Width } from './constants';
+import { ColumnWidthMode, Width } from './constants';
 import {
     relativizeElement,
     webkitRenderBugfix,
@@ -17,7 +17,12 @@ import {
     isTableRtl,
     disableCssSelect,
 } from './helpers';
-import type { DGTableInterface, RowData } from './types';
+import type { RowData } from './types';
+
+import {
+    DGTableInterface, OriginalRowIndex,
+    RowClickEventSymbol,
+} from './private_types';
 
 const nativeIndexOf = Array.prototype.indexOf;
 const createElement = document.createElement.bind(document);
@@ -77,7 +82,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
                 row.className += ' ' + altRowClassName;
 
             const rowData = rows[virtualIndex] as RowData;
-            const rowIndex = isDataFiltered ? rowData['__i'] : virtualIndex;
+            const rowIndex = isDataFiltered ? (rowData as any)[OriginalRowIndex] : virtualIndex;
 
             (row as any).vIndex = virtualIndex;
             (row as any).index = rowIndex;

@@ -8,7 +8,7 @@
 import { getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
 
 import { ColumnWidthMode } from './constants';
-import type { Column, DGTableInterface } from './types';
+import type { InternalColumn, DGTableInterface } from './private_types';
 
 const createElement = document.createElement.bind(document);
 
@@ -283,7 +283,7 @@ export function isTableRtl(table: DGTableInterface): boolean {
 /**
  * Serialize column width to string
  */
-export function serializeColumnWidth(column: Column): string | number {
+export function serializeColumnWidth(column: InternalColumn): string | number {
     return column.widthMode === ColumnWidthMode.AUTO ? 'auto' :
         column.widthMode === ColumnWidthMode.RELATIVE ? column.width * 100 + '%' :
             column.width;

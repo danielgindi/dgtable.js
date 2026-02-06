@@ -1,9 +1,11 @@
-import type { Column } from './types';
+import {
+    InternalColumn,
+} from './private_types';
 
 /**
  * A collection of columns that extends Array functionality
  */
-class ColumnCollection extends Array<Column> {
+class ColumnCollection extends Array<InternalColumn> {
     constructor() {
         super();
     }
@@ -11,7 +13,7 @@ class ColumnCollection extends Array<Column> {
     /**
      * Get the column by this name
      */
-    get(column: string): Column | null {
+    get(column: string): InternalColumn | null {
         for (let i = 0, len = this.length; i < len; i++) {
             if (this[i].name === column) {
                 return this[i];
@@ -23,7 +25,7 @@ class ColumnCollection extends Array<Column> {
     /**
      * Get the index of the column by this name
      */
-    indexOf(column: string | Column): number {
+    indexOf(column: string | InternalColumn): number {
         const columnName = typeof column === 'string' ? column : column.name;
         for (let i = 0, len = this.length; i < len; i++) {
             if (this[i].name === columnName) {
@@ -36,7 +38,7 @@ class ColumnCollection extends Array<Column> {
     /**
      * Get the column by the specified order
      */
-    getByOrder(order: number): Column | null {
+    getByOrder(order: number): InternalColumn | null {
         for (let i = 0, len = this.length; i < len; i++) {
             if (this[i].order === order) {
                 return this[i];
@@ -49,7 +51,7 @@ class ColumnCollection extends Array<Column> {
      * Normalize order to be sequential starting from 0
      */
     normalizeOrder(): this {
-        const ordered: Column[] = [];
+        const ordered: InternalColumn[] = [];
         for (let i = 0; i < this.length; i++) {
             ordered.push(this[i]);
         }
@@ -63,8 +65,8 @@ class ColumnCollection extends Array<Column> {
     /**
      * Get the array of columns, ordered by the order property
      */
-    getColumns(): Column[] {
-        const cols: Column[] = [];
+    getColumns(): InternalColumn[] {
+        const cols: InternalColumn[] = [];
         for (let i = 0; i < this.length; i++) {
             cols.push(this[i]);
         }
@@ -75,8 +77,8 @@ class ColumnCollection extends Array<Column> {
     /**
      * Get the array of visible columns, ordered by the order property
      */
-    getVisibleColumns(): Column[] {
-        const cols: Column[] = [];
+    getVisibleColumns(): InternalColumn[] {
+        const cols: InternalColumn[] = [];
         for (let i = 0; i < this.length; i++) {
             const column = this[i];
             if (column.visible) {
@@ -104,7 +106,7 @@ class ColumnCollection extends Array<Column> {
     /**
      * Move a column to a new spot in the collection
      */
-    moveColumn(src: Column, dest: Column): this {
+    moveColumn(src: InternalColumn, dest: InternalColumn): this {
         if (src && dest) {
             const srcOrder = src.order;
             const destOrder = dest.order;

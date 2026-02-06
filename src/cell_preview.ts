@@ -6,12 +6,13 @@
 // @ts-ignore - No type declarations available for this module
 import { getElementWidth, getElementHeight, getElementOffset, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
 import SelectionHelper from './SelectionHelper';
+import { disableCssSelect } from './helpers';
+import type { RowData } from './types';
+import type { DGTableInterface } from './private_types';
 import {
     OriginalCellSymbol,
     PreviewCellSymbol,
-} from './constants';
-import { disableCssSelect } from './helpers';
-import type { DGTableInterface, RowData } from './types';
+} from './private_types';
 
 const nativeIndexOf = Array.prototype.indexOf;
 const createElement = document.createElement.bind(document);

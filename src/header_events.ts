@@ -6,14 +6,14 @@ import { find } from './util';
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore - No type declarations available for this module
 import { getElementWidth, getElementHeight, getElementOffset } from '@danielgindi/dom-utils/lib/Css.js';
-import { RelatedTouchSymbol } from './constants';
 import { isInputElementEvent } from './helpers';
 import {
     getColumnByResizePosition,
     cancelColumnResize,
     onMouseDownColumnHeader,
 } from './column_resize';
-import type { DGTableInterface } from './types';
+import type { DGTableInterface } from './private_types';
+import { RelatedTouchSymbol } from './private_types';
 
 // Extended element types
 interface HeaderCellElement extends HTMLElement {
@@ -69,7 +69,7 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
         clearTimeout(tapAndHoldTimeout);
     };
 
-    event[RelatedTouchSymbol] = event.changedTouches[0];
+    (event as any)[RelatedTouchSymbol] = event.changedTouches[0];
     onMouseDownColumnHeader(table, event as unknown as MouseEvent & { [RelatedTouchSymbol]?: PositionHost });
 
     tapAndHoldTimeout = setTimeout(() => {
@@ -110,7 +110,7 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
             const distanceTravelled = Math.sqrt(Math.pow(Math.abs(currentPos.x - startPos.x), 2) + Math.pow(Math.abs(currentPos.y - startPos.y), 2));
 
             if (distanceTravelled < distanceTreshold || p.resizer) {
-                touchEvent[RelatedTouchSymbol] = touch;
+                (touchEvent as any)[RelatedTouchSymbol] = touch;
                 onSortOnColumnHeaderEvent(table, touchEvent);
             }
 
@@ -126,7 +126,7 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
             if (p.resizer) {
                 event.preventDefault();
 
-                touchEvent[RelatedTouchSymbol] = touch;
+                (touchEvent as any)[RelatedTouchSymbol] = touch;
                 onMouseMoveColumnHeader(table, touchEvent);
             }
         });
