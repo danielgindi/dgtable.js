@@ -7,6 +7,15 @@
   "browser": "dist/lib.umd.min.js",
   "types": "dist/index.d.ts",
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/lib.es6.min.js",
+      "require": "./dist/lib.cjs.min.js",
+      "default": "./dist/lib.es6.min.js"
+    },
+    "./package.json": "./package.json"
+  },
   "author": {
     "name": "Daniel Cohen Gindi",
     "email": "danielgindi@gmail.com"

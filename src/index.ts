@@ -218,7 +218,7 @@ class DGTable {
     // PUBLIC API - Events
     // =========================================================================
 
-    /** 
+    /**
      * Register an event handler.
      * Built-in events have typed handlers. Custom events use `unknown` data type.
      */
@@ -229,7 +229,7 @@ class DGTable {
         return this;
     }
 
-    /** 
+    /**
      * Register a one-time event handler.
      * Built-in events have typed handlers. Custom events use `unknown` data type.
      */
@@ -244,7 +244,7 @@ class DGTable {
         return this;
     }
 
-    /** 
+    /**
      * Remove a handler for an event, all handlers for an event, or all handlers completely.
      * Built-in events have typed handlers. Custom events use `unknown` data type.
      */
@@ -259,7 +259,7 @@ class DGTable {
         return this;
     }
 
-    /** 
+    /**
      * Emit an event.
      * Built-in events have typed data. Custom events accept any data type.
      */

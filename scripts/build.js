@@ -27,6 +27,7 @@ import { execSync } from 'node:child_process';
         dest: 'dist/lib.es6.js',
         sourceMap: true,
         outputFormat: 'esm',
+        outputExports: 'default',
         babelTargets: '> 0.25%, not dead',
         minified: false,
         ecmaVersion: 6,
@@ -34,6 +35,7 @@ import { execSync } from 'node:child_process';
         dest: 'dist/lib.es6.min.js',
         sourceMap: true,
         outputFormat: 'esm',
+        outputExports: 'default',
         babelTargets: '> 0.25%, not dead',
         minified: true,
         ecmaVersion: 6,
@@ -186,6 +188,11 @@ import { execSync } from 'node:child_process';
             let sourceMapOutPath = task.dest + '.map';
             await writeFile(sourceMapOutPath, generated.output[0].map.toString());
             code += '\n//# sourceMappingURL=' + Path.basename(sourceMapOutPath);
+        }
+
+        if (task.outputFormat === 'esm') {
+            // Add named export
+            code = code.replace(/export(\s+)\{(\s+)([^ ]+) as default(\s+)}/, 'export$1{$2$3,$2$3 as default$4}');
         }
 
         await writeFile(task.dest, code);
