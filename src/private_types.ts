@@ -19,6 +19,7 @@ export const PreviewCellSymbol = Symbol('preview_cell');
 export const OriginalCellSymbol = Symbol('cell');
 export const RelatedTouchSymbol = Symbol('related_touch');
 export const OriginalRowIndex = Symbol('original_row_index');
+export const IsDestroyedSymbol = Symbol('destroyed');
 
 // External untyped modules - use any
 type DomEventsSink = any;
@@ -149,8 +150,8 @@ export interface DGTablePrivateState {
  */
 export interface DGTableInterface {
     el: HTMLElement;
-    _o: DGTableInternalOptions;
-    _p: DGTablePrivateState;
+    readonly _o: DGTableInternalOptions;
+    readonly _p: DGTablePrivateState;
     emit(event: string, data?: unknown): void;
     tableWidthChanged(forceUpdate?: boolean, renderColumns?: boolean): void;
 }

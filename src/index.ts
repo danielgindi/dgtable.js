@@ -31,8 +31,6 @@ import {
 
 // Cell Preview
 import {
-    cellMouseOverEvent,
-    cellMouseOutEvent,
     hideCellPreview,
 } from './cell_preview';
 
@@ -87,9 +85,9 @@ import {
 } from './types';
 
 // Private types
-import type {
+import {
     DGTableInternalOptions,
-    DGTablePrivateState,
+    DGTablePrivateState, IsDestroyedSymbol,
 } from './private_types';
 import {
     IsSafeSymbol,
@@ -107,9 +105,9 @@ class DGTable {
     // Instance properties
     VERSION: string;
     el!: HTMLElement;
-    _o!: DGTableInternalOptions;
-    _p!: DGTablePrivateState;
-    __removed?: boolean;
+    readonly _o!: DGTableInternalOptions;
+    readonly _p!: DGTablePrivateState;
+    private [IsDestroyedSymbol]?: boolean;
 
     /**
      * @param options - initialization options
@@ -225,6 +223,8 @@ class DGTable {
     on<K extends keyof DGTableEventMap>(event: K, handler: (value: DGTableEventMap[K]) => void): this;
     on<T = unknown>(event: string & {}, handler: (value: T) => void): this;
     on(event: string, handler: (value: unknown) => void) {
+        if (this[IsDestroyedSymbol])
+            return this;
         this._p.mitt.on(event, handler);
         return this;
     }
@@ -236,6 +236,8 @@ class DGTable {
     once<K extends keyof DGTableEventMap>(event: K, handler: (value: DGTableEventMap[K]) => void): this;
     once<T = unknown>(event: string & {}, handler: (value: T) => void): this;
     once(event: string, handler: (value: unknown) => void) {
+        if (this[IsDestroyedSymbol])
+            return this;
         const wrapped = (value: unknown) => {
             this._p.mitt.off(event, wrapped);
             handler(value);
@@ -251,6 +253,8 @@ class DGTable {
     off<K extends keyof DGTableEventMap>(event?: K, handler?: (value: DGTableEventMap[K]) => void): this;
     off<T = unknown>(event?: string & {}, handler?: (value: T) => void): this;
     off(event?: string, handler?: (value: unknown) => void) {
+        if (this[IsDestroyedSymbol])
+            return this;
         if (!event && !handler) {
             this._p.mitt.all.clear();
         } else {
@@ -266,6 +270,8 @@ class DGTable {
     emit<K extends keyof DGTableEventMap>(event: K, value?: DGTableEventMap[K]): this;
     emit<T = unknown>(event: string & {}, value?: T): this;
     emit(event: string, value?: unknown) {
+        if (this[IsDestroyedSymbol])
+            return this;
         this._p.mitt.emit(event, value);
         return this;
     }
@@ -281,7 +287,7 @@ class DGTable {
         const p = this._p;
         const el = this.el;
 
-        if (this.__removed || !p) {
+        if (this[IsDestroyedSymbol] || !p) {
             return this;
         }
 
@@ -319,7 +325,7 @@ class DGTable {
             }
         }
 
-        this.__removed = true;
+        this[IsDestroyedSymbol] = true;
 
         if (el) {
             el.remove();
@@ -350,7 +356,7 @@ class DGTable {
             if (!p._deferredRender) {
                 p._deferredRender = setTimeout(() => {
                     p._deferredRender = null;
-                    if (!this.__removed && this.el.offsetParent) {
+                    if (!this[IsDestroyedSymbol] && this.el.offsetParent) {
                         this.render();
                     }
                 });
