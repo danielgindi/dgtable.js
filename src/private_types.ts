@@ -47,7 +47,7 @@ export interface InternalColumn {
     actualWidthConsideringScrollbarWidth?: number | null;
     arrowProposedWidth?: number;
     element?: HTMLElement;
-    stickyPos?: { direction: string; offset: number };
+    stickyPos?: { direction: 'start'|'end'; absDirection: 'left'|'right'; offset: number };
     _finalWidth?: number;
 }
 
@@ -129,12 +129,13 @@ export interface DGTablePrivateState {
     cellPreviewCell?: HTMLElement | null;
     abortCellPreview?: boolean;
     dragId?: number;
-    stickiesLeft?: [HTMLElement, ...HTMLElement[]][];
-    stickiesRight?: [HTMLElement, ...HTMLElement[]][];
-    stickiesSetLeft?: Set<number>;
-    stickiesSetRight?: Set<number>;
+    stickiesStart?: [HTMLElement, ...HTMLElement[]][];
+    stickiesEnd?: [HTMLElement, ...HTMLElement[]][];
+    stickiesSetStart?: Set<number>;
+    stickiesSetEnd?: Set<number>;
+    lastIsRtl: boolean;
     lastStickyScrollLeft?: number;
-    isStickyColumns?: Map<number, 'left' | 'right'>;
+    isStickyColumns?: Map<number, 'start' | 'end'>;
     virtualRowHeight?: number;
     workerListeners?: WorkerListener[];
     notifyRendererOfColumnsConfig?: () => void;

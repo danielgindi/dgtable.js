@@ -186,6 +186,8 @@ import { execSync } from 'node:child_process';
 
         if (task.sourceMap && generated.output[0].map) {
             let sourceMapOutPath = task.dest + '.map';
+            const map = generated.output[0].map;
+            map.sources = map.sources.map(source => Path.join('../', source));
             await writeFile(sourceMapOutPath, generated.output[0].map.toString());
             code += '\n//# sourceMappingURL=' + Path.basename(sourceMapOutPath);
         }
