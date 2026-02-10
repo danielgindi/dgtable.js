@@ -803,7 +803,8 @@ class DGTable {
 
     /** Sort the table by column */
     sort(column?: string, descending?: boolean, add?: boolean) {
-        const p = this._p;
+        const o = this._o,
+            p = this._p;
 
         let columns = p.columns,
             col = columns.get(column);
@@ -822,6 +823,11 @@ class DGTable {
                         }
                         break;
                     }
+                }
+
+                if ((o.sortableColumns > 0 && currentSort.length >= o.sortableColumns) ||
+                    currentSort.length >= p.visibleColumns.length) {
+                    currentSort.length = 0;
                 }
             } else {
                 currentSort.length = 0;
@@ -886,10 +892,8 @@ class DGTable {
             };
         });
 
-        if ((o.sortableColumns > 0 && currentSort.length >= o.sortableColumns) ||
-            currentSort.length >= p.visibleColumns.length) {
-            currentSort.length = 0;
-        }
+        if (o.sortableColumns > 0 && currentSort.length > o.sortableColumns)
+            currentSort.length = o.sortableColumns;
 
         clearSortArrows(this);
 
