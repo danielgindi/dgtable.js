@@ -171,12 +171,13 @@ table.getColumnsConfig()                         // Get all columns config
 
 #### Sorting
 
-```javascript
-table.sort(column, descending, add=false)  // Sort by column
-table.resort()                             // Re-apply current sort
-table.getSortedColumns()                   // Get current sort state
-table.setSortableColumns(count)            // Set max sortable columns
-table.getSortableColumns()                 // Get max sortable columns
+```typescript
+table.sort(column: string, descending, add=false)                   // Sort by column
+table.resort()                                                      // Re-apply current sort
+table.setSortedColumns(columns: SerializedColumnSort[])             // Set current sort state
+table.getSortedColumns(): SerializedColumnSort[]                    // Get current sort state
+table.setMaxColumnSortCount(count)                                  // Set max sortable columns
+table.getMaxColumnSortCount(): number                               // Get max sortable columns
 ```
 
 #### Data Management

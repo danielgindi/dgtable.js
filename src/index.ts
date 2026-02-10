@@ -711,7 +711,7 @@ class DGTable {
     // =========================================================================
 
     /** Set the limit on concurrent columns sorted */
-    setSortableColumns(sortableColumns: number) {
+    setMaxColumnSortCount(sortableColumns: number) {
         const p = this._p, o = this._o;
         if (o.sortableColumns !== sortableColumns) {
             o.sortableColumns = sortableColumns;
@@ -727,8 +727,22 @@ class DGTable {
     }
 
     /** Get the limit on concurrent columns sorted */
-    getSortableColumns(): number {
+    getMaxColumnSortCount(): number {
         return this._o.sortableColumns;
+    }
+
+    /** Set the limit on concurrent columns sorted
+     * @deprecated please use setMaxColumnSortCount()
+     * */
+    setSortableColumns(sortableColumns: number) {
+        return this.setMaxColumnSortCount(sortableColumns);
+    }
+
+    /** Get the limit on concurrent columns sorted
+     * @deprecated please use getMaxColumnSortCount()
+     * */
+    getSortableColumns(): number {
+        return this.getMaxColumnSortCount();
     }
 
     /** Set whether columns are movable */
@@ -781,12 +795,12 @@ class DGTable {
 
     /** Sort the table by column */
     sort(column?: string, descending?: boolean, add?: boolean) {
-        const o = this._o, p = this._p;
+        const p = this._p;
 
         let columns = p.columns,
             col = columns.get(column);
 
-        let currentSort = p.rows.sortColumn;
+        let currentSort = p.rows.sortColumn.map(x => ({ column: x.column, descending: x.descending }));
 
         if (col) {
             if (add) {
@@ -801,10 +815,6 @@ class DGTable {
                         break;
                     }
                 }
-                if ((o.sortableColumns > 0 && currentSort.length >= o.sortableColumns) || currentSort.length >= p.visibleColumns.length) {
-                    currentSort.length = 0;
-                }
-
             } else {
                 currentSort.length = 0;
             }
@@ -813,42 +823,13 @@ class DGTable {
 
             currentSort.push({
                 column: col.name,
-                comparePath: col.comparePath || col.dataPath,
                 descending: !!descending,
             });
         } else {
             currentSort.length = 0;
         }
 
-        clearSortArrows(this);
-
-        for (let i = 0; i < currentSort.length; i++) {
-            showSortArrow(this, currentSort[i].column, currentSort[i].descending);
-        }
-
-        if (o.adjustColumnWidthForSortArrow && !p.tableSkeletonNeedsRendering) {
-            this.tableWidthChanged(true);
-        }
-
-        p.rows.sortColumn = currentSort;
-
-        if (currentSort.length) {
-            p.rows.sort();
-            if (p.filteredRows) {
-                p.filteredRows.sort();
-            }
-        }
-
-        if (p.virtualListHelper)
-            p.virtualListHelper.invalidate().render();
-
-        let sorts = [];
-        for (let i = 0; i < currentSort.length; i++) {
-            sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
-        }
-        this.emit('sort', { sorts: sorts });
-
-        return this;
+        return this.setSortedColumns(currentSort);
     }
 
     /** Re-sort the table using current sort specifiers */
@@ -879,6 +860,56 @@ class DGTable {
             }
             this.emit('sort', { sorts: sorts, resort: true });
         }
+
+        return this;
+    }
+
+    setSortedColumns(sortedColumns: SerializedColumnSort[]) {
+        const o = this._o, p = this._p;
+
+        let columns = p.columns;
+
+        let currentSort = sortedColumns.filter(x => columns.get(x.column)).map(x => {
+            let col = columns.get(x.column);
+            return {
+                column: col.name,
+                comparePath: col.comparePath || col.dataPath,
+                descending: !!x.descending,
+            };
+        });
+
+        if ((o.sortableColumns > 0 && currentSort.length >= o.sortableColumns) ||
+            currentSort.length >= p.visibleColumns.length) {
+            currentSort.length = 0;
+        }
+
+        clearSortArrows(this);
+
+        for (let i = 0; i < currentSort.length; i++) {
+            showSortArrow(this, currentSort[i].column, currentSort[i].descending);
+        }
+
+        if (o.adjustColumnWidthForSortArrow && !p.tableSkeletonNeedsRendering) {
+            this.tableWidthChanged(true);
+        }
+
+        p.rows.sortColumn = currentSort;
+
+        if (currentSort.length) {
+            p.rows.sort();
+            if (p.filteredRows) {
+                p.filteredRows.sort();
+            }
+        }
+
+        if (p.virtualListHelper)
+            p.virtualListHelper.invalidate().render();
+
+        let sorts = [];
+        for (let i = 0; i < currentSort.length; i++) {
+            sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
+        }
+        this.emit('sort', { sorts: sorts });
 
         return this;
     }
