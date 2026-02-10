@@ -89,7 +89,7 @@ new DGTable(options?: DGTableOptions)
 | `minColumnWidth` | `number` | `35` | Minimum column width in pixels |
 | `resizableColumns` | `boolean` | `true` | Allow column resizing |
 | `movableColumns` | `boolean` | `true` | Allow column reordering |
-| `sortableColumns` | `number` | `1` | Maximum number of columns to sort by |
+| `maxColumnsSortCount` | `number` | `1` | Maximum number of columns to sort by |
 | `allowCancelSort` | `boolean` | `true` | Allow cycling through asc → desc → none |
 | `adjustColumnWidthForSortArrow` | `boolean` | `true` | Auto-expand columns for sort indicator |
 | `relativeWidthGrowsToFillWidth` | `boolean` | `true` | Expand relative columns to fill space |

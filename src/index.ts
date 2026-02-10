@@ -137,7 +137,11 @@ class DGTable {
         o.resizeAreaWidth = options.resizeAreaWidth || 8;
         o.resizableColumns = options.resizableColumns === undefined ? true : !!options.resizableColumns;
         o.movableColumns = options.movableColumns === undefined ? true : !!options.movableColumns;
-        o.sortableColumns = options.sortableColumns === undefined ? 1 : (parseInt(String(options.sortableColumns), 10) || 1);
+
+        const maxColumnsSortCount = options.maxColumnsSortCount
+            ?? (options as any)['sortableColumns']; // backwards compatibility
+        o.sortableColumns = maxColumnsSortCount === undefined ? 1 : Number(maxColumnsSortCount) || 1;
+
         o.adjustColumnWidthForSortArrow = options.adjustColumnWidthForSortArrow === undefined ? true : !!options.adjustColumnWidthForSortArrow;
         o.convertColumnWidthsToRelative = options.convertColumnWidthsToRelative === undefined ? false : !!options.convertColumnWidthsToRelative;
         o.autoFillTableWidth = options.autoFillTableWidth === undefined ? false : !!options.autoFillTableWidth;
@@ -167,11 +171,11 @@ class DGTable {
         // Set sorting columns
         let sortColumns = [];
 
-        if (options.sortColumn) {
-
-            let tmpSortColumns: (string | ColumnSortOptions)[] = Array.isArray(options.sortColumn)
-                ? options.sortColumn
-                : [options.sortColumn];
+        const initialSortedColumns = options.sortedColumns ?? (options as any)['sortColumn'];
+        if (initialSortedColumns) {
+            let tmpSortColumns: (string | ColumnSortOptions)[] = Array.isArray(initialSortedColumns)
+                ? initialSortedColumns
+                : [initialSortedColumns];
 
             for (let i = 0, len = tmpSortColumns.length; i < len; i++) {
                 let sortColumn = tmpSortColumns[i];

@@ -92,7 +92,7 @@ export interface DGTableOptions {
     estimatedRowHeight?: number | null;
     resizableColumns?: boolean | null;
     movableColumns?: boolean | null;
-    sortableColumns?: number | null;
+    maxColumnsSortCount?: number | null;
     adjustColumnWidthForSortArrow?: boolean | null;
     relativeWidthGrowsToFillWidth?: boolean | null;
     relativeWidthShrinksToFillWidth?: boolean | null;
@@ -100,7 +100,7 @@ export interface DGTableOptions {
     autoFillTableWidth?: boolean | null;
     allowCancelSort?: boolean | null;
     cellClasses?: string | null;
-    sortColumn?: string | string[] | ColumnSortOptions | ColumnSortOptions[];
+    sortedColumns?: string[] | ColumnSortOptions[];
     cellFormatter?: CellFormatter | null;
     headerCellFormatter?: HeaderCellFormatter | null;
     rowsBufferSize?: number | null;
