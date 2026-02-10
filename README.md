@@ -165,8 +165,8 @@ table.setColumnVisible(column, visible)          // Show/hide column
 table.isColumnVisible(column)                    // Check visibility
 table.setColumnWidth(column, width)              // Set column width
 table.getColumnWidth(column)                     // Get column width
-table.getColumnConfig(column)                    // Get column config
-table.getColumnsConfig()                         // Get all columns config
+table.getColumnConfig(column): ColumnOptions     // Get column config
+table.getColumnsConfig(): ColumnOptions[]        // Get all columns config
 ```
 
 #### Sorting
@@ -475,7 +475,6 @@ import type {
     DGTableOptions,        // Constructor options
     ColumnOptions,         // Column definition
     ColumnSortOptions,     // Sort specification { column, descending? }
-    SerializedColumn,      // Saved column config
     SerializedColumnSort,  // Saved sort config
     RowData,               // Row data (Record<string, unknown>)
     

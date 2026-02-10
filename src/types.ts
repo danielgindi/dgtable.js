@@ -17,16 +17,6 @@ export interface SerializedColumnSort {
 }
 
 /**
- * Serialized column configuration
- */
-export interface SerializedColumn {
-    order?: number | null;
-    width?: string | number | null;
-    visible?: boolean | null;
-    label?: string;
-}
-
-/**
  * Column definition options
  */
 export interface ColumnOptions {

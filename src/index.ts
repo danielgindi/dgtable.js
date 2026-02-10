@@ -79,7 +79,6 @@ import {
     HeaderCellFormatter,
     OnComparatorRequired,
     CustomSortingProvider,
-    SerializedColumn,
     SerializedColumnSort,
     DGTableEventMap,
 } from './types';
@@ -681,15 +680,24 @@ class DGTable {
     }
 
     /** Get configuration for a specific column */
-    getColumnConfig(column: string): SerializedColumn | null {
+    getColumnConfig(column: string): ColumnOptions | null {
         const p = this._p;
         let col = p.columns.get(column);
         if (col) {
             return {
-                'order': col.order,
-                'width': serializeColumnWidth(col),
-                'visible': col.visible,
-                'label': col.label,
+                name: col.name,
+                label: col.label,
+                width: serializeColumnWidth(col),
+                dataPath: col.dataPath,
+                comparePath: col.comparePath,
+                resizable: col.resizable,
+                movable: col.movable,
+                sortable: col.sortable,
+                visible: col.visible,
+                cellClasses: col.cellClasses,
+                ignoreMin: col.ignoreMin,
+                sticky: col.sticky,
+                order: col.order,
             };
         }
         return null;
@@ -1621,7 +1629,6 @@ export type {
     DGTableOptions,
     ColumnOptions,
     ColumnSortOptions,
-    SerializedColumn,
     SerializedColumnSort,
     RowData,
     // Function types
