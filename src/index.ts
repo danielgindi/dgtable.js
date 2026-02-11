@@ -787,6 +787,28 @@ class DGTable {
         return this._o.resizableColumns;
     }
 
+    /**
+     * Set whether column widths are converted to relative when calculating column widths to fill the table width.
+     */
+    getConvertColumnsWidthsToRelative(): boolean {
+        return this._o.convertColumnWidthsToRelative;
+    }
+
+    /**
+     * Set whether column widths are converted to relative when calculating column widths to fill the table width.
+     */
+    setConvertColumnsWidthsToRelative(convert: boolean, refreshNow = true) {
+        let o = this._o;
+        convert = !!convert;
+        if (o.convertColumnWidthsToRelative !== convert) {
+            o.convertColumnWidthsToRelative = convert;
+
+            if (refreshNow)
+                this.tableWidthChanged(true);
+        }
+        return this;
+    }
+
     /** Sets a function that supplies comparators dynamically */
     setOnComparatorRequired(comparatorProvider: OnComparatorRequired | null) {
         let o = this._o;
