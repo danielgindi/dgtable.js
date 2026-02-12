@@ -23,8 +23,8 @@ export interface ColumnOptions {
     name: string;
     label?: string | null;
     width?: number | string | null;
-    dataPath?: string | string[] | null;
-    comparePath?: string | string[] | null;
+    dataPath?: string | null;
+    comparePath?: string | null;
     resizable?: boolean | null;
     movable?: boolean | null;
     sortable?: boolean | null;

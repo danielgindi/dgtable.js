@@ -191,10 +191,9 @@ export function initColumnFromData(
         order: 0,
     };
 
-    const rawDataPath = columnData.dataPath === undefined ? [col.name] : columnData.dataPath;
+    const rawDataPath = columnData.dataPath === undefined ? col.name : columnData.dataPath;
+    const rawComparePath = columnData.comparePath === undefined ? rawDataPath : columnData.comparePath;
     col.dataPath = typeof rawDataPath === 'string' ? rawDataPath.split('.') : rawDataPath;
-
-    const rawComparePath = columnData.comparePath === undefined ? col.dataPath : columnData.comparePath;
     col.comparePath = typeof rawComparePath === 'string' ? rawComparePath.split('.') : rawComparePath;
 
     return col;
