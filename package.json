@@ -43,7 +43,7 @@
   ],
   "dependencies": {
     "@danielgindi/dom-utils": "^1.0.11",
-    "@danielgindi/virtual-list-helper": "^1.0.17",
+    "@danielgindi/virtual-list-helper": "^1.0.18",
     "mitt": "^3.0.1"
   },
   "devDependencies": {
