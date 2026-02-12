@@ -60,6 +60,11 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
     const rowEl = el.parentElement as RowElement;
     if (!rowEl) return;
 
+    const columnName = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)]?.name;
+    const column = columnName ? p.columns.get(columnName) : null;
+    if (!column || column.allowPreview === false)
+        return;
+
     const previewCell = createElement('div') as PreviewCellElement;
     previewCell.innerHTML = el.innerHTML;
     previewCell.className = o.cellPreviewClassName;
@@ -108,14 +113,14 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
         tempDiv.remove();
     }
 
-    const css: Record<string, string | number> = {
+    const css: Record<string, string> = {
         'box-sizing': borderBox ? 'border-box' : 'content-box',
-        'width': requiredWidth,
+        'width': requiredWidth + 'px',
         'min-height': Math.max(getElementHeight(el), /%/.test(elStyle.minHeight) ? 0 : (parseFloat(elStyle.minHeight) || 0)) + 'px',
-        'padding-left': paddingL,
-        'padding-right': paddingR,
-        'padding-top': paddingT,
-        'padding-bottom': paddingB,
+        'padding-left': paddingL + 'px',
+        'padding-right': paddingR + 'px',
+        'padding-top': paddingT + 'px',
+        'padding-bottom': paddingB + 'px',
         'overflow': 'hidden',
         'position': 'absolute',
         'z-index': '-1',
@@ -152,7 +157,7 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
 
     previewCell.rowVIndex = rowEl.vIndex;
     const rowIndex = previewCell.rowIndex = rowEl.index;
-    previewCell.columnName = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)]?.name;
+    previewCell.columnName = columnName;
 
     try {
         const selection = SelectionHelper.saveSelection(el);

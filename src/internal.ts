@@ -185,6 +185,7 @@ export function initColumnFromData(
         cellClasses: columnData.cellClasses === undefined ? options.cellClasses : columnData.cellClasses,
         ignoreMin: columnData.ignoreMin === undefined ? false : !!columnData.ignoreMin,
         sticky: columnData.sticky === undefined ? null : (columnData.sticky || null),
+        allowPreview: !!(columnData.allowPreview ?? true),
         dataPath: [],
         comparePath: [],
         order: 0,

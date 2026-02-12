@@ -33,6 +33,8 @@ export interface ColumnOptions {
     ignoreMin?: boolean | null;
     sticky?: 'start' | 'end' | false | null;
     order?: number;
+    /** @default true */
+    allowPreview?: boolean | null;
 }
 
 /**

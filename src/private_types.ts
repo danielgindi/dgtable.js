@@ -40,6 +40,7 @@ export interface InternalColumn {
     cellClasses: string;
     ignoreMin: boolean;
     sticky: 'start' | 'end' | null;
+    allowPreview: boolean;
     dataPath: string[];
     comparePath: string[];
     order: number;
