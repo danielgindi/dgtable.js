@@ -790,14 +790,14 @@ class DGTable {
     /**
      * Set whether column widths are converted to relative when calculating column widths to fill the table width.
      */
-    getConvertColumnsWidthsToRelative(): boolean {
+    getConvertColumnWidthsToRelative(): boolean {
         return this._o.convertColumnWidthsToRelative;
     }
 
     /**
      * Set whether column widths are converted to relative when calculating column widths to fill the table width.
      */
-    setConvertColumnsWidthsToRelative(convert: boolean, refreshNow = true) {
+    setConvertColumnWidthsToRelative(convert: boolean, refreshNow = true) {
         let o = this._o;
         convert = !!convert;
         if (o.convertColumnWidthsToRelative !== convert) {
