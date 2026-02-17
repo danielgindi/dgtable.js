@@ -904,7 +904,8 @@ class DGTable {
         return this;
     }
 
-    setSortedColumns(sortedColumns: SerializedColumnSort[]) {
+    setSortedColumns(sortedColumns: SerializedColumnSort[],
+                     options: { immediate: Boolean, render: Boolean } = { immediate: true, render: true }) {
         const o = this._o, p = this._p;
 
         let columns = p.columns;
@@ -933,14 +934,14 @@ class DGTable {
 
         p.rows.sortColumn = currentSort;
 
-        if (currentSort.length) {
+        if (currentSort.length && options.immediate) {
             p.rows.sort();
             if (p.filteredRows) {
                 p.filteredRows.sort();
             }
         }
 
-        if (p.virtualListHelper)
+        if (p.virtualListHelper && options.render)
             p.virtualListHelper.invalidate().render();
 
         let sorts = [];
