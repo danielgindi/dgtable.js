@@ -894,6 +894,8 @@ class DGTable {
                 }
             }
 
+            p.virtualListHelper?.invalidate();
+
             let sorts = [];
             for (let i = 0; i < currentSort.length; i++) {
                 sorts.push({ 'column': currentSort[i].column, 'descending': currentSort[i].descending });
@@ -939,12 +941,12 @@ class DGTable {
             if (p.filteredRows) {
                 p.filteredRows.sort();
             }
+
+            p.virtualListHelper?.invalidate();
+
+            if (p.virtualListHelper && options.render)
+                p.virtualListHelper.render();
         }
-
-        p.virtualListHelper?.invalidate();
-
-        if (p.virtualListHelper && options.render)
-            p.virtualListHelper.render();
 
         let sorts = [];
         for (let i = 0; i < currentSort.length; i++) {
