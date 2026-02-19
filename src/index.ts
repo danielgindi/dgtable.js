@@ -941,8 +941,10 @@ class DGTable {
             }
         }
 
+        p.virtualListHelper?.invalidate();
+
         if (p.virtualListHelper && options.render)
-            p.virtualListHelper.invalidate().render();
+            p.virtualListHelper.render();
 
         let sorts = [];
         for (let i = 0; i < currentSort.length; i++) {
