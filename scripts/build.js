@@ -28,7 +28,6 @@ import { execSync } from 'node:child_process';
         sourceMap: true,
         outputFormat: 'esm',
         outputExports: 'default',
-        babelTargets: '> 0.25%, not dead',
         minified: false,
         ecmaVersion: 6,
     }, {
@@ -36,7 +35,6 @@ import { execSync } from 'node:child_process';
         sourceMap: true,
         outputFormat: 'esm',
         outputExports: 'default',
-        babelTargets: '> 0.25%, not dead',
         minified: true,
         ecmaVersion: 6,
     }, {
@@ -44,7 +42,7 @@ import { execSync } from 'node:child_process';
         sourceMap: true,
         outputFormat: 'umd',
         outputExports: 'default',
-        babelTargets: '> 0.25%, not dead',
+        babelTargets: '> 1%, not dead',
         minified: false,
         ecmaVersion: 6,
         outputName: 'DGTable',
@@ -53,7 +51,7 @@ import { execSync } from 'node:child_process';
         sourceMap: true,
         outputFormat: 'umd',
         outputExports: 'default',
-        babelTargets: '> 0.25%, not dead',
+        babelTargets: '> 1%, not dead',
         minified: true,
         ecmaVersion: 6,
         outputName: 'DGTable',
@@ -62,7 +60,6 @@ import { execSync } from 'node:child_process';
         sourceMap: true,
         outputFormat: 'cjs',
         outputExports: 'default',
-        babelTargets: '> 0.25%, not dead',
         minified: false,
         ecmaVersion: 6,
     }, {
@@ -70,7 +67,6 @@ import { execSync } from 'node:child_process';
         sourceMap: true,
         outputFormat: 'cjs',
         outputExports: 'default',
-        babelTargets: '> 0.25%, not dead',
         minified: true,
         ecmaVersion: 6,
     }];
@@ -203,4 +199,3 @@ import { execSync } from 'node:child_process';
     console.info('Done.');
 
 })();
-
