@@ -1,7 +1,7 @@
 {
   "name": "@danielgindi/dgtable.js",
   "description": "High-performance table View for vanilla JS",
-  "version": "2.0.20",
+  "version": "2.0.21",
   "main": "dist/lib.cjs.min.js",
   "module": "dist/lib.es6.min.js",
   "browser": "dist/lib.umd.min.js",
