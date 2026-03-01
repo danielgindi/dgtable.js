@@ -661,6 +661,9 @@ class DGTable {
             col.width = parsedWidth.width;
             col.widthMode = parsedWidth.mode;
 
+            col.unconvertedWidth = null;
+            col.unconvertedWidthMode = null;
+
             let newWidth = serializeColumnWidth(col);
 
             if (oldWidth !== newWidth) {
@@ -669,6 +672,7 @@ class DGTable {
 
             this.emit('columnwidth', { name: col.name, width: newWidth, oldWidth: oldWidth });
         }
+
         return this;
     }
 
@@ -688,10 +692,22 @@ class DGTable {
         const p = this._p;
         let col = p.columns.get(column);
         if (col) {
+            const colWidth = col.width;
+            const colWidthMode = col.widthMode;
+            if (col.unconvertedWidth != null) {
+                col.width = col.unconvertedWidth;
+                col.widthMode = col.unconvertedWidthMode;
+            }
+            const serializedWidth = serializeColumnWidth(col);
+            if (col.unconvertedWidth != null) {
+                col.width = colWidth;
+                col.widthMode = colWidthMode;
+            }
+
             return {
                 name: col.name,
                 label: col.label,
-                width: serializeColumnWidth(col),
+                width: serializedWidth,
                 dataPath: col.dataPath?.join('.'),
                 comparePath: col.comparePath?.join('.'),
                 resizable: col.resizable,
@@ -1382,6 +1398,13 @@ class DGTable {
                     let col = p.visibleColumns[i];
                     if (col.widthMode === ColumnWidthMode.AUTO) {
                         col.widthMode = ColumnWidthMode.RELATIVE;
+
+                        if (col.unconvertedWidth == null) {
+                            // Store this for restoring later when serializing
+                            col.unconvertedWidth = col.width;
+                            col.unconvertedWidthMode = col.unconvertedWidth;
+                        }
+
                         sizeLeft += col.actualWidth;
                         col.width = col.actualWidth / absWidthTotal;
                         totalRelativePercentage += col.width;
@@ -1430,6 +1453,12 @@ class DGTable {
                     if (col.widthMode === ColumnWidthMode.RELATIVE) {
                         if (!col.ignoreMin && col.width > minColumnWidthRelative) {
                             if (extraRelative > 0) {
+                                if (col.unconvertedWidth == null) {
+                                    // Store this for restoring later when serializing
+                                    col.unconvertedWidth = col.width;
+                                    col.unconvertedWidthMode = col.widthMode;
+                                }
+
                                 delta = Math.min(extraRelative, col.width - minColumnWidthRelative);
                                 col.width -= delta;
                                 extraRelative -= delta;
@@ -1460,6 +1489,12 @@ class DGTable {
                         continue;
 
                     if (col.widthMode === ColumnWidthMode.RELATIVE) {
+                        if (col.unconvertedWidth == null) {
+                            // Store this for restoring later when serializing
+                            col.unconvertedWidth = col.width;
+                            col.unconvertedWidthMode = col.widthMode;
+                        }
+
                         col.width *= conv;
                     } else {
                         let width = col.actualWidth * conv;

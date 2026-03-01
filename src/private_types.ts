@@ -33,6 +33,8 @@ export interface InternalColumn {
     label: string;
     width: number;
     widthMode: number; // ColumnWidthMode value (0, 1, or 2)
+    unconvertedWidth?: number;
+    unconvertedWidthMode?: number; // ColumnWidthMode value (0, 1, or 2)
     resizable: boolean;
     sortable: boolean;
     movable: boolean;
