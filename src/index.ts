@@ -1356,6 +1356,15 @@ class DGTable {
 
             for (let i = 0; i < p.visibleColumns.length; i++) {
                 let col = p.visibleColumns[i];
+
+                // Denormalize, to allow clean redistribution of columns
+                if (col.unconvertedWidth != null) {
+                    col.width = col.unconvertedWidth;
+                    col.widthMode = col.unconvertedWidthMode;
+                    col.unconvertedWidth = null;
+                    col.unconvertedWidthMode = null;
+                }
+
                 if (col.widthMode === ColumnWidthMode.ABSOLUTE) {
                     let width = col.width;
                     width += col.arrowProposedWidth || 0;
@@ -1400,7 +1409,7 @@ class DGTable {
                         col.widthMode = ColumnWidthMode.RELATIVE;
 
                         if (col.unconvertedWidth == null) {
-                            // Store this for restoring later when serializing
+                            // Store this to revert to denormalized widths
                             col.unconvertedWidth = col.width;
                             col.unconvertedWidthMode = col.unconvertedWidth;
                         }
@@ -1419,6 +1428,12 @@ class DGTable {
                 for (let i = 0; i < p.visibleColumns.length; i++) {
                     let col = p.visibleColumns[i];
                     if (col.widthMode === ColumnWidthMode.RELATIVE) {
+                        if (col.unconvertedWidth == null) {
+                            // Store this to revert to denormalized widths
+                            col.unconvertedWidth = col.width;
+                            col.unconvertedWidthMode = col.widthMode;
+                        }
+
                         col.width /= totalRelativePercentage;
                     }
                 }
@@ -1454,7 +1469,7 @@ class DGTable {
                         if (!col.ignoreMin && col.width > minColumnWidthRelative) {
                             if (extraRelative > 0) {
                                 if (col.unconvertedWidth == null) {
-                                    // Store this for restoring later when serializing
+                                    // Store this to revert to denormalized widths
                                     col.unconvertedWidth = col.width;
                                     col.unconvertedWidthMode = col.widthMode;
                                 }
@@ -1490,7 +1505,7 @@ class DGTable {
 
                     if (col.widthMode === ColumnWidthMode.RELATIVE) {
                         if (col.unconvertedWidth == null) {
-                            // Store this for restoring later when serializing
+                            // Store this to revert to denormalized widths
                             col.unconvertedWidth = col.width;
                             col.unconvertedWidthMode = col.widthMode;
                         }
