@@ -55,7 +55,7 @@ import {
     updateTableWidth,
     resizeColumnElements,
     clearSortArrows,
-    showSortArrow,
+    showSortArrow, updateStickyColumnPositions,
 } from './rendering';
 
 // Internal helpers (not exposed on class)
@@ -1475,6 +1475,7 @@ class DGTable {
             // Materialize relative sizes
             for (let i = 0; i < p.visibleColumns.length; i++) {
                 let col = p.visibleColumns[i];
+
                 if (col.widthMode === ColumnWidthMode.RELATIVE) {
                     let width = Math.round(sizeLeftForRelative * col.width);
                     sizeLeft -= width;
@@ -1505,6 +1506,8 @@ class DGTable {
             }
 
             p.notifyRendererOfColumnsConfig?.();
+
+            updateStickyColumnPositions(this);
 
             if (renderColumns) {
                 let tableWidth = calculateTbodyWidth(this);
