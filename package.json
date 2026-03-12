@@ -64,7 +64,7 @@
     "globals": "^17",
     "husky": "^9.1.7",
     "pinst": "^3.0.0",
-    "rollup": "^4.57.1",
+    "rollup": "^4.59.0",
     "tslib": "^2.8.1",
     "typescript": "^5.9.3"
   }
