@@ -62,6 +62,7 @@ export interface DGTableInternalOptions {
     estimatedRowHeight?: number;
     rowsBufferSize: number;
     minColumnWidth: number;
+    maxStickyColumnRelativeWidth: number|null;
     resizeAreaWidth: number;
     resizableColumns: boolean;
     movableColumns: boolean;

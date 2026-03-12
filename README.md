@@ -83,20 +83,21 @@ new DGTable(options?: DGTableOptions)
 
 #### Column Options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `columns` | `ColumnOptions[]` | `[]` | Array of column definitions |
-| `minColumnWidth` | `number` | `35` | Minimum column width in pixels |
-| `resizableColumns` | `boolean` | `true` | Allow column resizing |
-| `movableColumns` | `boolean` | `true` | Allow column reordering |
-| `maxColumnsSortCount` | `number` | `1` | Maximum number of columns to sort by |
-| `allowCancelSort` | `boolean` | `true` | Allow cycling through asc → desc → none |
-| `adjustColumnWidthForSortArrow` | `boolean` | `true` | Auto-expand columns for sort indicator |
-| `relativeWidthGrowsToFillWidth` | `boolean` | `true` | Expand relative columns to fill space |
-| `relativeWidthShrinksToFillWidth` | `boolean` | `false` | Shrink relative columns to fit |
-| `convertColumnWidthsToRelative` | `boolean` | `false` | Convert auto widths to relative |
-| `autoFillTableWidth` | `boolean` | `false` | Stretch columns to fill table width |
-| `resizeAreaWidth` | `number` | `8` | Width of resize drag area in pixels |
+| Option | Type              | Default | Description                                |
+|--------|-------------------|---------|--------------------------------------------|
+| `columns` | `ColumnOptions[]` | `[]`    | Array of column definitions                |
+| `minColumnWidth` | `number`          | `35`    | Minimum column width in pixels             |
+| `maxStickyColumnRelativeWidth` | `number`?         | null    | Maximum relative width for a sticky column |
+| `resizableColumns` | `boolean`         | `true`  | Allow column resizing                      |
+| `movableColumns` | `boolean`         | `true`  | Allow column reordering                    |
+| `maxColumnsSortCount` | `number`          | `1`     | Maximum number of columns to sort by       |
+| `allowCancelSort` | `boolean`         | `true`  | Allow cycling through asc → desc → none    |
+| `adjustColumnWidthForSortArrow` | `boolean`         | `true`  | Auto-expand columns for sort indicator     |
+| `relativeWidthGrowsToFillWidth` | `boolean`         | `true`  | Expand relative columns to fill space      |
+| `relativeWidthShrinksToFillWidth` | `boolean`         | `false` | Shrink relative columns to fit             |
+| `convertColumnWidthsToRelative` | `boolean`         | `false` | Convert auto widths to relative            |
+| `autoFillTableWidth` | `boolean`         | `false` | Stretch columns to fill table width        |
+| `resizeAreaWidth` | `number`          | `8`     | Width of resize drag area in pixels        |
 
 #### Column Definition
 
@@ -227,6 +228,8 @@ table.tableWidthChanged(forceUpdate=false, renderColumns=true)  // Notify width 
 table.tableHeightChanged()                                      // Notify height change
 table.setMinColumnWidth(width)                                  // Set global min width
 table.getMinColumnWidth()                                       // Get global min width
+table.setMaxStickyColumnRelativeWidth(width)                    // Set max relative width for sticky columns
+table.getMaxStickyColumnRelativeWidth()                                 // Get max relative width for sticky columns
 ```
 
 #### Cell Preview

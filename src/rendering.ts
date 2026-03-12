@@ -498,6 +498,9 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
     const rtl = isTableRtl(table);
     p.lastIsRtl = rtl;
     const scrollbarWidth = p.scrollbarWidth ?? 0;
+    const tableWidth = p.lastDetectedWidth;
+    const maxStickyColumnRelativeWidth = o.maxStickyColumnRelativeWidth;
+    const maxStickyColumnWidth = typeof maxStickyColumnRelativeWidth === 'number' && tableWidth ? (tableWidth * maxStickyColumnRelativeWidth) : null;
 
     let stickColLeft = 0;
     let stickColRight = 0;
@@ -507,6 +510,7 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
     const stickiesEnd: [HTMLElement, ...HTMLElement[]][] = [];
     let stickyStartGroup: HTMLElement[] | null = null;
     let stickyEndGroup: HTMLElement[] = [];
+    let sumStickyWidth = 0;
 
     for (let currentCellEl = headerRow.firstElementChild as HTMLElement | null; currentCellEl; currentCellEl = currentCellEl.nextElementSibling as HTMLElement | null) {
         const columnName = currentCellEl.getAttribute('data-column');
@@ -516,11 +520,18 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
         if (!column)
             continue;
 
-        if (column.sticky === 'start' || column.sticky === 'end') {
+        let isSticky = column.sticky === 'start' || column.sticky === 'end';
+        if (isSticky && maxStickyColumnWidth !== null) {
+            if ((sumStickyWidth + (column.actualWidth ?? 0)) > maxStickyColumnWidth)
+                isSticky = false;
+        }
+
+        if (isSticky) {
+            let colFullWidth = column.actualWidth ?? 0;
+            sumStickyWidth += 0;
+
             currentCellEl.className += ' ' + stickyClassName;
             currentCellEl.style.position = 'sticky';
-
-            let colFullWidth = column.actualWidth ?? 0;
 
             let computedStyle: CSSStyleDeclaration | null = null;
             if (boxSizing === null) {

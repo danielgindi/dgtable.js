@@ -134,6 +134,7 @@ class DGTable {
         o.estimatedRowHeight = options.estimatedRowHeight || undefined;
         o.rowsBufferSize = options.rowsBufferSize || 3;
         o.minColumnWidth = Math.max(options.minColumnWidth || 35, 0);
+        o.maxStickyColumnRelativeWidth = options.maxStickyColumnRelativeWidth || null;
         o.resizeAreaWidth = options.resizeAreaWidth || 8;
         o.resizableColumns = options.resizableColumns === undefined ? true : !!options.resizableColumns;
         o.movableColumns = options.movableColumns === undefined ? true : !!options.movableColumns;
@@ -645,6 +646,22 @@ class DGTable {
     /** Get the current minimum column width */
     getMinColumnWidth(): number {
         return this._o.minColumnWidth;
+    }
+
+    /** Set the max relative width for sticky columns */
+    setMaxStickyColumnRelativeWidth(maxStickyColumnRelativeWidth: number) {
+        let o = this._o;
+        maxStickyColumnRelativeWidth = maxStickyColumnRelativeWidth || null;
+        if (o.maxStickyColumnRelativeWidth !== maxStickyColumnRelativeWidth) {
+            o.maxStickyColumnRelativeWidth = maxStickyColumnRelativeWidth;
+            this.tableWidthChanged(true);
+        }
+        return this;
+    }
+
+    /** Get the max relative width for sticky columns */
+    getMaxStickyColumnRelativeWidth(): number {
+        return this._o.maxStickyColumnRelativeWidth;
     }
 
     /** Set a new width to a column */

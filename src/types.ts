@@ -107,6 +107,7 @@ export interface DGTableOptions {
     headerCellFormatter?: HeaderCellFormatter | null;
     rowsBufferSize?: number | null;
     minColumnWidth?: number | null;
+    maxStickyColumnRelativeWidth?: number | null;
     resizeAreaWidth?: number | null;
     onComparatorRequired?: OnComparatorRequired | null;
     comparatorCallback?: OnComparatorRequired | null; // deprecated
