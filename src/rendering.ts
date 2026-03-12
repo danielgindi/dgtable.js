@@ -511,6 +511,7 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
     let stickyStartGroup: HTMLElement[] | null = null;
     let stickyEndGroup: HTMLElement[] = [];
     let sumStickyWidth = 0;
+    let updatedStickyColumnIndices = [];
 
     for (let currentCellEl = headerRow.firstElementChild as HTMLElement | null; currentCellEl; currentCellEl = currentCellEl.nextElementSibling as HTMLElement | null) {
         const columnName = currentCellEl.getAttribute('data-column');
@@ -550,8 +551,10 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
 
             const isStart = column.sticky === 'start';
 
+            let stickyPos: { direction: 'start' | 'end'; absDirection: 'left' | 'right'; offset: number };
+
             if (isStart) {
-                const stickyPos = column.stickyPos = { direction: 'start', absDirection: rtl ? 'right' : 'left', offset: stickColLeft };
+                stickyPos = { direction: 'start', absDirection: rtl ? 'right' : 'left', offset: stickColLeft };
                 currentCellEl.style[stickyPos.absDirection] = stickColLeft + 'px';
                 stickColLeft += colFullWidth;
 
@@ -560,14 +563,24 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
                 stickyStartGroup = [currentCellEl];
                 stickiesStart.push(stickyStartGroup as [HTMLElement, ...HTMLElement[]]);
             } else {
-                const stickyPos = column.stickyPos = { direction: 'end', absDirection: rtl ? 'left' : 'right', offset: stickColRight };
+                stickyPos = { direction: 'end', absDirection: rtl ? 'left' : 'right', offset: stickColRight };
                 currentCellEl.style[stickyPos.absDirection] = (stickColRight + scrollbarWidth) + 'px';
                 stickColRight += colFullWidth;
 
                 stickiesEnd.push([currentCellEl, ...stickyEndGroup] as [HTMLElement, ...HTMLElement[]]);
                 stickyEndGroup.length = 0;
             }
+
+            if (stickyPos.direction !== column.stickyPos?.direction ||
+                stickyPos.offset !== column.stickyPos?.offset ||
+                stickyPos.absDirection !== column.stickyPos?.absDirection) {
+                updatedStickyColumnIndices.push(p.visibleColumns.indexOf(column));
+            }
+            column.stickyPos = stickyPos;
         } else {
+            if (column.stickyPos)
+                updatedStickyColumnIndices.push(p.visibleColumns.indexOf(column));
+
             delete column.stickyPos;
             stickyStartGroup?.push(currentCellEl);
             stickyEndGroup?.push(currentCellEl);
@@ -584,7 +597,11 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
     p.stickiesStart = stickiesStart;
     p.stickiesEnd = stickiesEnd;
 
-    syncHorizontalStickies(table);
+    if (updatedStickyColumnIndices.length > 0) {
+        table.refreshAllVirtualRows();
+    } else {
+        syncHorizontalStickies(table);
+    }
 }
 
 /**

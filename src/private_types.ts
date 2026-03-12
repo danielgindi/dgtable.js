@@ -159,4 +159,5 @@ export interface DGTableInterface {
     readonly _p: DGTablePrivateState;
     emit(event: string, data?: unknown): void;
     tableWidthChanged(forceUpdate?: boolean, renderColumns?: boolean): void;
+    refreshAllVirtualRows(): void;
 }

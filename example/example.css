@@ -44,17 +44,34 @@ body {
 
 .dgtable-wrapper .dgtable-header-cell.is-sticky-left,
 .dgtable-wrapper .dgtable-cell.is-sticky-left {
-    box-shadow: 3px 0 6px rgba(0, 0, 0, .1);
+    &::before {
+        content: '';
+        position: absolute;
+        z-index: 1;
+        display: block;
+        top: 0;
+        bottom: 0;
+        left: 100%;
+        width: 5px;
+        pointer-events: none;
+        background: linear-gradient(to right, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0))
+    }
 }
 
 .dgtable-wrapper .dgtable-header-cell.is-sticky-right,
 .dgtable-wrapper .dgtable-cell.is-sticky-right {
-    box-shadow: -3px 0 6px rgba(0, 0, 0, .1);
-}
-
-.dgtable-wrapper .dgtable-header-cell.is-sticky-left.is-sticky-right,
-.dgtable-wrapper .dgtable-cell.is-sticky-left.is-sticky-right {
-    box-shadow: 0 0 6px rgba(0, 0, 0, .1);
+    &::after {
+        content: '';
+        position: absolute;
+        z-index: 1;
+        display: block;
+        top: 0;
+        bottom: 0;
+        right: 100%;
+        width: 5px;
+        pointer-events: none;
+        background: linear-gradient(to left, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0))
+    }
 }
 
 .dgtable-header-cell {
