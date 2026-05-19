@@ -922,7 +922,11 @@ class DGTable {
             p.rows.sortColumn = currentSort;
             if (currentSort.length) {
                 p.rows.sort();
+
                 if (p.filteredRows) {
+                    p.filteredRows.sortColumn = p.rows.sortColumn;
+                    p.filteredRows.onComparatorRequired = p.rows.onComparatorRequired;
+                    p.filteredRows.customSortingProvider = p.rows.customSortingProvider;
                     p.filteredRows.sort();
                 }
             }
@@ -972,6 +976,9 @@ class DGTable {
         if (currentSort.length && options.immediate) {
             p.rows.sort();
             if (p.filteredRows) {
+                p.filteredRows.sortColumn = p.rows.sortColumn;
+                p.filteredRows.onComparatorRequired = p.rows.onComparatorRequired;
+                p.filteredRows.customSortingProvider = p.rows.customSortingProvider;
                 p.filteredRows.sort();
             }
 
@@ -1039,15 +1046,6 @@ class DGTable {
         const p = this._p;
 
         let filterFunc = (this._o.filter || ByColumnFilter) as FilterFunction;
-
-        // Deprecated use of older by-column filter
-        if (typeof arguments[0] === 'string' && typeof arguments[1] === 'string') {
-            args = {
-                column: arguments[0],
-                keyword: arguments[1],
-                caseSensitive: arguments[2],
-            };
-        }
 
         let hadFilter = !!p.filteredRows;
         if (p.filteredRows) {
