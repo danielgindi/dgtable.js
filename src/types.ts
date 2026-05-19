@@ -85,39 +85,214 @@ export type CustomSortingProvider = (
  * DGTable initialization options
  */
 export interface DGTableOptions {
+    /**
+     * Existing wrapper element to render the table into.
+     * @default A new `<div>` element.
+     */
     el?: Element | null;
+
+    /**
+     * CSS class added to the auto-created wrapper element.
+     * Ignored when `el` is provided.
+     * @default "dgtable-wrapper" when `el` is not provided.
+     */
     className?: string | null;
+
+    /**
+     * Initial column definitions.
+     * @default []
+     */
     columns?: ColumnOptions[];
+
+    /**
+     * Suggested table height in pixels.
+     * @default undefined
+     */
     height?: number;
+
+    /**
+     * Table width handling mode.
+     * @default "none"
+     */
     width?: WidthType;
+
+    /**
+     * Render only the visible rows for better performance with large datasets.
+     * Rows should have a stable height when this is enabled.
+     * @default true
+     */
     virtualTable?: boolean | null;
+
+    /**
+     * Estimated row height used to calculate virtual scroll size before rows are measured.
+     * @default undefined (auto-calculated)
+     */
     estimatedRowHeight?: number | null;
+
+    /**
+     * Enable column resizing globally.
+     * @default true
+     */
     resizableColumns?: boolean | null;
+
+    /**
+     * Enable column drag-and-drop reordering globally.
+     * @default true
+     */
     movableColumns?: boolean | null;
+
+    /**
+     * Maximum number of columns kept in the active sort stack.
+     * @default 1
+     */
     maxColumnsSortCount?: number | null;
+
+    /**
+     * Automatically reserve header space for the sort arrow indicator.
+     * @default true
+     */
     adjustColumnWidthForSortArrow?: boolean | null;
+
+    /**
+     * Let relative-width columns grow to consume unused table width.
+     * @default true
+     */
     relativeWidthGrowsToFillWidth?: boolean | null;
+
+    /**
+     * Let relative-width columns shrink when their total width exceeds the table width.
+     * @default false
+     */
     relativeWidthShrinksToFillWidth?: boolean | null;
+
+    /**
+     * Convert auto-sized columns to relative widths during width calculations.
+     * @default false
+     */
     convertColumnWidthsToRelative?: boolean | null;
+
+    /**
+     * Stretch columns proportionally to fill any remaining table width when possible.
+     * @default false
+     */
     autoFillTableWidth?: boolean | null;
+
+    /**
+     * Allow the sort state to cycle back to "unsorted".
+     * @default true
+     */
     allowCancelSort?: boolean | null;
+
+    /**
+     * CSS classes applied to every body cell.
+     * @default ""
+     */
     cellClasses?: string | null;
+
+    /**
+     * Initial sorting configuration.
+     * String entries are treated as ascending sorts.
+     * @default []
+     */
     sortedColumns?: string[] | ColumnSortOptions[];
+
+    /**
+     * Formatter used to produce body cell HTML.
+     * @default Built-in HTML-encoding formatter.
+     */
     cellFormatter?: CellFormatter | null;
+
+    /**
+     * Formatter used to produce header cell HTML.
+     * @default Built-in HTML-encoding formatter.
+     */
     headerCellFormatter?: HeaderCellFormatter | null;
+
+    /**
+     * Number of extra rows rendered above and below the viewport in virtual mode.
+     * @default 3
+     */
     rowsBufferSize?: number | null;
+
+    /**
+     * Minimum column width in pixels.
+     * @default 35
+     */
     minColumnWidth?: number | null;
+
+    /**
+     * Maximum sticky-column width as a fraction of the table width.
+     * Set to `null` to disable the limit.
+     * @default null
+     */
     maxStickyColumnRelativeWidth?: number | null;
+
+    /**
+     * Width in pixels of the draggable resize hotspot near header edges.
+     * @default 8
+     */
     resizeAreaWidth?: number | null;
+
+    /**
+     * Callback used to supply a custom comparator for a column and sort direction.
+     * @default null
+     */
     onComparatorRequired?: OnComparatorRequired | null;
-    comparatorCallback?: OnComparatorRequired | null; // deprecated
+
+    /**
+     * Deprecated comparator callback name.
+     * Use `onComparatorRequired` instead.
+     * @deprecated Use `onComparatorRequired` instead.
+     * @default undefined
+     */
+    comparatorCallback?: OnComparatorRequired | null;
+
+    /**
+     * Custom sorting provider that can wrap or replace the built-in sort routine.
+     * @default null
+     */
     customSortingProvider?: CustomSortingProvider | null;
+
+    /**
+     * CSS class used for the temporary resize guide element.
+     * @default "dgtable-resize"
+     */
     resizerClassName?: string | null;
+
+    /**
+     * Base CSS class used for generated table elements.
+     * @default "dgtable"
+     */
     tableClassName?: string | null;
+
+    /**
+     * Show a preview for truncated body-cell content on hover.
+     * @default true
+     */
     allowCellPreview?: boolean | null;
+
+    /**
+     * Show a preview for truncated header-cell content on hover.
+     * @default true
+     */
     allowHeaderCellPreview?: boolean | null;
+
+    /**
+     * CSS class applied to the generated preview element.
+     * @default "dgtable-cell-preview"
+     */
     cellPreviewClassName?: string | null;
+
+    /**
+     * Copy the source cell background onto the preview automatically.
+     * @default true
+     */
     cellPreviewAutoBackground?: boolean | null;
+
+    /**
+     * Custom row filter used by `filter()`.
+     * @default null
+     */
     filter?: FilterFunction | null;
 }
 
