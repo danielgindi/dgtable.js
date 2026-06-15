@@ -376,6 +376,14 @@ export interface ColumnWidthEvent {
     name: string;
     width: number;
     oldWidth: number;
+
+/**
+ * Event data for 'columnresizeareadoubleclick' event
+ */
+export interface ColumnResizeAreaDoubleClickEvent {
+    name: string;
+    columnName: string;
+    event: Event;
 }
 
 /**
@@ -423,6 +431,7 @@ export interface DGTableEventMap {
     'showcolumn': string;
     'hidecolumn': string;
     'columnwidth': ColumnWidthEvent;
+    'columnresizeareadoubleclick': ColumnResizeAreaDoubleClickEvent;
 
     // Data events
     'addrows': AddRowsEvent;

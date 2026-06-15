@@ -70,7 +70,11 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
     };
 
     (event as any)[RelatedTouchSymbol] = event.changedTouches[0];
-    onMouseDownColumnHeader(table, event as unknown as MouseEvent & { [RelatedTouchSymbol]?: PositionHost });
+    const resizeStartResult = onMouseDownColumnHeader(table, event as unknown as MouseEvent & { [RelatedTouchSymbol]?: PositionHost });
+    if (resizeStartResult === true) {
+        p.currentTouchId = null;
+        return;
+    }
 
     tapAndHoldTimeout = setTimeout(() => {
         unbind();

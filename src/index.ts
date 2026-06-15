@@ -1749,6 +1749,7 @@ export type {
     HeaderContextMenuEvent,
     MoveColumnEvent,
     ColumnWidthEvent,
+    ColumnResizeAreaDoubleClickEvent,
     AddRowsEvent,
     SortEvent,
     // Event map for typed handlers

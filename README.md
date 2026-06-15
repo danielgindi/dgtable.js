@@ -403,6 +403,7 @@ interface HeaderContextMenuEvent {
 | `showcolumn` | `string` | Column name shown |
 | `hidecolumn` | `string` | Column name hidden |
 | `columnwidth` | `ColumnWidthEvent` | Column resized |
+| `columnresizeareadoubleclick` | `ColumnResizeAreaDoubleClickEvent` | Resize area double-clicked |
 
 ```typescript
 interface MoveColumnEvent {
@@ -415,6 +416,12 @@ interface ColumnWidthEvent {
     name: string;              // Column name
     width: number;             // New width
     oldWidth: number;          // Previous width
+}
+
+interface ColumnResizeAreaDoubleClickEvent {
+    name: string;              // Column name
+    columnName: string;        // Column name
+    event: Event;              // Original mouse/touch/double-click event
 }
 ```
 
@@ -497,6 +504,7 @@ import type {
     HeaderContextMenuEvent, // 'headercontextmenu' event data
     MoveColumnEvent,       // 'movecolumn' event data
     ColumnWidthEvent,      // 'columnwidth' event data
+    ColumnResizeAreaDoubleClickEvent, // 'columnresizeareadoubleclick' event data
     AddRowsEvent,          // 'addrows' event data
     SortEvent,             // 'sort' event data
     

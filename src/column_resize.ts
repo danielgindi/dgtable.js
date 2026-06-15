@@ -11,6 +11,8 @@ import type { DGTableInterface } from './private_types';
 import { RelatedTouchSymbol, OriginalCellSymbol } from './private_types';
 
 const createElement = document.createElement.bind(document);
+const resizeAreaDoubleClickDelay = 450;
+const resizeAreaDoubleClickDistance = 12;
 
 // Extended element types
 interface HeaderCellElement extends HTMLElement {
@@ -24,12 +26,82 @@ interface ResizerElement extends HTMLDivElement {
 
 type PositionHost = {
     pageX: number;
+    pageY?: number;
     clientX?: number;
 };
 
 type TouchOrMouseEvent = (MouseEvent | TouchEvent) & {
     [RelatedTouchSymbol]?: PositionHost;
 };
+
+function getPositionHost(event: Event): PositionHost {
+    const touchEvent = event as TouchEvent;
+    return (event as TouchOrMouseEvent)[RelatedTouchSymbol] ?? touchEvent.changedTouches?.[0] ?? event as unknown as PositionHost;
+}
+
+function getPointerType(event: Event): 'mouse' | 'touch' {
+    return event.type.startsWith('touch') ? 'touch' : 'mouse';
+}
+
+function isSequentialResizeAreaClick(table: DGTableInterface, event: Event, columnName: string): boolean {
+    const p = table._p;
+    const positionHost = getPositionHost(event);
+    const now = Date.now();
+    const pointerType = getPointerType(event);
+    const lastClick = p.lastResizeAreaClick;
+
+    p.lastResizeAreaClick = {
+        columnName,
+        time: now,
+        pageX: positionHost.pageX || positionHost.clientX || 0,
+        pageY: positionHost.pageY || 0,
+        pointerType,
+    };
+
+    if (!lastClick || lastClick.columnName !== columnName || lastClick.pointerType !== pointerType) {
+        return false;
+    }
+
+    const elapsed = now - lastClick.time;
+    if (elapsed < 0 || elapsed > resizeAreaDoubleClickDelay) {
+        return false;
+    }
+
+    const distance = Math.sqrt(
+        Math.pow(p.lastResizeAreaClick.pageX - lastClick.pageX, 2) +
+        Math.pow(p.lastResizeAreaClick.pageY - lastClick.pageY, 2)
+    );
+
+    return distance <= Math.max(table._o.resizeAreaWidth, resizeAreaDoubleClickDistance);
+}
+
+function emitColumnResizeAreaDoubleClick(table: DGTableInterface, event: Event, columnName: string): boolean | void {
+    const o = table._o;
+    const p = table._p;
+    const column = p.columns.get(columnName);
+    if (!o.resizableColumns || !column || !column.resizable) {
+        return false;
+    }
+
+    const now = Date.now();
+    if (p.lastResizeAreaDoubleClick?.columnName === column.name &&
+        now - p.lastResizeAreaDoubleClick.time < 100) {
+        event.preventDefault();
+        return true;
+    }
+
+    p.lastResizeAreaClick = null;
+    p.lastResizeAreaDoubleClick = { columnName: column.name, time: now };
+
+    table.emit('columnresizeareadoubleclick', {
+        name: column.name,
+        columnName: column.name,
+        event,
+    });
+
+    event.preventDefault();
+    return true;
+}
 
 /**
  * Reverse-calculate the column to resize from mouse position
@@ -55,8 +127,7 @@ export function getColumnByResizePosition(table: DGTableInterface, event: Event)
 
     const firstCol = !previousElementSibling;
 
-    const touchEvent = event as TouchEvent;
-    const positionHost = (event as TouchOrMouseEvent)[RelatedTouchSymbol] ?? touchEvent.changedTouches?.[0] ?? event as unknown as PositionHost;
+    const positionHost = getPositionHost(event);
     const mouseX = (positionHost.pageX || positionHost.clientX || 0) - getElementOffset(headerCell).left;
 
     if (rtl) {
@@ -107,6 +178,10 @@ export function onMouseDownColumnHeader(table: DGTableInterface, event: Event): 
         const column = p.columns.get(col);
         if (!o.resizableColumns || !column || !column.resizable) {
             return false;
+        }
+
+        if (isSequentialResizeAreaClick(table, event, column.name)) {
+            return emitColumnResizeAreaDoubleClick(table, event, column.name);
         }
 
         const rtl = isTableRtl(table);
@@ -199,8 +274,7 @@ export function onMouseMoveResizeArea(table: DGTableInterface, event: Event): vo
 
     const isBoxing = selectedHeaderCellStyle.boxSizing === 'border-box';
 
-    const touchEvent = event as TouchEvent;
-    const positionHost = (event as TouchOrMouseEvent)[RelatedTouchSymbol] ?? touchEvent.changedTouches?.[0] ?? event as unknown as PositionHost;
+    const positionHost = getPositionHost(event);
     let actualX = positionHost.pageX - posRelative.left;
     let minX = posCol.left;
 
@@ -338,21 +412,22 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
         sizeLeft = Math.max(1, sizeLeft);
         if (sizeLeft === 1 && p.table)
             sizeLeft = p.table.clientWidth;
-        sizeToSet = width / sizeLeft;
+            sizeToSet = width / sizeLeft;
 
-        if (relatives > 0) {
-            const unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
+            if (relatives > 0) {
+                const unNormalizedSizeToSet = sizeToSet / ((1 - sizeToSet) / totalRelativePercentage);
 
-            totalRelativePercentage += sizeToSet;
+                totalRelativePercentage += sizeToSet;
 
-            if ((totalRelativePercentage < 1 && o.relativeWidthGrowsToFillWidth) ||
-                (totalRelativePercentage > 1 && o.relativeWidthShrinksToFillWidth)) {
-                sizeToSet = unNormalizedSizeToSet;
+                if ((totalRelativePercentage < 1 && o.relativeWidthGrowsToFillWidth) ||
+                    (totalRelativePercentage > 1 && o.relativeWidthShrinksToFillWidth)) {
+                    sizeToSet = unNormalizedSizeToSet;
+                }
             }
-        }
 
-        sizeToSet *= 100;
-        sizeToSet = sizeToSet + '%';
+            sizeToSet *= 100;
+            sizeToSet = sizeToSet + '%';
+        }
     }
 
     (table as unknown as { setColumnWidth(name: string, width: number | string): void }).setColumnWidth(column.name, sizeToSet);

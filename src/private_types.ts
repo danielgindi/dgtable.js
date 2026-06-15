@@ -106,6 +106,14 @@ export interface WorkerListener {
     listener: (evt: MessageEvent) => void;
 }
 
+export interface ResizeAreaClickState {
+    columnName: string;
+    time: number;
+    pageX: number;
+    pageY: number;
+    pointerType: 'mouse' | 'touch';
+}
+
 /**
  * Internal private state
  */
@@ -128,6 +136,8 @@ export interface DGTablePrivateState {
     tbody?: HTMLElement;
     resizer?: HTMLElement | null;
     currentTouchId?: number | null;
+    lastResizeAreaClick?: ResizeAreaClickState | null;
+    lastResizeAreaDoubleClick?: { columnName: string; time: number } | null;
     transparentBgColor1?: string;
     transparentBgColor2?: string;
     cellPreviewCell?: HTMLElement | null;
