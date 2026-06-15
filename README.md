@@ -97,6 +97,7 @@ new DGTable(options?: DGTableOptions)
 | `relativeWidthShrinksToFillWidth` | `boolean`         | `false` | Shrink relative columns to fit             |
 | `convertColumnWidthsToRelative` | `boolean`         | `false` | Convert auto widths to relative            |
 | `autoFillTableWidth` | `boolean`         | `false` | Stretch columns to fill table width        |
+| `autoFillLastColumn` | `boolean`         | `true`  | Expand last visible column to fill leftover width |
 | `resizeAreaWidth` | `number`          | `8`     | Width of resize drag area in pixels        |
 | `autoFitColumnOnResizeDoubleClick` | `boolean` | `false` | Auto-fit columns on resize-area double click |
 
@@ -106,7 +107,7 @@ new DGTable(options?: DGTableOptions)
 {
     name: string;                  // Required: unique identifier
     label?: string;                // Header text (defaults to name)
-    width?: number | string;       // number (px), '30%', or 0.3 (relative)
+    width?: number | string;       // number (px), '30%', 0.3 (relative), 'auto', or 'rest'
     dataPath?: string | string[];  // Path to data (defaults to [name])
     comparePath?: string | string[]; // Path for sorting (defaults to dataPath)
     resizable?: boolean;           // Allow resizing this column (default: true)
@@ -119,6 +120,8 @@ new DGTable(options?: DGTableOptions)
     order?: number;                // Column order
 }
 ```
+
+By default, if the visible columns do not reach the table edge, the last visible column is expanded as a layout-only fallback. This does not change that column's configured or serialized width. Set `autoFillLastColumn: false` to opt out.
 
 #### Formatting & Filtering
 
@@ -416,8 +419,8 @@ interface MoveColumnEvent {
 
 interface ColumnWidthEvent {
     name: string;              // Column name
-    width: number;             // New width
-    oldWidth: number;          // Previous width
+    width: number | string;    // New width
+    oldWidth: number | string; // Previous width
 }
 
 interface ColumnResizeAreaDoubleClickEvent {

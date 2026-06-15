@@ -22,6 +22,11 @@ export interface SerializedColumnSort {
 export interface ColumnOptions {
     name: string;
     label?: string | null;
+    /**
+     * Column width. Use a number for pixels, a percentage string/decimal for
+     * relative width, "auto" for header-based automatic width, or "rest" to
+     * consume the remaining table width after other columns are measured.
+     */
     width?: number | string | null;
     dataPath?: string | null;
     comparePath?: string | null;
@@ -176,6 +181,13 @@ export interface DGTableOptions {
      * @default false
      */
     autoFillTableWidth?: boolean | null;
+
+    /**
+     * Expand the last visible column to fill any remaining table width without
+     * changing its configured or serialized width.
+     * @default true
+     */
+    autoFillLastColumn?: boolean | null;
 
     /**
      * Allow the sort state to cycle back to "unsorted".
@@ -381,8 +393,9 @@ export interface MoveColumnEvent {
  */
 export interface ColumnWidthEvent {
     name: string;
-    width: number;
-    oldWidth: number;
+    width: number | string;
+    oldWidth: number | string;
+}
 
 /**
  * Event data for 'columnresizeareadoubleclick' event

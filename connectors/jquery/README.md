@@ -91,6 +91,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 * **relativeWidthShrinksToFillWidth**: `boolean=false` When set, relative width columns automatically shrink to fill the table's width.
 * **convertColumnWidthsToRelative**: `boolean=false` When set, auto-width columns are automatically converted to relatives.
 * **autoFillTableWidth**: `boolean=false` When set, columns are stretched proportionally to fill the table width (only if there is space left). Will supersede `relativeWidthGrowsToFillWidth` in the future.
+* **autoFillLastColumn**: `boolean=true` When set, the last visible column expands to fill leftover table width without changing its configured width.
 * **allowCancelSort**: `boolean=true` When set, the sorting arrows will have 3 modes - asc, desc, and cancelled.
 * **cellClasses**: `string` Classes to add to the DOM element of all cells
 * **sortColumn**: `string|string[]|COLUMN_SORT_OPTIONS|COLUMN_SORT_OPTIONS[]` Columns to sort by
@@ -216,7 +217,8 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
   * **comparatorCallback**: a function that returns the comparator for a specific column
 * `setCustomSortingProvider({{function(data: any[], sort: function(any[]):any[]):any[]}|null} customSortingProvider) {DGTable}`: sets custom sorting function for a data set
   * **customSortingProvider**: provides a custom sorting function (not the comparator, but a sort() alternative) for a data set
-* `setColumnWidth({string} column, {number|string} width) {DGTable}`: *Undocumented yet*
+* `setColumnWidth({string} column, {number|string} width) {DGTable}`: Sets a column width. Use a number for pixels, a percentage string/decimal for relative width, `'auto'`, or `'rest'`.
+  * If `autoFillLastColumn` is enabled and visible columns do not reach the table edge, the last visible column expands as a layout-only fallback without changing its configured width.
 * `getColumnWidth({string} column) {string|null}`: *Undocumented yet*
 * `autoFitColumn({string} column) {DGTable}`: Fits a column to its header/content width when at least one row exists.
 * `getColumnConfig({string} column name) {SERIALIZED_COLUMN}`: *Undocumented yet*

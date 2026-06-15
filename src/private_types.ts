@@ -71,6 +71,7 @@ export interface DGTableInternalOptions {
     adjustColumnWidthForSortArrow: boolean;
     convertColumnWidthsToRelative: boolean;
     autoFillTableWidth: boolean;
+    autoFillLastColumn: boolean;
     allowCancelSort: boolean;
     cellClasses: string;
     resizerClassName: string;

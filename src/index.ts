@@ -7,7 +7,7 @@ import ColumnCollection from './column_collection';
 // @ts-ignore - No type declarations available for this module
 import { getScrollHorz, setScrollHorz } from '@danielgindi/dom-utils/lib/ScrollHelper.js';
 // @ts-ignore - No type declarations available for this module
-import { getElementHeight } from '@danielgindi/dom-utils/lib/Css.js';
+import { getElementHeight, getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
 // @ts-ignore - No type declarations available for this module
 import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
 import ByColumnFilter from './by_column_filter';
@@ -86,7 +86,7 @@ import {
 // Private types
 import {
     DGTableInternalOptions,
-    DGTablePrivateState, IsDestroyedSymbol,
+    DGTablePrivateState, InternalColumn, IsDestroyedSymbol,
 } from './private_types';
 import {
     IsSafeSymbol,
@@ -148,6 +148,7 @@ class DGTable {
         o.adjustColumnWidthForSortArrow = options.adjustColumnWidthForSortArrow === undefined ? true : !!options.adjustColumnWidthForSortArrow;
         o.convertColumnWidthsToRelative = options.convertColumnWidthsToRelative === undefined ? false : !!options.convertColumnWidthsToRelative;
         o.autoFillTableWidth = options.autoFillTableWidth === undefined ? false : !!options.autoFillTableWidth;
+        o.autoFillLastColumn = options.autoFillLastColumn === undefined ? true : !!options.autoFillLastColumn;
         o.allowCancelSort = options.allowCancelSort === undefined ? true : !!options.allowCancelSort;
         o.cellClasses = options.cellClasses === undefined ? '' : options.cellClasses;
         o.resizerClassName = options.resizerClassName === undefined ? 'dgtable-resize' : options.resizerClassName;
@@ -672,9 +673,8 @@ class DGTable {
 
         let col = p.columns.get(column);
 
-        let parsedWidth = parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
-
         if (col) {
+            let parsedWidth = parseColumnWidth(width, col.ignoreMin ? 0 : this._o.minColumnWidth);
             let oldWidth = serializeColumnWidth(col);
 
             col.width = parsedWidth.width;
@@ -792,7 +792,7 @@ class DGTable {
             const colWidthMode = col.widthMode;
             if (col.unconvertedWidth != null) {
                 col.width = col.unconvertedWidth;
-                col.widthMode = col.unconvertedWidthMode;
+                col.widthMode = col.unconvertedWidthMode ?? col.widthMode;
             }
             const serializedWidth = serializeColumnWidth(col);
             if (col.unconvertedWidth != null) {
@@ -1442,7 +1442,7 @@ class DGTable {
         if (sizeLeft !== p.lastDetectedWidth || forceUpdate) {
             p.lastDetectedWidth = detectedWidth;
 
-            let absWidthTotal = 0, changedColumnIndexes = [], totalRelativePercentage = 0;
+            let absWidthTotal = 0, changedColumnIndexes = [], totalRelativePercentage = 0, rests = 0;
 
             for (let i = 0; i < p.columns.length; i++) {
                 p.columns[i].actualWidthConsideringScrollbarWidth = null;
@@ -1454,7 +1454,7 @@ class DGTable {
                 // Denormalize, to allow clean redistribution of columns
                 if (col.unconvertedWidth != null) {
                     col.width = col.unconvertedWidth;
-                    col.widthMode = col.unconvertedWidthMode;
+                    col.widthMode = col.unconvertedWidthMode ?? col.widthMode;
                     col.unconvertedWidth = null;
                     col.unconvertedWidthMode = null;
                 }
@@ -1492,6 +1492,8 @@ class DGTable {
                 } else if (col.widthMode === ColumnWidthMode.RELATIVE) {
                     totalRelativePercentage += col.width;
                     relatives++;
+                } else if (col.widthMode === ColumnWidthMode.REST) {
+                    rests++;
                 }
             }
 
@@ -1500,14 +1502,16 @@ class DGTable {
                 for (let i = 0; i < p.visibleColumns.length; i++) {
                     let col = p.visibleColumns[i];
                     if (col.widthMode === ColumnWidthMode.AUTO) {
-                        col.widthMode = ColumnWidthMode.RELATIVE;
+                        const unconvertedWidth = col.width;
+                        const unconvertedWidthMode = col.widthMode;
 
                         if (col.unconvertedWidth == null) {
                             // Store this to revert to denormalized widths
-                            col.unconvertedWidth = col.width;
-                            col.unconvertedWidthMode = col.unconvertedWidth;
+                            col.unconvertedWidth = unconvertedWidth;
+                            col.unconvertedWidthMode = unconvertedWidthMode;
                         }
 
+                        col.widthMode = ColumnWidthMode.RELATIVE;
                         sizeLeft += col.actualWidth;
                         col.width = col.actualWidth / absWidthTotal;
                         totalRelativePercentage += col.width;
@@ -1517,7 +1521,7 @@ class DGTable {
             }
 
             // Normalize relative sizes if needed
-            if (relatives && ((totalRelativePercentage < 1 && o.relativeWidthGrowsToFillWidth) ||
+            if (relatives && ((totalRelativePercentage < 1 && !rests && o.relativeWidthGrowsToFillWidth) ||
                 (totalRelativePercentage > 1 && o.relativeWidthShrinksToFillWidth))) {
                 for (let i = 0; i < p.visibleColumns.length; i++) {
                     let col = p.visibleColumns[i];
@@ -1539,7 +1543,7 @@ class DGTable {
             }
 
             let minColumnWidthRelative = (o.minColumnWidth / sizeLeftForRelative);
-            if (isNaN(minColumnWidthRelative)) {
+            if (!Number.isFinite(minColumnWidthRelative)) {
                 minColumnWidthRelative = 0;
             }
             if (minColumnWidthRelative > 0) {
@@ -1578,7 +1582,7 @@ class DGTable {
             }
 
             // Try to fill width
-            if (o.autoFillTableWidth && sizeLeft > 0) {
+            if (!rests && o.autoFillTableWidth && sizeLeft > 0) {
                 let nonResizableTotal = 0;
                 let sizeLeftToFill = sizeLeft;
 
@@ -1639,6 +1643,48 @@ class DGTable {
                     if (width !== col.actualWidth) {
                         col.actualWidth = width;
                         changedColumnIndexes.push(i);
+                    }
+                }
+            }
+
+            // Materialize rest sizes after all other width modes have consumed their space.
+            if (rests) {
+                let restWidthLeft = Math.max(0, sizeLeft);
+                let restColumnsLeft = rests;
+
+                for (let i = 0; i < p.visibleColumns.length; i++) {
+                    let col = p.visibleColumns[i];
+
+                    if (col.widthMode === ColumnWidthMode.REST) {
+                        let width = Math.floor(restWidthLeft / restColumnsLeft);
+                        if (!col.ignoreMin && width < o.minColumnWidth) {
+                            width = o.minColumnWidth;
+                        }
+
+                        restWidthLeft -= width;
+                        restColumnsLeft--;
+
+                        if (width !== col.actualWidth) {
+                            col.actualWidth = width;
+                            changedColumnIndexes.push(i);
+                        }
+                    }
+                }
+            }
+
+            if (o.autoFillLastColumn && p.visibleColumns.length) {
+                let actualWidthTotal = 0;
+                for (let i = 0; i < p.visibleColumns.length; i++) {
+                    actualWidthTotal += p.visibleColumns[i].actualWidth ?? 0;
+                }
+
+                const lastColumnIndex = p.visibleColumns.length - 1;
+                const lastColumn = p.visibleColumns[lastColumnIndex];
+                const fallbackWidth = detectedWidth - actualWidthTotal;
+                if (fallbackWidth > 0) {
+                    lastColumn.actualWidth = (lastColumn.actualWidth ?? 0) + fallbackWidth;
+                    if (changedColumnIndexes.indexOf(lastColumnIndex) === -1) {
+                        changedColumnIndexes.push(lastColumnIndex);
                     }
                 }
             }

@@ -144,11 +144,26 @@ export function parseColumnWidth(
     width: number | string | null | undefined,
     minWidth: number
 ): { width: number; mode: ColumnWidthModeType } {
-    let widthSize = Math.max(0, parseFloat(width as string) || 0),
-        widthMode: ColumnWidthModeType = ColumnWidthMode.AUTO;
+    let widthMode: ColumnWidthModeType = ColumnWidthMode.AUTO;
+
+    if (typeof width === 'string') {
+        const normalizedWidth = width.trim().toLowerCase();
+        if (normalizedWidth === 'rest') {
+            return { width: 0, mode: ColumnWidthMode.REST };
+        }
+        if (normalizedWidth === 'auto') {
+            return { width: 0, mode: ColumnWidthMode.AUTO };
+        }
+    }
+
+    let widthSize = parseFloat(width as string);
+    if (!Number.isFinite(widthSize)) {
+        widthSize = 0;
+    }
+    widthSize = Math.max(0, widthSize);
 
     if (widthSize > 0) {
-        if (width === widthSize + '%') {
+        if (typeof width === 'string' && width.trim().endsWith('%')) {
             widthMode = ColumnWidthMode.RELATIVE;
             widthSize /= 100;
         } else if (widthSize > 0 && widthSize < 1) {

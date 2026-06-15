@@ -284,8 +284,12 @@ export function isTableRtl(table: DGTableInterface): boolean {
  * Serialize column width to string
  */
 export function serializeColumnWidth(column: InternalColumn): string | number {
-    return column.widthMode === ColumnWidthMode.AUTO ? 'auto' :
-        column.widthMode === ColumnWidthMode.RELATIVE ? column.width * 100 + '%' :
-            column.width;
+    const width = column.unconvertedWidth != null ? column.unconvertedWidth : column.width;
+    const widthMode = column.unconvertedWidth != null ? (column.unconvertedWidthMode ?? column.widthMode) : column.widthMode;
+
+    return widthMode === ColumnWidthMode.AUTO ? 'auto' :
+        widthMode === ColumnWidthMode.RELATIVE ? width * 100 + '%' :
+            widthMode === ColumnWidthMode.REST ? 'rest' :
+                width;
 }
 

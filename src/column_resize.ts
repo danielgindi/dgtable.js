@@ -413,9 +413,11 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
             }
         }
 
-        sizeLeft = Math.max(1, sizeLeft);
-        if (sizeLeft === 1 && p.table)
+        if (sizeLeft <= 0 && p.table) {
             sizeLeft = p.table.clientWidth;
+        }
+
+        if (sizeLeft > Math.max(o.minColumnWidth, 1)) {
             sizeToSet = width / sizeLeft;
 
             if (relatives > 0) {

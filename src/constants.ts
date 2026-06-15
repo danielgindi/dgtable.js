@@ -5,6 +5,7 @@ export const ColumnWidthMode = {
     AUTO: 0,
     ABSOLUTE: 1,
     RELATIVE: 2,
+    REST: 3,
 } as const;
 
 export type ColumnWidthModeType = typeof ColumnWidthMode[keyof typeof ColumnWidthMode];
