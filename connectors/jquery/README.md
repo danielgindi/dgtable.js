@@ -103,6 +103,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 * **rowsBufferSize**: `number=10` The size of the rows buffer, for virtual table
 * **minColumnWidth**: `number=35` In pixels, the minimum width for a column
 * **resizeAreaWidth**: `number=8` The size of the area where you can drag to resize.
+* **autoFitColumnOnResizeDoubleClick**: `boolean=false` Auto-fit a column when the user double-clicks the resize area.
 * **onComparatorRequired**: `function(columnName: string, descending: boolean, defaultComparator: function(a,b):number):{function(a,b):number}` A callback that can pass a comparator function for each column and mode as required.
 * **resizerClassName**: `string='dgtable-resize'` Class name for the dragged resizing element (showing when resizing a column)
 * **tableClassName**: `string='dgtable'` Class name for the table
@@ -134,6 +135,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
 * `showcolumn`: A column was shown - `string` (the column's name)
 * `hidecolumn`: A column was hidden - `string` (the column's name)
 * `columnwidth`: A column was resized - `({ name: string, width: number|string, oldWidth: number|string })`
+* `columnresizeareadoubleclick`: A column resize area was double-clicked - `({ name: string, columnName: string, event: Event })`
 * `filter`: A filter was applied - `any` - the arguments passed to the filter method
 * `filterclear`: A filter was cleared
 * `sort`: The data was sorted - `{ sorts: { "column": "column's name", "descending": true|false }[], resort: true|undefined, comparator: Function }`
@@ -216,6 +218,7 @@ To create a new table, just use `var myTable = new DGTable(INIT_OPTIONS)`.
   * **customSortingProvider**: provides a custom sorting function (not the comparator, but a sort() alternative) for a data set
 * `setColumnWidth({string} column, {number|string} width) {DGTable}`: *Undocumented yet*
 * `getColumnWidth({string} column) {string|null}`: *Undocumented yet*
+* `autoFitColumn({string} column) {DGTable}`: Fits a column to its header/content width when at least one row exists.
 * `getColumnConfig({string} column name) {SERIALIZED_COLUMN}`: *Undocumented yet*
 * `getColumnsConfig() {Object}`: *Undocumented yet*
 * `getSortedColumns() {Array.<SERIALIZED_COLUMN_SORT>}`: *Undocumented yet*

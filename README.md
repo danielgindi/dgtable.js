@@ -98,6 +98,7 @@ new DGTable(options?: DGTableOptions)
 | `convertColumnWidthsToRelative` | `boolean`         | `false` | Convert auto widths to relative            |
 | `autoFillTableWidth` | `boolean`         | `false` | Stretch columns to fill table width        |
 | `resizeAreaWidth` | `number`          | `8`     | Width of resize drag area in pixels        |
+| `autoFitColumnOnResizeDoubleClick` | `boolean` | `false` | Auto-fit columns on resize-area double click |
 
 #### Column Definition
 
@@ -166,6 +167,7 @@ table.setColumnVisible(column, visible)          // Show/hide column
 table.isColumnVisible(column)                    // Check visibility
 table.setColumnWidth(column, width)              // Set column width
 table.getColumnWidth(column)                     // Get column width
+table.autoFitColumn(column)                      // Fit column to header/content width
 table.getColumnConfig(column): ColumnOptions     // Get column config
 table.getColumnsConfig(): ColumnOptions[]        // Get all columns config
 ```

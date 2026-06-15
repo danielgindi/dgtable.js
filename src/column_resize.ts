@@ -99,6 +99,10 @@ function emitColumnResizeAreaDoubleClick(table: DGTableInterface, event: Event, 
         event,
     });
 
+    if (o.autoFitColumnOnResizeDoubleClick) {
+        (table as unknown as { autoFitColumn(name: string): void }).autoFitColumn(column.name);
+    }
+
     event.preventDefault();
     return true;
 }

@@ -234,6 +234,13 @@ export interface DGTableOptions {
     resizeAreaWidth?: number | null;
 
     /**
+     * Automatically fit a column to its content when the user double-clicks
+     * the column resize area.
+     * @default false
+     */
+    autoFitColumnOnResizeDoubleClick?: boolean | null;
+
+    /**
      * Callback used to supply a custom comparator for a column and sort direction.
      * @default null
      */

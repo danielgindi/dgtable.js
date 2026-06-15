@@ -94,6 +94,7 @@ import {
 
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
+const createElement = document.createElement.bind(document);
 
 // noinspection JSUnusedGlobalSymbols
 class DGTable {
@@ -136,6 +137,7 @@ class DGTable {
         o.minColumnWidth = Math.max(options.minColumnWidth || 35, 0);
         o.maxStickyColumnRelativeWidth = options.maxStickyColumnRelativeWidth || null;
         o.resizeAreaWidth = options.resizeAreaWidth || 8;
+        o.autoFitColumnOnResizeDoubleClick = options.autoFitColumnOnResizeDoubleClick === undefined ? false : !!options.autoFitColumnOnResizeDoubleClick;
         o.resizableColumns = options.resizableColumns === undefined ? true : !!options.resizableColumns;
         o.movableColumns = options.movableColumns === undefined ? true : !!options.movableColumns;
 
@@ -691,6 +693,83 @@ class DGTable {
         }
 
         return this;
+    }
+
+    /** Auto-fit a column to its rendered content */
+    autoFitColumn(column: string) {
+        const p = this._p;
+        const rows = p.filteredRows || p.rows;
+        const col = p.columns.get(column);
+
+        if (!col || rows.length < 1) {
+            return this;
+        }
+
+        const width = this.measureAutoFitColumnWidth(col, rows);
+        if (width > 0) {
+            this.setColumnWidth(column, width);
+        }
+
+        return this;
+    }
+
+    private measureAutoFitColumnWidth(col: InternalColumn, rows: RowCollection): number {
+        const o = this._o;
+        const tableClassName = o.tableClassName;
+
+        const wrapper = createElement('div');
+        wrapper.className = this.el.className;
+        setCssProps(wrapper, {
+            position: 'absolute',
+            top: '-9999px',
+            left: '0',
+            visibility: 'hidden',
+            width: 'auto',
+            overflow: 'visible',
+        });
+
+        const header = createElement('div');
+        header.className = `${tableClassName}-header`;
+        const headerRow = createElement('div');
+        headerRow.className = `${tableClassName}-header-row`;
+        const headerCell = createElement('div');
+        headerCell.className = `${tableClassName}-header-cell ${col.cellClasses || ''}`;
+        headerCell.style.width = 'auto';
+        const headerInner = headerCell.appendChild(createElement('div'));
+        headerInner.innerHTML = o.headerCellFormatter(col.label, col.name);
+        headerRow.appendChild(headerCell);
+        header.appendChild(headerRow);
+        wrapper.appendChild(header);
+
+        const body = createElement('div');
+        body.className = `${tableClassName}-body`;
+        const row = createElement('div');
+        row.className = `${tableClassName}-row`;
+        const cell = createElement('div');
+        cell.className = `${tableClassName}-cell ${col.cellClasses || ''}`;
+        cell.style.width = 'auto';
+        const cellInner = cell.appendChild(createElement('div'));
+        row.appendChild(cell);
+        body.appendChild(row);
+        wrapper.appendChild(body);
+
+        document.body.appendChild(wrapper);
+
+        let width = getElementWidth(headerCell, true, true, true);
+        for (let i = 0; i < rows.length; i++) {
+            cellInner.innerHTML = getHtmlForCell(o, rows[i], col);
+            width = Math.max(width, getElementWidth(cell, true, true, true));
+        }
+
+        wrapper.remove();
+
+        width += col.arrowProposedWidth || 0;
+
+        if (!col.ignoreMin && width < o.minColumnWidth) {
+            width = o.minColumnWidth;
+        }
+
+        return Math.ceil(width);
     }
 
     /** Get the serialized width of the specified column */
