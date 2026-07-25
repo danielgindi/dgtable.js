@@ -47,6 +47,10 @@ interface ElementOffset {
 export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): void {
     const o = table._o, p = table._p;
 
+    if (p.isWheelScrolling) {
+        return;
+    }
+
     const elInner = el.firstElementChild as HTMLElement;
     if (!elInner) return;
 
@@ -263,11 +267,6 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
     p._bindCellHoverOut(el);
     p._bindCellHoverOut(previewCell);
 
-    // Avoid interfering with wheel scrolling the table
-    previewCell.addEventListener('wheel', () => {
-        // Let the table naturally scroll with the wheel
-        hideCellPreview(table);
-    });
 }
 
 /**

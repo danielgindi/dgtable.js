@@ -130,6 +130,39 @@ class DGTable {
 
         p.eventsSink.add(this.el, 'dragend.colresize', (e: Event) => onDragEndColumnHeader(this, e as DragEvent));
 
+        p.isWheelScrolling = false;
+        p.eventsSink.add(this.el, 'wheel', (e: WheelEvent) => {
+            if (p.cellPreviewCell) {
+                let isScrollable = false;
+                let target = e.target as HTMLElement | null;
+                while (target && target !== p.cellPreviewCell) {
+                    const style = getComputedStyle(target);
+                    const overflowY = style.overflowY;
+                    const overflowX = style.overflowX;
+                    const canScrollY = (overflowY === 'auto' || overflowY === 'scroll') && target.scrollHeight > target.clientHeight;
+                    const canScrollX = (overflowX === 'auto' || overflowX === 'scroll') && target.scrollWidth > target.clientWidth;
+                    if (canScrollY || canScrollX) {
+                        isScrollable = true;
+                        break;
+                    }
+                    target = target.parentElement;
+                }
+                if (isScrollable) {
+                    return;
+                }
+            }
+
+            p.isWheelScrolling = true;
+            hideCellPreview(this);
+            if (p.wheelScrollTimeout) {
+                clearTimeout(p.wheelScrollTimeout);
+            }
+            p.wheelScrollTimeout = setTimeout(() => {
+                p.isWheelScrolling = false;
+                p.wheelScrollTimeout = undefined;
+            }, 100);
+        }, { passive: true });
+
         // Initialize options with defaults
         o.virtualTable = options.virtualTable === undefined ? true : !!options.virtualTable;
         o.estimatedRowHeight = options.estimatedRowHeight || undefined;

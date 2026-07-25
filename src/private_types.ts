@@ -143,6 +143,8 @@ export interface DGTablePrivateState {
     transparentBgColor1?: string;
     transparentBgColor2?: string;
     cellPreviewCell?: HTMLElement | null;
+    isWheelScrolling?: boolean;
+    wheelScrollTimeout?: ReturnType<typeof setTimeout>;
     abortCellPreview?: boolean;
     dragId?: number;
     stickiesStart?: [HTMLElement, ...HTMLElement[]][];
