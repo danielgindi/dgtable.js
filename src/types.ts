@@ -365,6 +365,23 @@ export interface CellPreviewDestroyEvent {
 }
 
 /**
+ * Event data for 'cellhoveroverflow' event.
+ *
+ * Emitted as soon as a hovered cell's content is detected to overflow,
+ * before the built-in preview popup is built or shown - including when
+ * `allowPreview` is `false` on the column (which otherwise suppresses the
+ * popup entirely). Use it to implement custom overflow UI, such as a
+ * tooltip, in place of or alongside the built-in preview.
+ */
+export interface CellHoverOverflowEvent {
+    name: string;
+    rowIndex: number | null;
+    rowData: RowData | null;
+    cell: HTMLElement;
+    cellEl: HTMLElement;
+}
+
+/**
  * Event data for 'headercontextmenu' event
  */
 export interface HeaderContextMenuEvent {
@@ -439,6 +456,7 @@ export interface DGTableEventMap {
     // Cell preview events
     'cellpreview': CellPreviewEvent;
     'cellpreviewdestroy': CellPreviewDestroyEvent;
+    'cellhoveroverflow': CellHoverOverflowEvent;
 
     // Header events
     'headerrowcreate': HTMLElement;

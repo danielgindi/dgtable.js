@@ -356,6 +356,9 @@ interface RowClickEvent {
 |-------|-----------|-------------|
 | `cellpreview` | `CellPreviewEvent` | Cell preview showing |
 | `cellpreviewdestroy` | `CellPreviewDestroyEvent` | Cell preview hiding |
+| `cellhoveroverflow` | `CellHoverOverflowEvent` | Cell hovered while its content overflows |
+
+`cellhoveroverflow` fires as soon as overflow is detected on hover, **before** the built-in preview popup is built or shown — including when `allowPreview` is `false` on the column (which otherwise suppresses the popup entirely). Use it as a hook to implement your own overflow UI, such as a custom tooltip, in place of or alongside the built-in preview.
 
 ```typescript
 interface CellPreviewEvent {
@@ -374,6 +377,14 @@ interface CellPreviewDestroyEvent {
     rowData: RowData | null;   // Row data (null for header)
     cell: HTMLElement | null;  // Original cell element
     cellEl: ChildNode | null;  // Cell's inner element
+}
+
+interface CellHoverOverflowEvent {
+    name: string;              // Column name
+    rowIndex: number | null;   // Row index (null for header)
+    rowData: RowData | null;   // Row data (null for header)
+    cell: HTMLElement;         // Original cell element
+    cellEl: HTMLElement;       // Cell's inner element (the element whose content overflows)
 }
 ```
 
@@ -476,6 +487,12 @@ table.on('cellpreview', (data) => {
         data.el.innerHTML += '<span class="custom-badge">Preview</span>';
     }
 });
+
+// Cell hover with overflow handler - fires before the built-in preview is
+// generated, so it's a good place to show your own tooltip instead
+table.on('cellhoveroverflow', (data) => {
+    showCustomTooltip(data.cell, data.rowData);
+});
 ```
 
 ---
@@ -506,6 +523,7 @@ import type {
     RowClickEvent,         // 'rowclick' event data
     CellPreviewEvent,      // 'cellpreview' event data
     CellPreviewDestroyEvent, // 'cellpreviewdestroy' event data
+    CellHoverOverflowEvent, // 'cellhoveroverflow' event data
     HeaderContextMenuEvent, // 'headercontextmenu' event data
     MoveColumnEvent,       // 'movecolumn' event data
     ColumnWidthEvent,      // 'columnwidth' event data

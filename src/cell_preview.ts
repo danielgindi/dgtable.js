@@ -66,7 +66,22 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
 
     const columnName = p.visibleColumns[nativeIndexOf.call(rowEl.childNodes, el)]?.name;
     const column = columnName ? p.columns.get(columnName) : null;
-    if (!column || column.allowPreview === false)
+    if (!column)
+        return;
+
+    const rowIndex = rowEl.index;
+
+    // Fired before the built-in preview is built/shown, and even when
+    // `allowPreview` is false - a hook for custom overflow UI (e.g. a tooltip).
+    table.emit('cellhoveroverflow', {
+        name: columnName,
+        rowIndex: rowIndex ?? null,
+        rowData: rowIndex == null ? null : p.rows[rowIndex] as RowData,
+        cell: el,
+        cellEl: elInner,
+    });
+
+    if (column.allowPreview === false)
         return;
 
     const previewCell = createElement('div') as PreviewCellElement;
@@ -160,7 +175,7 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
     }
 
     previewCell.rowVIndex = rowEl.vIndex;
-    const rowIndex = previewCell.rowIndex = rowEl.index;
+    previewCell.rowIndex = rowIndex;
     previewCell.columnName = columnName;
 
     try {
