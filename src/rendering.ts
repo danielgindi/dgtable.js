@@ -78,7 +78,6 @@ export function setupVirtualTable(table: DGTableInterface): void {
         onItemRender: (row: HTMLElement, virtualIndex: number) => {
             const rows = p.filteredRows || p.rows;
             const isDataFiltered = !!p.filteredRows;
-            const allowCellPreview = o.allowCellPreview;
 
             const isStickyColumns = p.isStickyColumns;
 
@@ -114,9 +113,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
                         cell.classList.add('is-sticky-right');
                 }
 
-                if (allowCellPreview) {
-                    p._bindCellHoverIn(cell);
-                }
+                p._bindCellHoverIn(cell);
 
                 const cellInner = cell.appendChild(createElement('div'));
                 cellInner.innerHTML = getHtmlForCell(o, rowData, column);
@@ -326,9 +323,6 @@ export function renderSkeletonHeaderCells(table: DGTableInterface): DGTableInter
     const p = table._p;
     const o = table._o;
 
-    const allowCellPreview = o.allowCellPreview;
-    const allowHeaderCellPreview = o.allowHeaderCellPreview;
-
     const tableClassName = o.tableClassName;
     const headerCellClassName = tableClassName + '-header-cell';
     const headerRow = p.headerRow!;
@@ -350,9 +344,8 @@ export function renderSkeletonHeaderCells(table: DGTableInterface): DGTableInter
             const cellInside = createElement('div');
             cellInside.innerHTML = o.headerCellFormatter(column.label, column.name);
             cell.appendChild(cellInside);
-            if (allowCellPreview && allowHeaderCellPreview) {
-                p._bindCellHoverIn(cell);
-            }
+
+            p._bindCellHoverIn(cell);
 
             headerRow.appendChild(cell);
 
