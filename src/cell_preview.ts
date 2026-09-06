@@ -86,7 +86,7 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
 
     const previewCell = createElement('div') as PreviewCellElement;
     previewCell.innerHTML = el.innerHTML;
-    previewCell.className = o.cellPreviewClassName;
+    previewCell.className = o.cellPreviewClassName + ' ' +  (column.cellClasses || '');
 
     const isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
     if (isHeaderCell) {
