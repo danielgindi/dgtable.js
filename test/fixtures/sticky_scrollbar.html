@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="/example/example.css">
+    <link rel="stylesheet" href="/example/example_box_sizing.css">
+    <script src="/node_modules/@danielgindi/dom-utils/dist/lib.umd.js"></script>
+    <script src="/node_modules/@danielgindi/virtual-list-helper/dist/virtual-list-helper.umd.js"></script>
+    <script>
+        window.domUtilsScrollHelper = domutils.ScrollHelper;
+        window.domUtilsDomCompat = domutils.DomCompat;
+        window.domUtilsDomEventsSink = domutils.DomEventsSink.default;
+        window.domUtilsCss = domutils.Css;
+    </script>
+    <script src="/dist/lib.umd.js"></script>
+</head>
+<body>
+<script>
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+        first: 'first-' + index,
+        firstEnd: 'first-end-' + index,
+        secondEnd: 'second-end-' + index,
+        last: 'last-' + index,
+    }));
+
+    function createTable(direction, virtualTable = true) {
+        const host = document.createElement('div');
+        host.dir = direction;
+        host.style.width = '400px';
+        document.body.append(host);
+
+        const table = new DGTable({
+            columns: [
+                { name: 'first', width: 200 },
+                { name: 'secondEnd', width: 100, sticky: 'end' },
+                { name: 'firstEnd', width: 120, sticky: 'end' },
+                { name: 'last', width: 200 },
+            ],
+            height: 120,
+            virtualTable,
+            width: DGTable.Width.SCROLL,
+        });
+
+        host.append(table.el);
+        table.render().addRows(rows);
+        return table;
+    }
+
+    function inspectTable(table, edge) {
+        const headerCells = table._p.headerRow.children;
+        const rowCells = table._p.tbody.firstElementChild.children;
+
+        return {
+            scrollbarWidth: table._p.table.offsetWidth - table._p.table.clientWidth,
+            firstHeaderEdge: headerCells[2].style[edge],
+            firstRowEdge: rowCells[2].style[edge],
+            firstHeaderWidth: parseFloat(headerCells[2].style.width),
+            firstRowWidth: parseFloat(rowCells[2].style.width),
+            secondHeaderEdge: headerCells[1].style[edge],
+            secondRowEdge: rowCells[1].style[edge],
+            secondHeaderWidth: parseFloat(headerCells[1].style.width),
+            secondRowWidth: parseFloat(rowCells[1].style.width),
+        };
+    }
+
+    function dragColumn(table, sourceName, targetName) {
+        const source = table._p.columns.get(sourceName).element;
+        const target = table._p.columns.get(targetName).element;
+        const dataTransfer = new DataTransfer();
+        source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer }));
+        target.firstElementChild.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+        source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
+    }
+
+    function inspectMovedColumn(table, direction) {
+        const header = table._p.columns.get('last').element;
+        const body = table._p.tbody.querySelector('[data-column="last"]');
+        const headerRect = header.getBoundingClientRect();
+        const bodyRect = body.getBoundingClientRect();
+        const followingHeader = table._p.columns.get('secondEnd').element.getBoundingClientRect();
+        const followingBody = table._p.tbody.querySelector('[data-column="secondEnd"]').getBoundingClientRect();
+        const isRtl = direction === 'rtl';
+
+        return {
+            headerWidth: headerRect.width,
+            bodyWidth: bodyRect.width,
+            margin: parseFloat(header.style[isRtl ? 'marginRight' : 'marginLeft']) || 0,
+            startDifference: isRtl ? bodyRect.right - headerRect.right : headerRect.left - bodyRect.left,
+            endDifference: isRtl ? bodyRect.left - headerRect.left : headerRect.right - bodyRect.right,
+            followingDifference: isRtl ? followingBody.right - followingHeader.right : followingHeader.left - followingBody.left,
+        };
+    }
+
+    const ltrTable = createTable('ltr');
+    const rtlTable = createTable('rtl');
+    const moveCases = ['ltr', 'rtl'].flatMap(direction => [true, false].map(virtualTable => ({
+        direction,
+        virtualTable,
+        table: createTable(direction, virtualTable),
+    })));
+    const singleMoveCases = ['ltr', 'rtl'].map(direction => {
+        const table = createTable(direction);
+        table.setColumns([
+            { name: 'first', width: 200 },
+            { name: 'secondEnd', width: 100 },
+            { name: 'firstEnd', width: 120 },
+            { name: 'last', width: 40, sticky: 'end' },
+        ]);
+        return { direction, table };
+    });
+
+    setTimeout(() => {
+        const result = {
+            ltr: inspectTable(ltrTable, 'right'),
+            rtl: inspectTable(rtlTable, 'left'),
+        };
+
+        ltrTable._p.table.scrollLeft = 1;
+        rtlTable._p.table.scrollLeft = -1;
+        ltrTable._p.table.dispatchEvent(new Event('scroll'));
+        rtlTable._p.table.dispatchEvent(new Event('scroll'));
+        result.ltrScrolled = inspectTable(ltrTable, 'right');
+        result.rtlScrolled = inspectTable(rtlTable, 'left');
+
+        ltrTable.tableWidthChanged(true);
+        rtlTable.tableWidthChanged(true);
+        result.ltrRepeated = inspectTable(ltrTable, 'right');
+        result.rtlRepeated = inspectTable(rtlTable, 'left');
+
+        ltrTable.setColumnWidth('firstEnd', 140);
+        rtlTable.setColumnWidth('firstEnd', 140);
+        result.ltrResized = inspectTable(ltrTable, 'right');
+        result.rtlResized = inspectTable(rtlTable, 'left');
+
+        result.moves = moveCases.map(({ direction, virtualTable, table }) => {
+            dragColumn(table, 'firstEnd', 'secondEnd');
+
+            const widths = () => ['firstEnd', 'secondEnd'].map(name =>
+                parseFloat(table._p.columns.get(name).element.style.width)
+            );
+            const afterDrop = widths();
+            const rowOrder = Array.from(table._p.tbody.firstElementChild.children, cell => cell.getAttribute('data-column'));
+            table.tableWidthChanged(true);
+            return { direction, virtualTable, scrollbarWidth: table._p.scrollbarWidth, afterDrop, rowOrder, afterLayout: widths() };
+        });
+
+        result.singleMoves = singleMoveCases.map(({ direction, table }) => {
+            // Start with compensation applied, so dragging really tests its removal.
+            table._p.table.scrollLeft = direction === 'rtl' ? -1 : 1;
+            table._p.table.dispatchEvent(new Event('scroll'));
+            const beforeDragWidth = table._p.columns.get('last').element.getBoundingClientRect().width;
+            const beforeDragBodyWidth = table._p.tbody.querySelector('[data-column="last"]').getBoundingClientRect().width;
+            dragColumn(table, 'last', 'secondEnd');
+            const header = table._p.columns.get('last').element;
+            const body = table._p.tbody.querySelector('[data-column="last"]');
+            const headerRect = header.getBoundingClientRect();
+            const bodyRect = body.getBoundingClientRect();
+            table.setColumnWidth('first', 400);
+            const pinnedWidth = header.getBoundingClientRect().width;
+            table._p.table.scrollLeft = direction === 'rtl' ? -200 : 200;
+            table._p.table.dispatchEvent(new Event('scroll'));
+            const scrolledWidth = header.getBoundingClientRect().width;
+            table._p.table.scrollLeft = 0;
+            table._p.table.dispatchEvent(new Event('scroll'));
+            const repinnedWidth = header.getBoundingClientRect().width;
+            const transition = [];
+            for (let scroll = 1; scroll <= 100; scroll++) {
+                table._p.table.scrollLeft = direction === 'rtl' ? -scroll : scroll;
+                table._p.table.dispatchEvent(new Event('scroll'));
+                transition.push(inspectMovedColumn(table, direction));
+            }
+            table._p.table.scrollLeft = 0;
+            table._p.table.dispatchEvent(new Event('scroll'));
+            const returned = inspectMovedColumn(table, direction);
+            return {
+                direction,
+                beforeDragWidth,
+                beforeDragBodyWidth,
+                transition,
+                returned,
+                pinnedWidth,
+                scrolledWidth,
+                repinnedWidth,
+                headerWidth: headerRect.width,
+                bodyWidth: bodyRect.width,
+                startDifference: direction === 'ltr' ? headerRect.left - bodyRect.left : headerRect.right - bodyRect.right,
+                endDifference: direction === 'ltr' ? headerRect.right - bodyRect.right : headerRect.left - bodyRect.left,
+                scrollbarWidth: table._p.scrollbarWidth,
+            };
+        });
+
+        fetch('/__result', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(result),
+        });
+    }, 250);
+</script>
+</body>
+</html>

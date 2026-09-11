@@ -65,7 +65,7 @@ import {
     initColumnFromData,
     ensureVisibleColumns,
     refilter,
-    getHtmlForCell,
+    getHtmlForCell, onTableScrolledHorizontally,
 } from './internal';
 
 // Types
@@ -430,6 +430,7 @@ class DGTable {
             for (let i = 0; i < p.rows.sortColumn.length; i++) {
                 showSortArrow(this, p.rows.sortColumn[i].column, p.rows.sortColumn[i].descending);
             }
+
             if (o.adjustColumnWidthForSortArrow && p.rows.sortColumn.length) {
                 this.tableWidthChanged(true);
             } else if (!o.virtualTable) {
@@ -443,6 +444,8 @@ class DGTable {
                 setScrollHorz(p.table, lastScrollHorz);
                 setScrollHorz(p.header, lastScrollHorz);
             }
+
+            updateStickyColumnPositions(this);
 
             this.emit('renderskeleton');
         }
@@ -632,6 +635,8 @@ class DGTable {
                         ((row.childNodes[destOrder] as HTMLElement).firstChild as HTMLElement).style.width = destWidth;
                         ((row.childNodes[srcOrder] as HTMLElement).firstChild as HTMLElement).style.width = srcWidth;
                     }
+
+                    this.tableWidthChanged(true);
                 }
             }
 
@@ -1730,8 +1735,6 @@ class DGTable {
 
             p.notifyRendererOfColumnsConfig?.();
 
-            updateStickyColumnPositions(this);
-
             if (renderColumns) {
                 let tableWidth = calculateTbodyWidth(this);
 
@@ -1747,6 +1750,8 @@ class DGTable {
                     updateTableWidth(this, false);
                 }
             }
+
+            updateStickyColumnPositions(this);
         }
 
         return this;

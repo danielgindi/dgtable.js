@@ -48,6 +48,7 @@ export interface InternalColumn {
     order: number;
     actualWidth?: number;
     actualWidthConsideringScrollbarWidth?: number | null;
+    headerScrollbarCompensation?: number;
     arrowProposedWidth?: number;
     element?: HTMLElement;
     stickyPos?: { direction: 'start'|'end'; absDirection: 'left'|'right'; offset: number };

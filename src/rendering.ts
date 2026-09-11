@@ -452,7 +452,6 @@ export function updateTableWidth(table: DGTableInterface, parentSizeMayHaveChang
     if (o.width === Width.AUTO) {
         setElementWidth(p.table, getElementWidth(p.tbody, true, true, true));
         setElementWidth(table.el, getElementWidth(p.table, true, true, true));
-
     } else if (o.width === Width.SCROLL) {
 
         if (parentSizeMayHaveChanged) {
@@ -503,6 +502,7 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
     const stickiesEnd: [HTMLElement, ...HTMLElement[]][] = [];
     let stickyStartGroup: HTMLElement[] | null = null;
     let stickyEndGroup: HTMLElement[] = [];
+    let lastEndStickyCell: HTMLElement | null = null;
     let sumStickyWidth = 0;
     let updatedStickyColumnIndices = [];
 
@@ -513,6 +513,8 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
         const column = p.columns.get(columnName);
         if (!column)
             continue;
+
+        column.headerScrollbarCompensation = 0;
 
         let isSticky = column.sticky === 'start' || column.sticky === 'end';
         if (isSticky && maxStickyColumnWidth !== null) {
@@ -556,8 +558,10 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
                 stickyStartGroup = [currentCellEl];
                 stickiesStart.push(stickyStartGroup as [HTMLElement, ...HTMLElement[]]);
             } else {
+                lastEndStickyCell = currentCellEl;
                 stickyPos = { direction: 'end', absDirection: rtl ? 'left' : 'right', offset: stickColRight };
                 currentCellEl.style[stickyPos.absDirection] = (stickColRight + scrollbarWidth) + 'px';
+                currentCellEl.style.width = (column.actualWidth ?? 0) + 'px';
                 stickColRight += colFullWidth;
 
                 stickiesEnd.push([currentCellEl, ...stickyEndGroup] as [HTMLElement, ...HTMLElement[]]);
@@ -587,14 +591,21 @@ export function updateStickyColumnPositions(table: DGTableInterface): void {
         }
     }
 
+    if (lastEndStickyCell) {
+        // No peeping behind this sticky
+        lastEndStickyCell.style[rtl ? 'left' : 'right'] = '0px';
+    }
+
     p.stickiesStart = stickiesStart;
     p.stickiesEnd = stickiesEnd;
 
     if (updatedStickyColumnIndices.length > 0) {
         table.refreshAllVirtualRows();
-    } else {
-        syncHorizontalStickies(table);
     }
+
+    // Layout changes invalidate sticky geometry even when scrollLeft is unchanged.
+    p.lastStickyScrollLeft = undefined;
+    syncHorizontalStickies(table);
 }
 
 /**
@@ -623,10 +634,15 @@ export function syncHorizontalStickies(table: DGTableInterface): void {
         const tolerance = 1.5;
         const isRtl = p.lastIsRtl;
 
+        let lastEndSticky: [HTMLElement, ...HTMLElement[]] | null = null;
+
         const processStickies = (stickies: [HTMLElement, ...HTMLElement[]][] | undefined, isStart: boolean, indicesSet: Set<number>) => {
             if (!stickies || !stickies.length) return;
 
             for (const sticky of stickies) {
+                if (!isStart)
+                    lastEndSticky = sticky;
+
                 const el = sticky[0];
                 const block = sticky.slice(1);
 
@@ -659,6 +675,33 @@ export function syncHorizontalStickies(table: DGTableInterface): void {
                 if (overlapsFollowing) {
                     indicesSet.add(nativeIndexOf.call(allHeaderCells, el));
                 }
+            }
+
+            if (lastEndSticky) {
+                const cellEl = lastEndSticky[0];
+                const column = p.columns.get(cellEl.getAttribute('data-column')!);
+                const marginProp = isRtl ? 'marginRight' : 'marginLeft';
+
+                // reset for proper calculations
+                cellEl.style[marginProp] = '';
+                cellEl.style.width = ((column.actualWidthConsideringScrollbarWidth ?? column.actualWidth ?? 0)) + 'px';
+
+                let headerScrollbarCompensation = 0;
+                if (p.scrollbarWidth > 0) {
+                    const rect = cellEl.getBoundingClientRect();
+                    const parentRect = cellEl.offsetParent.getBoundingClientRect();
+
+                    const delta = isRtl ? (rect.left - parentRect.left) : (parentRect.right - rect.right);
+                    if (delta <= p.scrollbarWidth) {
+                        headerScrollbarCompensation = Math.min(p.scrollbarWidth, Math.max(0, p.scrollbarWidth - delta + 1));
+
+                        if (headerScrollbarCompensation < p.scrollbarWidth)
+                            cellEl.style[marginProp] = `${-headerScrollbarCompensation}px`;
+                    }
+                }
+
+                column.headerScrollbarCompensation = headerScrollbarCompensation;
+                cellEl.style.width = ((column.actualWidthConsideringScrollbarWidth ?? column.actualWidth ?? 0) + headerScrollbarCompensation) + 'px';
             }
         };
 
@@ -726,7 +769,8 @@ export function resizeColumnElements(table: DGTableInterface, cellIndex: number)
     const col = p.columns.get(headerCell.columnName!);
 
     if (col) {
-        headerCell.style.width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth || 0) + 'px';
+        const headerScrollbarCompensation = col.headerScrollbarCompensation ?? 0;
+        headerCell.style.width = ((col.actualWidthConsideringScrollbarWidth ?? col.actualWidth ?? 0) + headerScrollbarCompensation) + 'px';
 
         const width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth || 0) + 'px';
         const tbodyChildren = p.tbody.childNodes;

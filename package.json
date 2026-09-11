@@ -30,7 +30,8 @@
     "lint": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || eslint -f codeframe ./",
     "lint-fix": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || eslint -f codeframe --fix ./",
     "prepare": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || husky",
-    "prepublishOnly": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || npm run build"
+    "prepublishOnly": "node -e \"process.env.NODE_ENV != 'production' && process.exit(1)\" || npm run build",
+    "test": "npm run build && node --test test/sticky_scrollbar_test.js"
   },
   "bugs": {
     "url": "https://github.com/danielgindi/dgtable.js/issues"
