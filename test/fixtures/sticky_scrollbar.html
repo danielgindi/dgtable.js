@@ -72,6 +72,19 @@
         source.dispatchEvent(new DragEvent('dragend', { bubbles: true, dataTransfer }));
     }
 
+    function dispatchResizePointerEvent(type, target, clientX) {
+        target.dispatchEvent(new MouseEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            button: 0,
+            clientX,
+        }));
+    }
+
+    function wait(duration) {
+        return new Promise(resolve => setTimeout(resolve, duration));
+    }
+
     function inspectMovedColumn(table, direction) {
         const header = table._p.columns.get('last').element;
         const body = table._p.tbody.querySelector('[data-column="last"]');
@@ -109,7 +122,7 @@
         return { direction, table };
     });
 
-    setTimeout(() => {
+    setTimeout(async () => {
         const result = {
             ltr: inspectTable(ltrTable, 'right'),
             rtl: inspectTable(rtlTable, 'left'),
@@ -188,6 +201,36 @@
                 scrollbarWidth: table._p.scrollbarWidth,
             };
         });
+
+        const resizeTimingTable = createTable('ltr');
+        const resizeHeader = resizeTimingTable._p.columns.get('first').element;
+        const resizeX = resizeHeader.getBoundingClientRect().right - 1;
+        let resizeAreaDoubleClicks = 0;
+        resizeTimingTable.on('columnresizeareadoubleclick', () => resizeAreaDoubleClicks++);
+
+        dispatchResizePointerEvent('mousedown', resizeHeader, resizeX);
+        const markerOnPointerDown = !!resizeTimingTable._p.resizer;
+        await wait(475);
+        const markerAfterDelay = !!resizeTimingTable._p.resizer;
+        dispatchResizePointerEvent('mouseup', document, resizeX);
+        const markerAfterResize = !!resizeTimingTable._p.resizer;
+
+        dispatchResizePointerEvent('mousedown', resizeHeader, resizeX);
+        dispatchResizePointerEvent('mouseup', document, resizeX);
+        const markerAfterQuickClick = !!resizeTimingTable._p.resizer;
+        const pendingAfterQuickClick = resizeTimingTable._p.columnResizeStartTimeout != null;
+        dispatchResizePointerEvent('mousedown', resizeHeader, resizeX);
+        dispatchResizePointerEvent('mouseup', document, resizeX);
+
+        result.resizeTiming = {
+            markerOnPointerDown,
+            markerAfterDelay,
+            markerAfterResize,
+            markerAfterQuickClick,
+            pendingAfterQuickClick,
+            markerAfterDoubleClick: !!resizeTimingTable._p.resizer,
+            resizeAreaDoubleClicks,
+        };
 
         fetch('/__result', {
             method: 'POST',

@@ -151,7 +151,16 @@ test('first end-sticky column covers the scrollbar gutter in LTR and RTL', { tim
 
     try {
         const result = await resultPromise;
-        const { moves, singleMoves, ...layouts } = result;
+        const { moves, singleMoves, resizeTiming, ...layouts } = result;
+        await t.test('column resize waits for the double-click window', () => {
+            assert.equal(resizeTiming.markerOnPointerDown, false, 'marker must not appear immediately');
+            assert.equal(resizeTiming.markerAfterDelay, true, 'marker must appear after the double-click window');
+            assert.equal(resizeTiming.markerAfterResize, false, 'completed resize must remove the marker');
+            assert.equal(resizeTiming.markerAfterQuickClick, false, 'quick click must not create a marker');
+            assert.equal(resizeTiming.pendingAfterQuickClick, false, 'quick release must cancel the pending resize');
+            assert.equal(resizeTiming.markerAfterDoubleClick, false, 'double click must not create a marker');
+            assert.equal(resizeTiming.resizeAreaDoubleClicks, 1, 'double click must emit exactly once');
+        });
         for (const move of singleMoves) {
             await t.test(move.direction + ' dragging the only end-sticky column into the middle', () => {
                 assert.ok(move.scrollbarWidth > 0, 'fixture must have a vertical scrollbar');
