@@ -9,8 +9,8 @@ import { getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js'
 
 import { ColumnWidthMode } from './constants';
 import type { InternalColumn, DGTableInterface } from './private_types';
-import RowCollection from "@/row_collection";
-import {getHtmlForCell} from "@/internal";
+import RowCollection from './row_collection';
+import {getHtmlForCell} from './internal';
 
 const createElement = document.createElement.bind(document);
 
