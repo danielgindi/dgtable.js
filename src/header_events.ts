@@ -341,9 +341,10 @@ export function onDragLeaveColumnHeader(table: DGTableInterface, event: DragEven
     if (!headerCell) return;
 
     const relatedTarget = event.relatedTarget as HTMLElement;
-    if (!relatedTarget?.contains(headerCell.firstChild)) {
-        headerCell.classList.remove('drag-over');
-    }
+    if (relatedTarget === headerCell || headerCell.contains(relatedTarget))
+        return;
+
+    headerCell.classList.remove('drag-over');
 }
 
 /**

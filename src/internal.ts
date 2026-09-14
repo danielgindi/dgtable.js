@@ -121,10 +121,10 @@ export function bindHeaderColumnEvents(table: DGTableInternal, columnEl: HTMLEle
     columnEl.addEventListener('dragstart', (evt: DragEvent) => onStartDragColumnHeader(table as any, evt));
     columnEl.addEventListener('click', (evt: Event) => onSortOnColumnHeaderEvent(table as any, evt));
     columnEl.addEventListener('contextmenu', (evt: Event) => evt.preventDefault());
-    inner.addEventListener('dragenter', (evt: DragEvent) => onDragEnterColumnHeader(table as any, evt));
-    inner.addEventListener('dragover', (evt: DragEvent) => onDragOverColumnHeader(table as any, evt));
-    inner.addEventListener('dragleave', (evt: DragEvent) => onDragLeaveColumnHeader(table as any, evt));
-    inner.addEventListener('drop', (evt: DragEvent) => onDropColumnHeader(table as any, evt));
+    columnEl.addEventListener('dragenter', (evt: DragEvent) => onDragEnterColumnHeader(table as any, evt));
+    columnEl.addEventListener('dragover', (evt: DragEvent) => onDragOverColumnHeader(table as any, evt));
+    columnEl.addEventListener('dragleave', (evt: DragEvent) => onDragLeaveColumnHeader(table as any, evt));
+    columnEl.addEventListener('drop', (evt: DragEvent) => onDropColumnHeader(table as any, evt));
 }
 
 /**
