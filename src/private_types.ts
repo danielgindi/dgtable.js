@@ -64,6 +64,7 @@ export interface DGTableInternalOptions {
     rowsBufferSize: number;
     minColumnWidth: number;
     maxStickyColumnRelativeWidth: number|null;
+    columnAutoWidthExtraSize: number;
     resizeAreaWidth: number;
     resizeAreaDoubleClickDuration: number;
     autoFitColumnOnResizeDoubleClick: boolean;

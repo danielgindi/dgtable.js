@@ -23,10 +23,9 @@ import {
 
 // Helpers
 import {
-    getTextWidth,
     calculateWidthAvailableForColumns,
     calculateTbodyWidth,
-    serializeColumnWidth,
+    serializeColumnWidth, measureAutoFitColumnWidth,
 } from './helpers';
 
 // Cell Preview
@@ -169,6 +168,7 @@ class DGTable {
         o.rowsBufferSize = options.rowsBufferSize || 3;
         o.minColumnWidth = Math.max(options.minColumnWidth || 35, 0);
         o.maxStickyColumnRelativeWidth = options.maxStickyColumnRelativeWidth || null;
+        o.columnAutoWidthExtraSize = options.columnAutoWidthExtraSize || 0;
         o.resizeAreaWidth = options.resizeAreaWidth || 8;
         o.resizeAreaDoubleClickDuration = options.resizeAreaDoubleClickDuration || 300;
         o.autoFitColumnOnResizeDoubleClick = options.autoFitColumnOnResizeDoubleClick === undefined ? false : !!options.autoFitColumnOnResizeDoubleClick;
@@ -687,6 +687,48 @@ class DGTable {
         return this._o.minColumnWidth;
     }
 
+    setColumnAutoWidthExtraSize(columnAutoWidthExtraSize: number) {
+        let o = this._o;
+        columnAutoWidthExtraSize = Math.max(columnAutoWidthExtraSize, 0);
+        if (o.columnAutoWidthExtraSize !== columnAutoWidthExtraSize) {
+            o.columnAutoWidthExtraSize = columnAutoWidthExtraSize;
+            this.tableWidthChanged(true);
+        }
+        return this;
+    }
+
+    getColumnAutoWidthExtraSize(): number {
+        return this._o.columnAutoWidthExtraSize;
+    }
+
+    setResizeAreaWidth(resizeAreaWidth: number) {
+        let o = this._o;
+        resizeAreaWidth = Math.max(resizeAreaWidth, 0);
+        if (o.resizeAreaWidth !== resizeAreaWidth) {
+            o.resizeAreaWidth = resizeAreaWidth;
+            this.tableWidthChanged(true);
+        }
+        return this;
+    }
+
+    getResizeAreaWidth(): number {
+        return this._o.resizeAreaWidth;
+    }
+
+    setResizeAreaDoubleClickDuration(resizeAreaDoubleClickDuration: number) {
+        let o = this._o;
+        resizeAreaDoubleClickDuration = Math.max(resizeAreaDoubleClickDuration, 0);
+        if (o.resizeAreaDoubleClickDuration !== resizeAreaDoubleClickDuration) {
+            o.resizeAreaDoubleClickDuration = resizeAreaDoubleClickDuration;
+            this.tableWidthChanged(true);
+        }
+        return this;
+    }
+
+    getResizeAreaDoubleClickDuration(): number {
+        return this._o.resizeAreaDoubleClickDuration;
+    }
+
     /** Set the max relative width for sticky columns */
     setMaxStickyColumnRelativeWidth(maxStickyColumnRelativeWidth: number) {
         let o = this._o;
@@ -741,71 +783,12 @@ class DGTable {
             return this;
         }
 
-        const width = this.measureAutoFitColumnWidth(col, rows);
+        const width = measureAutoFitColumnWidth(this, col, rows);
         if (width > 0) {
             this.setColumnWidth(column, width);
         }
 
         return this;
-    }
-
-    private measureAutoFitColumnWidth(col: InternalColumn, rows: RowCollection): number {
-        const o = this._o;
-        const tableClassName = o.tableClassName;
-
-        const wrapper = createElement('div');
-        wrapper.className = this.el.className;
-        setCssProps(wrapper, {
-            position: 'absolute',
-            top: '-9999px',
-            left: '0',
-            visibility: 'hidden',
-            width: 'auto',
-            overflow: 'visible',
-        });
-
-        const header = createElement('div');
-        header.className = `${tableClassName}-header`;
-        const headerRow = createElement('div');
-        headerRow.className = `${tableClassName}-header-row`;
-        const headerCell = createElement('div');
-        headerCell.className = `${tableClassName}-header-cell ${col.cellClasses || ''}`;
-        headerCell.style.width = 'auto';
-        const headerInner = headerCell.appendChild(createElement('div'));
-        headerInner.innerHTML = o.headerCellFormatter(col.label, col.name);
-        headerRow.appendChild(headerCell);
-        header.appendChild(headerRow);
-        wrapper.appendChild(header);
-
-        const body = createElement('div');
-        body.className = `${tableClassName}-body`;
-        const row = createElement('div');
-        row.className = `${tableClassName}-row`;
-        const cell = createElement('div');
-        cell.className = `${tableClassName}-cell ${col.cellClasses || ''}`;
-        cell.style.width = 'auto';
-        const cellInner = cell.appendChild(createElement('div'));
-        row.appendChild(cell);
-        body.appendChild(row);
-        wrapper.appendChild(body);
-
-        document.body.appendChild(wrapper);
-
-        let width = getElementWidth(headerCell, true, true, true);
-        for (let i = 0; i < rows.length; i++) {
-            cellInner.innerHTML = getHtmlForCell(o, rows[i], col);
-            width = Math.max(width, getElementWidth(cell, true, true, true));
-        }
-
-        wrapper.remove();
-
-        width += col.arrowProposedWidth || 0;
-
-        if (!col.ignoreMin && width < o.minColumnWidth) {
-            width = o.minColumnWidth;
-        }
-
-        return Math.ceil(width);
     }
 
     /** Get the serialized width of the specified column */
@@ -1510,11 +1493,12 @@ class DGTable {
                         changedColumnIndexes.push(i);
                     }
                 } else if (col.widthMode === ColumnWidthMode.AUTO) {
-                    let width = getTextWidth(this, col.label) + 20;
-                    width += col.arrowProposedWidth || 0;
-                    if (!col.ignoreMin && width < o.minColumnWidth) {
-                        width = o.minColumnWidth;
-                    }
+                    let width = measureAutoFitColumnWidth(this, col);
+
+                    // Account for scrollbar width in last column
+                    if (col === p.visibleColumns[p.visibleColumns.length - 1])
+                        width += p.scrollbarWidth;
+
                     sizeLeft -= width;
                     absWidthTotal += width;
 

@@ -9,6 +9,8 @@ import { getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js'
 
 import { ColumnWidthMode } from './constants';
 import type { InternalColumn, DGTableInterface } from './private_types';
+import RowCollection from "@/row_collection";
+import {getHtmlForCell} from "@/internal";
 
 const createElement = document.createElement.bind(document);
 
@@ -72,40 +74,69 @@ export function disableCssSelect(el: HTMLElement): void {
     style['user-select'] = 'none';
 }
 
-/**
- * Get text width by measuring in a temporary element
- */
-export function getTextWidth(table: DGTableInterface, text: string): number {
-    const tableClassName = table._o.tableClassName;
+export function measureAutoFitColumnWidth(table: DGTableInterface, col: InternalColumn, rows: RowCollection | null = null): number {
+    const o = table._o;
+    const tableClassName = o.tableClassName;
 
-    const tableWrapper = createElement('div');
-    tableWrapper.className = table.el.className;
-    const header = createElement('div');
-    header.className = tableClassName + '-header';
-    const headerRow = createElement('div');
-    headerRow.className = tableClassName + '-header-row';
-    const cell = createElement('div');
-    cell.className = tableClassName + '-header-cell';
-    const cellContent = createElement('div');
-    cellContent.textContent = text;
-
-    cell.appendChild(cellContent);
-    headerRow.appendChild(cell);
-    header.appendChild(headerRow);
-    tableWrapper.appendChild(header);
-    setCssProps(tableWrapper, {
+    const wrapper = createElement('div');
+    wrapper.className = table.el.className;
+    setCssProps(wrapper, {
         position: 'absolute',
         top: '-9999px',
+        left: '0',
         visibility: 'hidden',
+        width: 'auto',
+        overflow: 'visible',
     });
 
-    document.body.appendChild(tableWrapper);
+    const header = createElement('div');
+    header.className = `${tableClassName}-header`;
+    const headerRow = createElement('div');
+    headerRow.className = `${tableClassName}-header-row`;
+    const headerCell = createElement('div');
+    headerCell.className = `${tableClassName}-header-cell ${col.cellClasses || ''}`;
+    headerCell.style.width = 'auto';
+    const pHeaderCell = headerCell.cloneNode(true);
+    const nHeaderCell = headerCell.cloneNode(true);
+    const headerInner = headerCell.appendChild(createElement('div'));
+    headerInner.innerHTML = o.headerCellFormatter(col.label, col.name);
+    headerRow.appendChild(pHeaderCell); // for middle cell border css
+    headerRow.appendChild(headerCell);
+    headerRow.appendChild(nHeaderCell); // for middle cell border css
+    header.appendChild(headerRow);
+    wrapper.appendChild(header);
+    document.body.appendChild(wrapper);
 
-    const width = getElementWidth(cell);
+    let width = getElementWidth(headerCell, true, true, true) + o.columnAutoWidthExtraSize;
 
-    tableWrapper.remove();
+    if (rows) {
+        const body = createElement('div');
+        body.className = `${tableClassName}-body`;
+        const row = createElement('div');
+        row.className = `${tableClassName}-row`;
+        const cell = createElement('div');
+        cell.className = `${tableClassName}-cell ${col.cellClasses || ''}`;
+        cell.style.width = 'auto';
+        const cellInner = cell.appendChild(createElement('div'));
+        row.appendChild(cell);
+        body.appendChild(row);
+        wrapper.appendChild(body);
 
-    return width;
+        for (let i = 0; i < rows.length; i++) {
+            cellInner.innerHTML = getHtmlForCell(o, rows[i], col);
+            width = Math.max(width, getElementWidth(cell, true, true, true));
+        }
+    }
+
+    wrapper.remove();
+
+    width += col.arrowProposedWidth || 0;
+
+    if (!col.ignoreMin && width < o.minColumnWidth) {
+        width = o.minColumnWidth;
+    }
+
+    return Math.ceil(width);
 }
 
 /**

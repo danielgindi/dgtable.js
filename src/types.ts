@@ -240,6 +240,12 @@ export interface DGTableOptions {
     maxStickyColumnRelativeWidth?: number | null;
 
     /**
+     * Extra width in pixels added to auto-fit column widths to account for custom elements added to the column header.
+     * @default 0
+     */
+    columnAutoWidthExtraSize?: number | null;
+
+    /**
      * Width in pixels of the draggable resize hotspot near header edges.
      * @default 8
      */

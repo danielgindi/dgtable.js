@@ -88,6 +88,7 @@ new DGTable(options?: DGTableOptions)
 | `columns` | `ColumnOptions[]` | `[]`    | Array of column definitions                |
 | `minColumnWidth` | `number`          | `35`    | Minimum column width in pixels             |
 | `maxStickyColumnRelativeWidth` | `number`?         | null    | Maximum relative width for a sticky column |
+| `columnAutoWidthExtraSize` | `number`?         | `0`    | Extra width in pixels added to auto-fit column widths |
 | `resizableColumns` | `boolean`         | `true`  | Allow column resizing                      |
 | `movableColumns` | `boolean`         | `true`  | Allow column reordering                    |
 | `maxColumnsSortCount` | `number`          | `1`     | Maximum number of columns to sort by       |
@@ -235,7 +236,13 @@ table.tableHeightChanged()                                      // Notify height
 table.setMinColumnWidth(width)                                  // Set global min width
 table.getMinColumnWidth()                                       // Get global min width
 table.setMaxStickyColumnRelativeWidth(width)                    // Set max relative width for sticky columns
-table.getMaxStickyColumnRelativeWidth()                                 // Get max relative width for sticky columns
+table.getMaxStickyColumnRelativeWidth()                         // Get max relative width for sticky columns
+table.setColumnAutoWidthExtraSize(width)                         // Set extra width added to auto-fit column widths
+table.getColumnAutoWidthExtraSize()                              // Get extra width added to auto-fit column widths
+table.setResizeAreaWidth(width)                                  // Set the width of the resize area
+table.getResizeAreaWidth()                                       // Get the width of the resize area
+table.setResizeAreaDoubleClickDuration(duration)                 // Set the double-click duration for the resize area
+table.getResizeAreaDoubleClickDuration()                         // Get the double-click duration for the resize area
 ```
 
 #### Cell Preview
