@@ -2,7 +2,7 @@
 
 A high-performance virtual table component for vanilla JavaScript.
 
-[![npm version](https://badge.fury.io/js/@danielgindi%2Fdgtable.svg)](https://www.npmjs.com/package/@danielgindi/dgtable)
+[![npm version](https://badge.fury.io/js/@danielgindi%2Fdgtable.js.svg)](https://www.npmjs.com/package/@danielgindi/dgtable.js)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 ## Features
@@ -21,7 +21,7 @@ A high-performance virtual table component for vanilla JavaScript.
 ## Installation
 
 ```bash
-npm install @danielgindi/dgtable
+npm install @danielgindi/dgtable.js
 ```
 
 ## Quick Start
