@@ -8,7 +8,7 @@ import {
     FilterFunction,
     HeaderCellFormatter,
     OnComparatorRequired,
-} from "@/types";
+} from "./types";
 
 // Symbols for internal use
 export const IsSafeSymbol = Symbol('safe');

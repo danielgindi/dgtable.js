@@ -12,7 +12,7 @@ import {
     cancelColumnResize,
     onMouseDownColumnHeader,
 } from './column_resize';
-import type { DGTableInterface } from './private_types';
+import type {DGTableInterface, InternalColumn} from './private_types';
 import { RelatedTouchSymbol } from './private_types';
 
 // Extended element types
@@ -284,6 +284,15 @@ export function onDragEndColumnHeader(table: DGTableInterface, event: DragEvent)
     }
 }
 
+function canMoveOverColumn(table: DGTableInterface, targetColumn: InternalColumn): boolean {
+    const p = table._p;
+    const firstMovableIndex = p.visibleColumns.findIndex((col) => col.movable);
+    const lastMovableIndex = p.visibleColumns.findLastIndex((col) => col.movable);
+    const targetColumnIndex = p.visibleColumns.findIndex((col) => col === targetColumn);
+
+    return targetColumn.movable || (firstMovableIndex !== -1 && targetColumnIndex >= firstMovableIndex && targetColumnIndex <= lastMovableIndex);
+}
+
 /**
  * Handle drag enter on column header
  */
@@ -309,7 +318,7 @@ export function onDragEnterColumnHeader(table: DGTableInterface, event: DragEven
             (p.dragId === dataTransferred.dragId && headerCell.columnName !== dataTransferred.column)) {
 
             const column = p.columns.get(headerCell.columnName!);
-            if (column && (column.movable || column !== p.visibleColumns[0])) {
+            if (column && canMoveOverColumn(table, column)) {
                 headerCell.classList.add('drag-over');
             }
         }
@@ -364,7 +373,7 @@ export function onDropColumnHeader(table: DGTableInterface, event: DragEvent): v
         const destColName = headerCell.columnName!;
         const srcCol = p.columns.get(srcColName);
         const destCol = p.columns.get(destColName);
-        if (srcCol && destCol && srcCol.movable && (destCol.movable || destCol !== p.visibleColumns[0])) {
+        if (srcCol && destCol && srcCol.movable && canMoveOverColumn(table, destCol)) {
             (table as unknown as TableWithSort).moveColumn(srcColName, destColName);
         }
     }
