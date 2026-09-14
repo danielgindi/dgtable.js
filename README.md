@@ -99,6 +99,7 @@ new DGTable(options?: DGTableOptions)
 | `autoFillTableWidth` | `boolean`         | `false` | Stretch columns to fill table width        |
 | `autoFillLastColumn` | `boolean`         | `true`  | Expand last visible column to fill leftover width |
 | `resizeAreaWidth` | `number`          | `8`     | Width of resize drag area in pixels        |
+| `resizeAreaDoubleClickDuration` | `number`          | `300`     | Duration of double-click event for auto column resize |
 | `autoFitColumnOnResizeDoubleClick` | `boolean` | `false` | Auto-fit columns on resize-area double click |
 
 #### Column Definition

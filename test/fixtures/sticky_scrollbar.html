@@ -215,6 +215,16 @@
         dispatchResizePointerEvent('mouseup', document, resizeX);
         const markerAfterResize = !!resizeTimingTable._p.resizer;
 
+        const movingResizeTable = createTable('ltr');
+        const movingResizeHeader = movingResizeTable._p.columns.get('first').element;
+        const movingResizeX = movingResizeHeader.getBoundingClientRect().right - 1;
+        dispatchResizePointerEvent('mousedown', movingResizeHeader, movingResizeX);
+        dispatchResizePointerEvent('mousemove', document, movingResizeX + 2);
+        const markerAfterTinyMove = !!movingResizeTable._p.resizer;
+        dispatchResizePointerEvent('mousemove', document, movingResizeX + 20);
+        const markerAfterImmediateMove = !!movingResizeTable._p.resizer;
+        dispatchResizePointerEvent('mouseup', document, movingResizeX + 20);
+
         dispatchResizePointerEvent('mousedown', resizeHeader, resizeX);
         dispatchResizePointerEvent('mouseup', document, resizeX);
         const markerAfterQuickClick = !!resizeTimingTable._p.resizer;
@@ -226,6 +236,8 @@
             markerOnPointerDown,
             markerAfterDelay,
             markerAfterResize,
+            markerAfterTinyMove,
+            markerAfterImmediateMove,
             markerAfterQuickClick,
             pendingAfterQuickClick,
             markerAfterDoubleClick: !!resizeTimingTable._p.resizer,

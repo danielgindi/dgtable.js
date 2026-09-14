@@ -170,6 +170,7 @@ class DGTable {
         o.minColumnWidth = Math.max(options.minColumnWidth || 35, 0);
         o.maxStickyColumnRelativeWidth = options.maxStickyColumnRelativeWidth || null;
         o.resizeAreaWidth = options.resizeAreaWidth || 8;
+        o.resizeAreaDoubleClickDuration = options.resizeAreaDoubleClickDuration || 300;
         o.autoFitColumnOnResizeDoubleClick = options.autoFitColumnOnResizeDoubleClick === undefined ? false : !!options.autoFitColumnOnResizeDoubleClick;
         o.resizableColumns = options.resizableColumns === undefined ? true : !!options.resizableColumns;
         o.movableColumns = options.movableColumns === undefined ? true : !!options.movableColumns;
@@ -331,10 +332,7 @@ class DGTable {
             return this;
         }
 
-        if (p.resizer) {
-            p.resizer.remove();
-            p.resizer = null;
-        }
+        cancelColumnResize(this);
 
         p.virtualListHelper?.destroy();
         p.virtualListHelper = null;

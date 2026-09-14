@@ -156,6 +156,8 @@ test('first end-sticky column covers the scrollbar gutter in LTR and RTL', { tim
             assert.equal(resizeTiming.markerOnPointerDown, false, 'marker must not appear immediately');
             assert.equal(resizeTiming.markerAfterDelay, true, 'marker must appear after the double-click window');
             assert.equal(resizeTiming.markerAfterResize, false, 'completed resize must remove the marker');
+            assert.equal(resizeTiming.markerAfterTinyMove, false, 'minor pointer jitter must not start resizing');
+            assert.equal(resizeTiming.markerAfterImmediateMove, true, 'movement must start resizing immediately');
             assert.equal(resizeTiming.markerAfterQuickClick, false, 'quick click must not create a marker');
             assert.equal(resizeTiming.pendingAfterQuickClick, false, 'quick release must cancel the pending resize');
             assert.equal(resizeTiming.markerAfterDoubleClick, false, 'double click must not create a marker');

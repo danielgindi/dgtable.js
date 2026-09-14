@@ -246,6 +246,13 @@ export interface DGTableOptions {
     resizeAreaWidth?: number | null;
 
     /**
+     * Duration in milliseconds of the double-click event used to trigger
+     * automatic column resizing.
+     * @default 300
+     */
+    resizeAreaDoubleClickDuration?: number | null;
+
+    /**
      * Automatically fit a column to its content when the user double-clicks
      * the column resize area.
      * @default false

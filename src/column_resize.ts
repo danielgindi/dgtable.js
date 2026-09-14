@@ -11,8 +11,8 @@ import type { DGTableInterface } from './private_types';
 import { RelatedTouchSymbol, OriginalCellSymbol } from './private_types';
 
 const createElement = document.createElement.bind(document);
-const resizeAreaDoubleClickDelay = 450;
-const resizeAreaDoubleClickDistance = 12;
+const RESIZE_AREA_DOUBLE_CLICK_DISTANCE = 12;
+const RESIZE_AREA_DRAG_START_DISTANCE = 4;
 
 // Extended element types
 interface HeaderCellElement extends HTMLElement {
@@ -45,6 +45,7 @@ function getPointerType(event: Event): 'mouse' | 'touch' {
 
 function isSequentialResizeAreaClick(table: DGTableInterface, event: Event, columnName: string): boolean {
     const p = table._p;
+    const o = table._o;
     const positionHost = getPositionHost(event);
     const now = Date.now();
     const pointerType = getPointerType(event);
@@ -63,7 +64,7 @@ function isSequentialResizeAreaClick(table: DGTableInterface, event: Event, colu
     }
 
     const elapsed = now - lastClick.time;
-    if (elapsed < 0 || elapsed > resizeAreaDoubleClickDelay) {
+    if (elapsed < 0 || elapsed > o.resizeAreaDoubleClickDuration) {
         return false;
     }
 
@@ -72,7 +73,7 @@ function isSequentialResizeAreaClick(table: DGTableInterface, event: Event, colu
         Math.pow(p.lastResizeAreaClick.pageY - lastClick.pageY, 2)
     );
 
-    return distance <= Math.max(table._o.resizeAreaWidth, resizeAreaDoubleClickDistance);
+    return distance <= Math.max(o.resizeAreaWidth, RESIZE_AREA_DOUBLE_CLICK_DISTANCE);
 }
 
 function emitColumnResizeAreaDoubleClick(table: DGTableInterface, event: Event, columnName: string): boolean | void {
@@ -105,6 +106,97 @@ function emitColumnResizeAreaDoubleClick(table: DGTableInterface, event: Event, 
 
     event.preventDefault();
     return true;
+}
+
+function startColumnResize(table: DGTableInterface, columnName: string): void {
+    const o = table._o;
+    const p = table._p;
+    const column = p.columns.get(columnName);
+    if (!o.resizableColumns || !column || !column.resizable) {
+        cancelColumnResize(table);
+        return;
+    }
+
+    const rtl = isTableRtl(table);
+
+    p.resizer = createElement('div') as ResizerElement;
+    p.resizer.className = o.resizerClassName;
+    setCssProps(p.resizer, {
+        position: 'absolute',
+        display: 'block',
+        zIndex: '-1',
+        visibility: 'hidden',
+        width: '2px',
+        background: '#000',
+        opacity: '0.7',
+    });
+    table.el.appendChild(p.resizer);
+
+    const selectedHeaderCell = column.element!;
+    const commonAncestor = p.resizer.parentNode as HTMLElement;
+
+    const commonAncestorStyle = getComputedStyle(commonAncestor);
+    const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
+
+    const posCol = getElementOffset(selectedHeaderCell);
+    const posRelative = getElementOffset(commonAncestor);
+    posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
+    posRelative.top += parseFloat(commonAncestorStyle.borderTopWidth) || 0;
+    posCol.left -= posRelative.left;
+    posCol.top -= posRelative.top;
+    posCol.top -= parseFloat(selectedHeaderCellStyle.borderTopWidth) || 0;
+    const resizerWidth = getElementWidth(p.resizer, true, true, true);
+    if (rtl) {
+        posCol.left -= Math.ceil((parseFloat(selectedHeaderCellStyle.borderLeftWidth) || 0) / 2);
+        posCol.left -= Math.ceil(resizerWidth / 2);
+    } else {
+        posCol.left += getElementWidth(selectedHeaderCell, true, true, true);
+        posCol.left += Math.ceil((parseFloat(selectedHeaderCellStyle.borderRightWidth) || 0) / 2);
+        posCol.left -= Math.ceil(resizerWidth / 2);
+    }
+
+    setCssProps(p.resizer, {
+        'z-index': '10',
+        'visibility': 'visible',
+        'left': posCol.left + 'px',
+        'top': posCol.top + 'px',
+        'height': getElementHeight(table.el, false, false, false) + 'px',
+    });
+    (p.resizer as ResizerElement).columnName = (selectedHeaderCell as HeaderCellElement).columnName;
+
+    try { p.resizer.style.zIndex = ''; }
+    catch { /* we're ok with this */ }
+}
+
+function startPendingColumnResize(table: DGTableInterface): void {
+    const p = table._p;
+    if (p.columnResizeStartTimeout == null)
+        return;
+
+    clearTimeout(p.columnResizeStartTimeout);
+    p.columnResizeStartTimeout = null;
+
+    const columnName = p.lastResizeAreaClick?.columnName;
+    p.lastResizeAreaClick = null;
+
+    if (columnName)
+        startColumnResize(table, columnName);
+}
+
+function hasResizeDragStarted(table: DGTableInterface, event: Event): boolean {
+    const startPosition = table._p.lastResizeAreaClick;
+    if (!startPosition)
+        return false;
+
+    const positionHost = getPositionHost(event);
+    const pageX = positionHost.pageX || positionHost.clientX || 0;
+    const pageY = positionHost.pageY || 0;
+    const distance = Math.sqrt(
+        Math.pow(pageX - startPosition.pageX, 2) +
+        Math.pow(pageY - startPosition.pageY, 2)
+    );
+
+    return distance > RESIZE_AREA_DRAG_START_DISTANCE;
 }
 
 /**
@@ -157,11 +249,17 @@ export function getColumnByResizePosition(table: DGTableInterface, event: Event)
 export function cancelColumnResize(table: DGTableInterface): DGTableInterface {
     const p = table._p;
 
+    if (p.columnResizeStartTimeout != null) {
+        clearTimeout(p.columnResizeStartTimeout);
+        p.columnResizeStartTimeout = null;
+    }
+
     if (p.resizer) {
         p.resizer.remove();
         p.resizer = null;
-        p.eventsSink.remove(document, '.colresize');
     }
+
+    p.eventsSink.remove(document, '.colresize');
 
     return table;
 }
@@ -185,61 +283,15 @@ export function onMouseDownColumnHeader(table: DGTableInterface, event: Event): 
         }
 
         if (isSequentialResizeAreaClick(table, event, column.name)) {
+            cancelColumnResize(table);
             return emitColumnResizeAreaDoubleClick(table, event, column.name);
         }
 
-        const rtl = isTableRtl(table);
-
-        if (p.resizer) {
-            p.resizer.remove();
-        }
-        p.resizer = createElement('div') as ResizerElement;
-        p.resizer.className = o.resizerClassName;
-        setCssProps(p.resizer, {
-            position: 'absolute',
-            display: 'block',
-            zIndex: '-1',
-            visibility: 'hidden',
-            width: '2px',
-            background: '#000',
-            opacity: '0.7',
-        });
-        table.el.appendChild(p.resizer);
-
-        const selectedHeaderCell = column.element!;
-        const commonAncestor = p.resizer.parentNode as HTMLElement;
-
-        const commonAncestorStyle = getComputedStyle(commonAncestor);
-        const selectedHeaderCellStyle = getComputedStyle(selectedHeaderCell);
-
-        const posCol = getElementOffset(selectedHeaderCell);
-        const posRelative = getElementOffset(commonAncestor);
-        posRelative.left += parseFloat(commonAncestorStyle.borderLeftWidth) || 0;
-        posRelative.top += parseFloat(commonAncestorStyle.borderTopWidth) || 0;
-        posCol.left -= posRelative.left;
-        posCol.top -= posRelative.top;
-        posCol.top -= parseFloat(selectedHeaderCellStyle.borderTopWidth) || 0;
-        const resizerWidth = getElementWidth(p.resizer, true, true, true);
-        if (rtl) {
-            posCol.left -= Math.ceil((parseFloat(selectedHeaderCellStyle.borderLeftWidth) || 0) / 2);
-            posCol.left -= Math.ceil(resizerWidth / 2);
-        } else {
-            posCol.left += getElementWidth(selectedHeaderCell, true, true, true);
-            posCol.left += Math.ceil((parseFloat(selectedHeaderCellStyle.borderRightWidth) || 0) / 2);
-            posCol.left -= Math.ceil(resizerWidth / 2);
-        }
-
-        setCssProps(p.resizer, {
-            'z-index': '10',
-            'visibility': 'visible',
-            'left': posCol.left + 'px',
-            'top': posCol.top + 'px',
-            'height': getElementHeight(table.el, false, false, false) + 'px',
-        });
-        (p.resizer as ResizerElement).columnName = (selectedHeaderCell as HeaderCellElement).columnName;
-
-        try { p.resizer.style.zIndex = ''; }
-        catch { /* we're ok with this */ }
+        cancelColumnResize(table);
+        p.columnResizeStartTimeout = setTimeout(
+            () => startPendingColumnResize(table),
+            o.resizeAreaDoubleClickDuration
+        );
 
         p.eventsSink
             .add(document, 'mousemove.colresize', (e: Event) => onMouseMoveResizeArea(table, e))
@@ -256,6 +308,11 @@ export function onMouseDownColumnHeader(table: DGTableInterface, event: Event): 
  */
 export function onMouseMoveResizeArea(table: DGTableInterface, event: Event): void {
     const p = table._p;
+
+    if (p.columnResizeStartTimeout != null && !hasResizeDragStarted(table, event))
+        return;
+
+    startPendingColumnResize(table);
 
     if (!p.resizer) return;
 
@@ -318,6 +375,11 @@ export function onMouseMoveResizeArea(table: DGTableInterface, event: Event): vo
 export function onResizerPointerUp(table: DGTableInterface, event: Event): void {
     const o = table._o;
     const p = table._p;
+
+    if (p.columnResizeStartTimeout != null) {
+        cancelColumnResize(table);
+        return;
+    }
 
     if (!p.resizer)
         return;

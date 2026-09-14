@@ -65,6 +65,7 @@ export interface DGTableInternalOptions {
     minColumnWidth: number;
     maxStickyColumnRelativeWidth: number|null;
     resizeAreaWidth: number;
+    resizeAreaDoubleClickDuration: number;
     autoFitColumnOnResizeDoubleClick: boolean;
     resizableColumns: boolean;
     movableColumns: boolean;
@@ -138,6 +139,7 @@ export interface DGTablePrivateState {
     table?: HTMLElement;
     tbody?: HTMLElement;
     resizer?: HTMLElement | null;
+    columnResizeStartTimeout?: ReturnType<typeof setTimeout> | null;
     currentTouchId?: number | null;
     lastResizeAreaClick?: ResizeAreaClickState | null;
     lastResizeAreaDoubleClick?: { columnName: string; time: number } | null;
