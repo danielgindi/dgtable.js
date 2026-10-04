@@ -288,7 +288,7 @@ export function getHtmlForCell(
     const formatter = options.cellFormatter;
     let content;
 
-    if (formatter[IsSafeSymbol]) {
+    if ((formatter as unknown as Record<symbol, boolean>)[IsSafeSymbol]) {
         content = formatter(colValue, column.name, rowData);
     } else {
         try {

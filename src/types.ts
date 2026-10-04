@@ -50,9 +50,7 @@ export type RowData = Record<string, unknown>
 /**
  * Cell formatter function
  */
-export type CellFormatter = ((value: unknown, columnName: string, rowData: RowData) => string) & {
-    [key: symbol]: boolean;
-};
+export type CellFormatter = (value: unknown, columnName: string, rowData: RowData) => string;
 
 /**
  * Header cell formatter function
