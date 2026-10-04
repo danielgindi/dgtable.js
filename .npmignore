@@ -1,5 +1,6 @@
 .idea
 scripts/
+test/
 tests/
 .eslintignore
 .eslintrc.js
@@ -9,3 +10,8 @@ tests/
 .husky/
 example/
 connectors/
+eslint.config.mjs
+tsconfig.json
+vitest.config.ts
+.vitest/
+coverage/
