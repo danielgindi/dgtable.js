@@ -416,8 +416,6 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
     let baseX = posCol.left;
     let width = 0;
 
-    baseX -= Math.ceil(resizerWidth / 2);
-
     if (rtl) {
         if (!isBoxing) {
             actualX += horizontalPadding(selectedHeaderCell);
@@ -429,6 +427,8 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
         // The sort arrow's room is added back by the layout, in both box models
         actualX += column.arrowProposedWidth || 0;
 
+        // Mirror of the LTR case: the resize edge is the cell's left side
+        baseX += Math.ceil(resizerWidth / 2);
         baseX += getElementWidth(selectedHeaderCell, true, true, true);
 
         const minX = baseX - (column.ignoreMin ? 0 : table._o.minColumnWidth);
@@ -447,6 +447,8 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
 
         // The sort arrow's room is added back by the layout, in both box models
         actualX -= column.arrowProposedWidth || 0;
+
+        baseX -= Math.ceil(resizerWidth / 2);
 
         const minX = baseX + (column.ignoreMin ? 0 : table._o.minColumnWidth);
         if (actualX < minX) {
