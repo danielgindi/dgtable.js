@@ -1288,10 +1288,12 @@ class DGTable {
 
             if (p.filteredRows || (resort && p.rows.sortColumn.length)) {
 
+                // Rebuild the filtered set first (it doesn't contain the new rows yet),
+                // so resort() re-orders the complete set
+                refilter(this);
+
                 if (resort && p.rows.sortColumn.length) {
                     this.resort();
-                } else {
-                    refilter(this);
                 }
 
                 p.tableSkeletonNeedsRendering = true;
@@ -1443,10 +1445,11 @@ class DGTable {
 
         p.rows.reset(data);
 
+        // Rebuild the filtered set from the new rows first, so resort() re-orders the complete set
+        refilter(this);
+
         if (resort && p.rows.sortColumn.length) {
             this.resort();
-        } else {
-            refilter(this);
         }
 
         this.clearAndRender().emit('addrows', { count: data.length, clear: true });
