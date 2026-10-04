@@ -129,6 +129,10 @@ import { execSync } from 'node:child_process';
                         targets: task.babelTargets,
                         useBuiltIns: 'usage',
                         corejs: 3,
+                        // core-js >= 3.49 flags Array.prototype.includes in Safari < 27 for a bug with
+                        // sparse arrays and fromIndex. That never applies here, and the polyfill would
+                        // pull core-js into the UMD bundle and patch Array.prototype on the host page.
+                        exclude: ['es.array.includes'],
                     }],
                 ],
                 compact: false,

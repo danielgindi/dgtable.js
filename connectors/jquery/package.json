@@ -28,18 +28,18 @@
     }
   ],
   "dependencies": {
-    "@danielgindi/dgtable.js": "^2.0.37"
+    "@danielgindi/dgtable.js": "^2.0.38"
   },
   "devDependencies": {
-    "@babel/core": "^7.29.0",
-    "@babel/preset-env": "^7.29.0",
-    "@babel/runtime": "^7.28.6",
-    "@rollup/plugin-babel": "^6.1.0",
-    "@rollup/plugin-terser": "^0.4.4",
-    "core-js": "^3.48.0",
-    "fs-extra": "^11.3.3",
-    "globals": "^17",
-    "rollup": "^4.59.0"
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "@babel/runtime": "^7.29.7",
+    "@rollup/plugin-babel": "^7.1.0",
+    "@rollup/plugin-terser": "^1.0.0",
+    "core-js": "^3.50.0",
+    "fs-extra": "^11.4.1",
+    "globals": "^17.13.0",
+    "rollup": "^4.64.0"
   },
   "peerDependencies": {
     "jquery": "*"
