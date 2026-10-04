@@ -169,19 +169,21 @@ class DGTable {
         // Initialize options with defaults
         o.virtualTable = options.virtualTable === undefined ? true : !!options.virtualTable;
         o.estimatedRowHeight = options.estimatedRowHeight || undefined;
-        o.rowsBufferSize = options.rowsBufferSize || 3;
-        o.minColumnWidth = Math.max(options.minColumnWidth || 35, 0);
+        // `??` rather than `||`: 0 is a valid value for these options
+        o.rowsBufferSize = Math.max(options.rowsBufferSize ?? 3, 0);
+        o.minColumnWidth = Math.max(options.minColumnWidth ?? 35, 0);
         o.maxStickyColumnRelativeWidth = options.maxStickyColumnRelativeWidth || null;
         o.columnAutoWidthExtraSize = options.columnAutoWidthExtraSize || 0;
-        o.resizeAreaWidth = options.resizeAreaWidth || 8;
-        o.resizeAreaDoubleClickDuration = options.resizeAreaDoubleClickDuration || 300;
+        o.resizeAreaWidth = Math.max(options.resizeAreaWidth ?? 8, 0);
+        o.resizeAreaDoubleClickDuration = Math.max(options.resizeAreaDoubleClickDuration ?? 300, 0);
         o.autoFitColumnOnResizeDoubleClick = options.autoFitColumnOnResizeDoubleClick === undefined ? false : !!options.autoFitColumnOnResizeDoubleClick;
         o.resizableColumns = options.resizableColumns === undefined ? true : !!options.resizableColumns;
         o.movableColumns = options.movableColumns === undefined ? true : !!options.movableColumns;
 
         const maxColumnsSortCount = options.maxColumnsSortCount
             ?? (options as any)['sortableColumns']; // backwards compatibility
-        o.sortableColumns = maxColumnsSortCount === undefined ? 1 : Number(maxColumnsSortCount) || 1;
+        const sortCount = Number(maxColumnsSortCount ?? 1);
+        o.sortableColumns = Number.isFinite(sortCount) ? Math.max(sortCount, 0) : 1;
 
         o.adjustColumnWidthForSortArrow = options.adjustColumnWidthForSortArrow === undefined ? true : !!options.adjustColumnWidthForSortArrow;
         o.convertColumnWidthsToRelative = options.convertColumnWidthsToRelative === undefined ? false : !!options.convertColumnWidthsToRelative;
