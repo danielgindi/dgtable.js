@@ -1743,7 +1743,8 @@ class DGTable {
                     let col = p.visibleColumns[i];
 
                     if (col.widthMode === ColumnWidthMode.REST) {
-                        let width = Math.floor(restWidthLeft / restColumnsLeft);
+                        // An earlier rest column raised to the minimum can overdraw the space left
+                        let width = Math.max(0, Math.floor(restWidthLeft / restColumnsLeft));
                         if (!col.ignoreMin && width < o.minColumnWidth) {
                             width = o.minColumnWidth;
                         }
