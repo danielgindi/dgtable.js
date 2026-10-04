@@ -319,7 +319,8 @@ export function serializeColumnWidth(column: InternalColumn): string | number {
     const widthMode = column.unconvertedWidth != null ? (column.unconvertedWidthMode ?? column.widthMode) : column.widthMode;
 
     return widthMode === ColumnWidthMode.AUTO ? 'auto' :
-        widthMode === ColumnWidthMode.RELATIVE ? width * 100 + '%' :
+        // toPrecision() drops float noise such as 0.07 * 100 = 7.000000000000001
+        widthMode === ColumnWidthMode.RELATIVE ? parseFloat((width * 100).toPrecision(12)) + '%' :
             widthMode === ColumnWidthMode.REST ? 'rest' :
                 width;
 }
