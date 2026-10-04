@@ -1217,7 +1217,7 @@ class DGTable {
     getRowYPos(rowIndex: number): number | null {
         const p = this._p;
 
-        return p.virtualListHelper.getItemPosition(rowIndex) || null;
+        return p.virtualListHelper?.getItemPosition(rowIndex) || null;
     }
 
     /** Returns the row data for a specific row */
@@ -1303,7 +1303,7 @@ class DGTable {
                     this.render();
                 }
 
-            } else if (render) {
+            } else if (render && p.virtualListHelper) {
                 p.virtualListHelper.addItemsAt(dataCount, at);
 
                 if (this._o.virtualTable) {
@@ -1345,7 +1345,7 @@ class DGTable {
                 this.render();
             }
 
-        } else if (render) {
+        } else if (render && p.virtualListHelper) {
             p.virtualListHelper.removeItemsAt(count, rowIndex);
 
             if (this._o.virtualTable) {
@@ -1384,6 +1384,9 @@ class DGTable {
             filteredRowIndex = rowIndex;
         }
 
+        if (!p.virtualListHelper)
+            return this;
+
         p.virtualListHelper.refreshItemAt(filteredRowIndex);
 
         if (render)
@@ -1408,13 +1411,13 @@ class DGTable {
             filteredRowIndex = rowIndex;
         }
 
-        return p.virtualListHelper.getItemElementAt(filteredRowIndex) || null;
+        return p.virtualListHelper?.getItemElementAt(filteredRowIndex) || null;
     }
 
     /** Refreshes all virtual rows */
     refreshAllVirtualRows() {
         const p = this._p;
-        p.virtualListHelper.invalidate().render();
+        p.virtualListHelper?.invalidate().render();
         return this;
     }
 
