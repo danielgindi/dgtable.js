@@ -1217,7 +1217,15 @@ class DGTable {
     getRowYPos(rowIndex: number): number | null {
         const p = this._p;
 
-        return p.virtualListHelper?.getItemPosition(rowIndex) || null;
+        if (rowIndex < 0 || rowIndex > p.rows.length - 1)
+            return null;
+
+        // The list renders the filtered rows, so translate the data row index
+        let filteredRowIndex = rowIndex;
+        if (p.filteredRows && (filteredRowIndex = p.filteredRows.indexOf(p.rows[rowIndex])) === -1)
+            return null;
+
+        return p.virtualListHelper?.getItemPosition(filteredRowIndex) ?? null;
     }
 
     /** Returns the row data for a specific row */
