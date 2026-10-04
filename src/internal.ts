@@ -10,6 +10,7 @@ import {
     PreviewCellSymbol,
     OriginalCellSymbol,
     IsSafeSymbol,
+    OriginalRowIndex,
 } from './private_types';
 import { cellMouseOverEvent, cellMouseOutEvent } from './cell_preview';
 import {
@@ -29,6 +30,7 @@ import {
 } from './header_events';
 import { syncHorizontalStickies } from './rendering';
 import ByColumnFilter from './by_column_filter';
+import RowCollection from './row_collection';
 import type { ColumnOptions, FilterFunction, RowData } from './types';
 import type { ColumnWidthModeType } from './constants';
 import type { DGTablePrivateState, DGTableInternalOptions, InternalColumn } from './private_types';
@@ -237,6 +239,35 @@ export function refilter(table: DGTableInternal): void {
         let filterFunc = (table._o.filter || ByColumnFilter) as FilterFunction;
         p.filteredRows = p.rows.filteredCollection(filterFunc, p.filterArgs);
     }
+}
+
+/**
+ * Re-order the filtered rows after the full row set was sorted.
+ * The full set is already sorted, so keep the current filtered rows in its order
+ * (no second sort, no re-running the filter), and refresh each one's index in it.
+ */
+export function sortFilteredRows(table: DGTableInternal): void {
+    const p = table._p;
+    if (!p.filteredRows)
+        return;
+
+    const members = new Set<RowData>(p.filteredRows);
+    const sorted = new RowCollection({
+        sortColumn: p.rows.sortColumn,
+        onComparatorRequired: p.rows.onComparatorRequired,
+        customSortingProvider: p.rows.customSortingProvider,
+    });
+
+    for (let i = 0, len = p.rows.length; i < len; i++) {
+        const row = p.rows[i];
+        if (!members.has(row))
+            continue;
+
+        (row as Record<symbol, unknown>)[OriginalRowIndex] = i;
+        sorted.push(row);
+    }
+
+    p.filteredRows = sorted;
 }
 
 /**

@@ -64,6 +64,7 @@ import {
     initColumnFromData,
     ensureVisibleColumns,
     refilter,
+    sortFilteredRows,
     getHtmlForCell,
 } from './internal';
 
@@ -1023,13 +1024,7 @@ class DGTable {
             p.rows.sortColumn = currentSort;
             if (currentSort.length) {
                 p.rows.sort();
-
-                if (p.filteredRows) {
-                    p.filteredRows.sortColumn = p.rows.sortColumn;
-                    p.filteredRows.onComparatorRequired = p.rows.onComparatorRequired;
-                    p.filteredRows.customSortingProvider = p.rows.customSortingProvider;
-                    p.filteredRows.sort();
-                }
+                sortFilteredRows(this);
             }
 
             p.virtualListHelper?.invalidate();
@@ -1076,12 +1071,7 @@ class DGTable {
 
         if (currentSort.length && options.immediate) {
             p.rows.sort();
-            if (p.filteredRows) {
-                p.filteredRows.sortColumn = p.rows.sortColumn;
-                p.filteredRows.onComparatorRequired = p.rows.onComparatorRequired;
-                p.filteredRows.customSortingProvider = p.rows.customSortingProvider;
-                p.filteredRows.sort();
-            }
+            sortFilteredRows(this);
 
             p.virtualListHelper?.invalidate();
 
