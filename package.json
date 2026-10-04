@@ -2,7 +2,7 @@
   "name": "@danielgindi/dgtable.js",
   "description": "High-performance table View for vanilla JS",
   "version": "2.0.37",
-  "main": "dist/lib.cjs.min.js",
+  "main": "dist/lib.cjs.min.cjs",
   "module": "dist/lib.es6.min.js",
   "browser": "dist/lib.umd.min.js",
   "types": "dist/index.d.ts",
@@ -11,7 +11,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/lib.es6.min.js",
-      "require": "./dist/lib.cjs.min.js",
+      "require": "./dist/lib.cjs.min.cjs",
       "default": "./dist/lib.es6.min.js"
     },
     "./package.json": "./package.json"

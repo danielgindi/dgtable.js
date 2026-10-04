@@ -56,14 +56,14 @@ import { execSync } from 'node:child_process';
         ecmaVersion: 6,
         outputName: 'DGTable',
     }, {
-        dest: 'dist/lib.cjs.js',
+        dest: 'dist/lib.cjs.cjs',
         sourceMap: true,
         outputFormat: 'cjs',
         outputExports: 'default',
         minified: false,
         ecmaVersion: 6,
     }, {
-        dest: 'dist/lib.cjs.min.js',
+        dest: 'dist/lib.cjs.min.cjs',
         sourceMap: true,
         outputFormat: 'cjs',
         outputExports: 'default',
