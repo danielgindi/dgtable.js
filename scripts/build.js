@@ -76,7 +76,25 @@ import { execSync } from 'node:child_process';
     for (let task of rollupTasks) {
         console.info('Generating ' + task.dest + '...');
 
+        const pkg = JSON.parse(await readFile(Path.join(Path.dirname(fileURLToPath(import.meta.url)), '../package.json'), { encoding: 'utf8' }));
+
         let plugins = [
+            {
+                name: 'version',
+
+                transform(code) {
+                    if (!code.includes('@@VERSION'))
+                        return null;
+
+                    const magicString = new MagicString(code);
+                    magicString.replaceAll('@@VERSION', pkg.version);
+
+                    return {
+                        code: magicString.toString(),
+                        map: magicString.generateMap({ hires: true }),
+                    };
+                },
+            },
             nodeResolve({
                 mainFields: ['module', 'main'],
                 extensions: ['.ts', '.js'],
@@ -96,7 +114,6 @@ import { execSync } from 'node:child_process';
             }),
         ];
 
-        const pkg = JSON.parse(await readFile(Path.join(Path.dirname(fileURLToPath(import.meta.url)), '../package.json'), { encoding: 'utf8' }));
         const banner = [
             `/*!`,
             ` * ${pkg.name} ${pkg.version}`,
