@@ -149,7 +149,11 @@ class RowCollection extends Array<RowData> {
             if (this.customSortingProvider) {
                 const results = this.customSortingProvider(this as unknown as RowData[], sorter);
                 if (results !== (this as unknown as RowData[])) {
-                    this.splice(0, this.length, ...results);
+                    // Copy in a loop: spreading a large array into splice() overflows the call stack
+                    this.length = results.length;
+                    for (let i = 0, len = results.length; i < len; i++) {
+                        this[i] = results[i];
+                    }
                 }
             } else {
                 sorter(this as unknown as RowData[]);
