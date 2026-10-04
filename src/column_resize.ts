@@ -424,8 +424,10 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
             const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
             actualX += parseFloat(innerComputedStyle.borderLeftWidth) || 0;
             actualX += parseFloat(innerComputedStyle.borderRightWidth) || 0;
-            actualX += column.arrowProposedWidth || 0;
         }
+
+        // The sort arrow's room is added back by the layout, in both box models
+        actualX += column.arrowProposedWidth || 0;
 
         baseX += getElementWidth(selectedHeaderCell, true, true, true);
 
@@ -441,8 +443,10 @@ export function onResizerPointerUp(table: DGTableInterface, event: Event): void 
             const innerComputedStyle = getComputedStyle(selectedHeaderCellInner || selectedHeaderCell);
             actualX -= parseFloat(innerComputedStyle.borderLeftWidth) || 0;
             actualX -= parseFloat(innerComputedStyle.borderRightWidth) || 0;
-            actualX -= column.arrowProposedWidth || 0;
         }
+
+        // The sort arrow's room is added back by the layout, in both box models
+        actualX -= column.arrowProposedWidth || 0;
 
         const minX = baseX + (column.ignoreMin ? 0 : table._o.minColumnWidth);
         if (actualX < minX) {
