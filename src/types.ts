@@ -204,7 +204,7 @@ export interface DGTableOptions {
      * String entries are treated as ascending sorts.
      * @default []
      */
-    sortedColumns?: string[] | ColumnSortOptions[];
+    sortedColumns?: (string | ColumnSortOptions)[];
 
     /**
      * Formatter used to produce body cell HTML.
