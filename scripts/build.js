@@ -193,6 +193,9 @@ import { execSync } from 'node:child_process';
                 '@danielgindi/virtual-list-helper': 'VirtualListHelper',
             },
             exports: task.outputExports,
+            // The lib/ files of @danielgindi/dom-utils are ES modules: require() returns their
+            // namespace object, so default imports must be read from `.default` when present.
+            interop: task.outputFormat === 'cjs' ? 'compat' : 'default',
         });
 
         let code = generated.output[0].code;
