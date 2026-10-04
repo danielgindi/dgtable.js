@@ -39,8 +39,18 @@ class RowCollection extends Array<RowData> {
         if (isArray) {
             const rowArray = rows as RowData[];
             if (typeof at === 'number') {
-                for (let i = 0, len = rowArray.length; i < len; i++) {
-                    this.splice(at++, 0, rowArray[i]);
+                // Shift the tail once instead of calling splice() per row,
+                // which is quadratic (and slow on an Array subclass)
+                const count = rowArray.length;
+                const oldLength = this.length;
+                at = at < 0 ? Math.max(oldLength + at, 0) : Math.min(at, oldLength);
+
+                this.length = oldLength + count;
+                for (let i = oldLength - 1; i >= at; i--) {
+                    this[i + count] = this[i];
+                }
+                for (let i = 0; i < count; i++) {
+                    this[at + i] = rowArray[i];
                 }
             } else {
                 for (let i = 0, len = rowArray.length; i < len; i++) {
