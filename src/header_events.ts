@@ -13,6 +13,7 @@ import {
     onMouseDownColumnHeader,
 } from './column_resize';
 import type {DGTableInterface, InternalColumn} from './private_types';
+import type { SerializedColumnSort } from './types';
 import { RelatedTouchSymbol } from './private_types';
 
 // Extended element types
@@ -40,6 +41,7 @@ type TouchOrMouseEvent = (MouseEvent | TouchEvent) & {
 
 interface TableWithSort extends DGTableInterface {
     sort(column?: string, descending?: boolean, add?: boolean): this;
+    setSortedColumns(sortedColumns: SerializedColumnSort[]): this;
     render(): this;
     moveColumn(src: string, dest: string): void;
 }
@@ -241,7 +243,8 @@ export function onSortOnColumnHeaderEvent(table: DGTableInterface, event: Event)
         if (shouldAdd) {
             tableWithSort.sort(column.name, undefined, true).render();
         } else {
-            tableWithSort.sort(); // just refresh current situation
+            // Cancelled the last sorted column: keep sorting by the remaining ones
+            tableWithSort.setSortedColumns(currentSort.map(sort => ({ column: sort.column, descending: sort.descending })));
         }
     }
 }
