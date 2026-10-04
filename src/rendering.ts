@@ -139,15 +139,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
             });
         },
 
-        onItemUnrender: (row: HTMLElement) => {
-            if ((row as any)[RowClickEventSymbol]) {
-                row.removeEventListener('click', (row as any)[RowClickEventSymbol]!);
-            }
-
-            unbindCellEventsForRow(table, row);
-
-            table.emit('rowdestroy', row);
-        },
+        onItemUnrender: (row: HTMLElement) => unrenderRow(table, row),
 
         onScrollHeightChange: (height: number) => {
             if (height > p._lastVirtualScrollHeight && !p.scrollbarWidth) {
@@ -164,6 +156,36 @@ export function setupVirtualTable(table: DGTableInterface): void {
 }
 
 /**
+ * Release a rendered row and emit 'rowdestroy'. Safe to call more than once per rendering.
+ */
+function unrenderRow(table: DGTableInterface, row: HTMLElement): void {
+    const clickHandler = (row as any)[RowClickEventSymbol];
+    if (!clickHandler)
+        return;
+
+    row.removeEventListener('click', clickHandler);
+    (row as any)[RowClickEventSymbol] = null;
+
+    unbindCellEventsForRow(table, row);
+
+    table.emit('rowdestroy', row);
+}
+
+/**
+ * Release all rendered rows before the list helper is destroyed.
+ * The helper's destroy() does not report virtual rows as unrendered.
+ */
+export function unrenderAllRows(table: DGTableInterface): void {
+    const tbody = table._p.tbody;
+    if (!tbody)
+        return;
+
+    for (let row = tbody.firstElementChild; row; row = row.nextElementSibling) {
+        unrenderRow(table, row as HTMLElement);
+    }
+}
+
+/**
  * Render the skeleton base (header structure)
  */
 export function renderSkeletonBase(table: DGTableInterface): DGTableInterface {
@@ -171,6 +193,7 @@ export function renderSkeletonBase(table: DGTableInterface): DGTableInterface {
     const o = table._o;
 
     // Clean up old elements
+    unrenderAllRows(table);
     p.virtualListHelper?.destroy();
     p.virtualListHelper = null;
 

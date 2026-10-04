@@ -53,6 +53,7 @@ import {
     updateLastCellWidthFromScrollbar,
     updateTableWidth,
     updateTableHeight,
+    unrenderAllRows,
     resizeColumnElements,
     clearSortArrows,
     showSortArrow, updateStickyColumnPositions,
@@ -341,6 +342,7 @@ class DGTable {
 
         cancelColumnResize(this);
 
+        unrenderAllRows(this);
         p.virtualListHelper?.destroy();
         p.virtualListHelper = null;
 
