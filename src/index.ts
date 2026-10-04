@@ -52,6 +52,7 @@ import {
     updateVirtualHeight,
     updateLastCellWidthFromScrollbar,
     updateTableWidth,
+    updateTableHeight,
     resizeColumnElements,
     clearSortArrows,
     showSortArrow, updateStickyColumnPositions,
@@ -429,6 +430,10 @@ class DGTable {
             updateVirtualHeight(this);
             updateLastCellWidthFromScrollbar(this, true);
             updateTableWidth(this, true);
+
+            // Needs the final header height, so only after the header row got its width
+            updateTableHeight(this);
+            updateLastCellWidthFromScrollbar(this);
 
             // Show sort arrows
             for (let i = 0; i < p.rows.sortColumn.length; i++) {
@@ -1775,19 +1780,15 @@ class DGTable {
             return this;
         }
 
-        const tableStyle = getComputedStyle(p.table);
-
-        let height = getElementHeight(this.el, true)
-            - (parseFloat(tableStyle.borderTopWidth) || 0)
-            - (parseFloat(tableStyle.borderBottomWidth) || 0);
+        // Same meaning as the `height` option: the wrapper's inner height.
+        // updateTableHeight() takes the header and the table's own borders out of it.
+        let height = getElementHeight(this.el, true);
 
         if (height !== o.height) {
 
             o.height = height;
 
-            if (p.tbody) {
-                p.tbody.style.height = Math.max(o.height - getElementHeight(p.header, true, true, true), 1) + 'px';
-            }
+            updateTableHeight(this);
 
             if (o.virtualTable) {
                 this.clearAndRender();

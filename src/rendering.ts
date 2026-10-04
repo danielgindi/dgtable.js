@@ -321,6 +321,37 @@ export function renderSkeletonBody(table: DGTableInterface): DGTableInterface {
 }
 
 /**
+ * Size the scroll container so that header + body fill the table height.
+ * Must run after the header cells exist, since they determine the header height.
+ */
+export function updateTableHeight(table: DGTableInterface): DGTableInterface {
+    const p = table._p;
+    const o = table._o;
+
+    if (!p.table || !p.header)
+        return table;
+
+    if (!o.height) {
+        p.table.style.height = 'auto';
+        return table;
+    }
+
+    const tableStyle = getComputedStyle(p.table);
+
+    let tableHeight = o.height - getElementHeight(p.header, true, true, true);
+    if (tableStyle.boxSizing !== 'border-box') {
+        tableHeight -= parseFloat(tableStyle.borderTopWidth) || 0;
+        tableHeight -= parseFloat(tableStyle.borderBottomWidth) || 0;
+        tableHeight -= parseFloat(tableStyle.paddingTop) || 0;
+        tableHeight -= parseFloat(tableStyle.paddingBottom) || 0;
+    }
+
+    p.table.style.height = Math.max(tableHeight, 0) + 'px';
+
+    return table;
+}
+
+/**
  * Render skeleton header cells
  */
 export function renderSkeletonHeaderCells(table: DGTableInterface): DGTableInterface {
