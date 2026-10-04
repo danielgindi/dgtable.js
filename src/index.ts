@@ -96,6 +96,9 @@ import {
 
 
 const hasOwnProperty = Object.prototype.hasOwnProperty;
+
+const OnceOriginalHandlerSymbol = Symbol('once_original_handler');
+type OnceHandler = ((value: unknown) => void) & { [OnceOriginalHandlerSymbol]?: (value: unknown) => void };
 const createElement = document.createElement.bind(document);
 
 // noinspection JSUnusedGlobalSymbols
@@ -291,6 +294,7 @@ class DGTable {
             this._p.mitt.off(event, wrapped);
             handler(value);
         };
+        (wrapped as OnceHandler)[OnceOriginalHandlerSymbol] = handler;
         this._p.mitt.on(event, wrapped);
         return this;
     }
@@ -308,6 +312,15 @@ class DGTable {
             this._p.mitt.all.clear();
         } else {
             this._p.mitt.off(event, handler);
+
+            // Also remove handlers registered through once()
+            if (handler) {
+                const handlers = this._p.mitt.all.get(event) ?? [];
+                for (const registered of handlers.slice()) {
+                    if ((registered as OnceHandler)[OnceOriginalHandlerSymbol] === handler)
+                        this._p.mitt.off(event, registered as OnceHandler);
+                }
+            }
         }
         return this;
     }
