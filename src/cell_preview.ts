@@ -151,14 +151,16 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
         'cursor': elStyle.cursor,
     };
 
-    let bgColor = elStyle.backgroundColor;
-    if (bgColor === p.transparentBgColor1 || bgColor === p.transparentBgColor2) {
-        bgColor = getComputedStyle(rowEl).backgroundColor;
+    if (o.cellPreviewAutoBackground) {
+        let bgColor = elStyle.backgroundColor;
+        if (bgColor === p.transparentBgColor1 || bgColor === p.transparentBgColor2) {
+            bgColor = getComputedStyle(rowEl).backgroundColor;
+        }
+        if (bgColor === p.transparentBgColor1 || bgColor === p.transparentBgColor2) {
+            bgColor = '#fff';
+        }
+        css['background-color'] = bgColor;
     }
-    if (bgColor === p.transparentBgColor1 || bgColor === p.transparentBgColor2) {
-        bgColor = '#fff';
-    }
-    css['background-color'] = bgColor;
 
     setCssProps(previewCell, css);
     if (previewCell.firstChild) {
