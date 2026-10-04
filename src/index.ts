@@ -64,7 +64,7 @@ import {
     initColumnFromData,
     ensureVisibleColumns,
     refilter,
-    getHtmlForCell, onTableScrolledHorizontally,
+    getHtmlForCell,
 } from './internal';
 
 // Types
@@ -1313,6 +1313,12 @@ class DGTable {
                     updateTableWidth(this, false);
 
                 } else if (p.tbody) {
+                    // The rows after the insertion point moved: re-render them so their index,
+                    // alternating class and click payload match their new position
+                    for (let i = at + dataCount, count = p.virtualListHelper.getCount(); i < count; i++) {
+                        p.virtualListHelper.refreshItemAt(i);
+                    }
+
                     this.render();
                     updateLastCellWidthFromScrollbar(this);
                     updateTableWidth(this, true);
@@ -1357,6 +1363,12 @@ class DGTable {
                 this.render();
                 updateTableWidth(this, false);
             } else {
+                // The rows after the removed ones moved: re-render them so their index,
+                // alternating class and click payload match their new position
+                for (let i = rowIndex, count = p.virtualListHelper.getCount(); i < count; i++) {
+                    p.virtualListHelper.refreshItemAt(i);
+                }
+
                 this.render();
                 updateLastCellWidthFromScrollbar(this);
                 updateTableWidth(this, true);
