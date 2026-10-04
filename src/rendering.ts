@@ -445,12 +445,15 @@ export function updateLastCellWidthFromScrollbar(table: DGTableInterface, force?
             p.columns[i].actualWidthConsideringScrollbarWidth = null;
         }
 
-        if (p.scrollbarWidth > 0 && p.visibleColumns.length > 0 && p.tbody && p.headerRow) {
+        if (p.visibleColumns.length > 0 && p.tbody && p.headerRow) {
             const lastColIndex = p.visibleColumns.length - 1;
+            const lastColumn = p.visibleColumns[lastColIndex];
 
-            p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth =
-                (p.visibleColumns[lastColIndex].actualWidth ?? 0) - p.scrollbarWidth;
-            const lastColWidth = p.visibleColumns[lastColIndex].actualWidthConsideringScrollbarWidth + 'px';
+            // When the scrollbar went away, this restores the full width
+            lastColumn.actualWidthConsideringScrollbarWidth = p.scrollbarWidth > 0
+                ? (lastColumn.actualWidth ?? 0) - p.scrollbarWidth
+                : null;
+            const lastColWidth = (lastColumn.actualWidthConsideringScrollbarWidth ?? lastColumn.actualWidth ?? 0) + 'px';
             const tbodyChildren = p.tbody.childNodes;
             for (let i = 0, count = tbodyChildren.length; i < count; i++) {
                 const row = tbodyChildren[i] as HTMLElement;

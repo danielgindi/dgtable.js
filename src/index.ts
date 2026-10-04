@@ -461,6 +461,13 @@ class DGTable {
 
         p.virtualListHelper.render();
 
+        // Rendering rows may have made the vertical scrollbar appear or disappear
+        const scrollbarWidth = p.scrollbarWidth;
+        updateLastCellWidthFromScrollbar(this);
+        if (p.scrollbarWidth !== scrollbarWidth) {
+            updateTableWidth(this, false);
+        }
+
         this.emit('render');
         return this;
     }
