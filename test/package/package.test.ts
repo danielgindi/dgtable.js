@@ -53,30 +53,19 @@ describe('published package', () => {
             expect(pkg.exports['.'].require).toBe('./dist/lib.cjs.min.cjs');
         });
 
-        it.each(['lib.cjs.cjs', 'lib.cjs.min.cjs'])('DIST-04: require(%s) returns the constructor', bundle => {
+        it('DIST-04: the @danielgindi/virtual-list-helper dependency can be require()d', () => {
             const require = createRequire(import.meta.url);
-
-            // @danielgindi/virtual-list-helper ships its CommonJS entry as .js in a "type": "module"
-            // package, so it cannot be require()d yet (see the next test). Stand in for it.
-            const helperPath = require.resolve('@danielgindi/virtual-list-helper');
-            require.cache[helperPath] = { id: helperPath, filename: helperPath, loaded: true, exports: class {} } as never;
-
-            try {
-                const DGTable = require(join(root, 'dist', bundle));
-                expect(typeof DGTable).toBe('function');
-                expect(DGTable.VERSION).toBe(pkg.version);
-                const table = new DGTable({ columns: [{ name: 'a' }] });
-                expect(table.el.className).toBe('dgtable-wrapper');
-                table.destroy();
-            } finally {
-                delete require.cache[helperPath];
-            }
+            expect(typeof require('@danielgindi/virtual-list-helper')).toBe('function');
         });
 
-        // External: flips to passing once @danielgindi/virtual-list-helper ships a .cjs entry.
-        it.fails('DIST-04 (external): @danielgindi/virtual-list-helper can be require()d', () => {
+        it.each(['lib.cjs.cjs', 'lib.cjs.min.cjs'])('DIST-04: require(%s) returns the constructor', bundle => {
             const require = createRequire(import.meta.url);
-            expect(() => require('@danielgindi/virtual-list-helper')).not.toThrow();
+            const DGTable = require(join(root, 'dist', bundle));
+            expect(typeof DGTable).toBe('function');
+            expect(DGTable.VERSION).toBe(pkg.version);
+            const table = new DGTable({ columns: [{ name: 'a' }] });
+            expect(table.el.className).toBe('dgtable-wrapper');
+            table.destroy();
         });
     });
 });

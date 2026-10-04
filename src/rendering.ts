@@ -75,7 +75,8 @@ export function setupVirtualTable(table: DGTableInterface): void {
         itemElementCreatorFn: () => {
             return createElement('div');
         },
-        onItemRender: (row: HTMLElement, virtualIndex: number) => {
+        onItemRender: (itemEl: Element, virtualIndex: number) => {
+            const row = itemEl as HTMLElement;
             const rows = p.filteredRows || p.rows;
             const isDataFiltered = !!p.filteredRows;
 
@@ -139,7 +140,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
             });
         },
 
-        onItemUnrender: (row: HTMLElement) => unrenderRow(table, row),
+        onItemUnrender: (itemEl: Element) => unrenderRow(table, itemEl as HTMLElement),
 
         onScrollHeightChange: (height: number) => {
             if (height > p._lastVirtualScrollHeight && !p.scrollbarWidth) {
