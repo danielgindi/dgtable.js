@@ -126,7 +126,8 @@ class DGTable {
         this.el = (options.el && options.el instanceof HTMLElement) ? options.el : document.createElement('div');
 
         if (this.el !== options.el) {
-            this.el.classList.add(options.className || 'dgtable-wrapper');
+            const classNames = (options.className || 'dgtable-wrapper').split(/\s+/).filter(Boolean);
+            this.el.classList.add(...classNames);
         }
 
         p.eventsSink.add(this.el, 'dragend.colresize', (e: Event) => onDragEndColumnHeader(this, e as DragEvent));
