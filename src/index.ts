@@ -610,12 +610,12 @@ class DGTable {
             col.label = label === undefined ? col.name : label;
 
             if (col.element) {
-                for (let i = 0; i < col.element.firstChild.childNodes.length; i++) {
-                    let node = col.element.firstChild.childNodes[i];
-                    if (node.nodeType === 3) {
-                        node.textContent = col.label;
-                        break;
-                    }
+                // Re-render through the header formatter, keeping the sort arrow
+                const inner = col.element.firstChild as HTMLElement;
+                const arrow = inner.querySelector(':scope > .sort-arrow');
+                inner.innerHTML = this._o.headerCellFormatter(col.label, col.name);
+                if (arrow) {
+                    inner.insertBefore(arrow, inner.firstChild);
                 }
             }
         }
