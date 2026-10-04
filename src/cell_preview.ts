@@ -84,11 +84,14 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
     if (column.allowPreview === false)
         return;
 
+    const isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
+    if (isHeaderCell ? !o.allowHeaderCellPreview : !o.allowCellPreview)
+        return;
+
     const previewCell = createElement('div') as PreviewCellElement;
     previewCell.innerHTML = el.innerHTML;
     previewCell.className = o.cellPreviewClassName + ' ' +  (column.cellClasses || '');
 
-    const isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
     if (isHeaderCell) {
         previewCell.classList.add('header');
         if (el.classList.contains('sortable')) {
