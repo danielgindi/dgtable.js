@@ -112,6 +112,8 @@ class DGTable {
      * @param options - initialization options
      */
     constructor(options?: DGTableOptions) {
+        options = options || {};
+
         this.VERSION = DGTable.VERSION;
 
         const o = this._o = {} as DGTableInternalOptions;
