@@ -257,7 +257,8 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
     const minHorz = 0;
     const maxHorz = getElementWidth(parent, false, false, false) - getElementWidth(previewCell, true, true, true);
     const horzOffset = prop === 'left' ? offset.left : (offset.right ?? 0);
-    const constrainedHorz = horzOffset < minHorz ? minHorz : (horzOffset > maxHorz ? maxHorz : horzOffset);
+    // A preview wider than the table cannot fit: keep its start visible
+    const constrainedHorz = Math.max(minHorz, Math.min(maxHorz, horzOffset));
     if (prop === 'left') {
         offset.left = constrainedHorz;
     } else {
