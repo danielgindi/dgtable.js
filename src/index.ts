@@ -878,6 +878,7 @@ class DGTable {
                 ignoreMin: col.ignoreMin,
                 sticky: col.sticky,
                 order: col.order,
+                allowPreview: col.allowPreview,
             };
         }
         return null;
