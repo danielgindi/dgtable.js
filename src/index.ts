@@ -1317,6 +1317,9 @@ class DGTable {
                     updateLastCellWidthFromScrollbar(this);
                     updateTableWidth(this, true);
                 }
+            } else {
+                // Not rendering now: let the next render() pick up the new rows.
+                p.tableSkeletonNeedsRendering = true;
             }
 
             this.emit('addrows', { count: dataCount, clear: false });
@@ -1358,6 +1361,9 @@ class DGTable {
                 updateLastCellWidthFromScrollbar(this);
                 updateTableWidth(this, true);
             }
+        } else {
+            // Not rendering now: let the next render() pick up the removal.
+            p.tableSkeletonNeedsRendering = true;
         }
 
         return this;
