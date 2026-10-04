@@ -650,29 +650,33 @@ class DGTable {
             if (p.visibleColumns.length !== visibleColumns.length ||
                 p.visibleColumns.some((x, i) => x !== visibleColumns[i])) {
 
+                // DOM positions are indexes among the visible columns, not column orders
+                // (which also count hidden columns)
+                const fromPos = p.visibleColumns.indexOf(col);
+                const toPos = p.visibleColumns.indexOf(destCol);
+
                 p.visibleColumns = visibleColumns;
                 ensureVisibleColumns(this);
 
-                if (o.virtualTable) {
+                if (o.virtualTable || fromPos === -1 || toPos === -1 || !p.headerRow || !p.tbody) {
                     this.clearAndRender();
                 } else {
                     const headerCells = scopedSelectorAll(p.headerRow, `>div.${o.tableClassName}-header-cell`);
-                    let beforePos = srcOrder < destOrder ? destOrder + 1 : destOrder,
-                        fromPos = srcOrder;
+                    const beforePos = fromPos < toPos ? toPos + 1 : toPos;
                     headerCells[0].parentNode.insertBefore(headerCells[fromPos], headerCells[beforePos]);
 
-                    let srcCol = p.visibleColumns[srcOrder];
-                    let srcWidth = ((srcCol.actualWidthConsideringScrollbarWidth || srcCol.actualWidth) ?? 0) + 'px';
-                    let destCol = p.visibleColumns[destOrder];
-                    let destWidth = ((destCol.actualWidthConsideringScrollbarWidth || destCol.actualWidth) ?? 0) + 'px';
+                    const movedCol = p.visibleColumns[toPos];
+                    const movedWidth = ((movedCol.actualWidthConsideringScrollbarWidth || movedCol.actualWidth) ?? 0) + 'px';
+                    const shiftedCol = p.visibleColumns[fromPos];
+                    const shiftedWidth = ((shiftedCol.actualWidthConsideringScrollbarWidth || shiftedCol.actualWidth) ?? 0) + 'px';
 
-                    let tbodyChildren = p.tbody.childNodes;
+                    const tbodyChildren = p.tbody.childNodes;
                     for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                        let row = tbodyChildren[i] as HTMLElement;
+                        const row = tbodyChildren[i] as HTMLElement;
                         if (row.nodeType !== 1) continue;
                         row.insertBefore(row.childNodes[fromPos], row.childNodes[beforePos]);
-                        ((row.childNodes[destOrder] as HTMLElement).firstChild as HTMLElement).style.width = destWidth;
-                        ((row.childNodes[srcOrder] as HTMLElement).firstChild as HTMLElement).style.width = srcWidth;
+                        ((row.childNodes[toPos] as HTMLElement).firstChild as HTMLElement).style.width = movedWidth;
+                        ((row.childNodes[fromPos] as HTMLElement).firstChild as HTMLElement).style.width = shiftedWidth;
                     }
 
                     this.tableWidthChanged(true);
