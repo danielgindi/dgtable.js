@@ -1954,6 +1954,7 @@ export type {
     RowClickEvent,
     CellPreviewEvent,
     CellPreviewDestroyEvent,
+    CellHoverOverflowEvent,
     HeaderContextMenuEvent,
     MoveColumnEvent,
     ColumnWidthEvent,
