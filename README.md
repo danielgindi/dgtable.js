@@ -24,10 +24,24 @@ A high-performance virtual table component for vanilla JavaScript.
 npm install @danielgindi/dgtable.js
 ```
 
+The ES module and CommonJS builds import their dependencies (`@danielgindi/dom-utils`, `@danielgindi/virtual-list-helper`) as packages. The UMD build (`dist/lib.umd.js`) expects them as globals:
+
+```html
+<script src="node_modules/@danielgindi/dom-utils/dist/lib.umd.js"></script>
+<script src="node_modules/@danielgindi/virtual-list-helper/dist/virtual-list-helper.umd.js"></script>
+<script>
+    window.domUtilsScrollHelper = domutils.ScrollHelper;
+    window.domUtilsDomCompat = domutils.DomCompat;
+    window.domUtilsDomEventsSink = domutils.DomEventsSink.default;
+    window.domUtilsCss = domutils.Css;
+</script>
+<script src="node_modules/@danielgindi/dgtable.js/dist/lib.umd.js"></script>
+```
+
 ## Quick Start
 
 ```javascript
-import DGTable from '@danielgindi/dgtable';
+import DGTable from '@danielgindi/dgtable.js';
 
 const table = new DGTable({
     columns: [
@@ -132,7 +146,7 @@ By default, if the visible columns do not reach the table edge, the last visible
 | `cellFormatter` | `(value: unknown, columnName: string, rowData: RowData) => string` | Custom cell HTML renderer |
 | `headerCellFormatter` | `(label: string, columnName: string) => string` | Custom header cell renderer |
 | `filter` | `(row: RowData, args: unknown) => boolean` | Custom filter function |
-| `sortColumn` | `string \| string[] \| ColumnSortOptions \| ColumnSortOptions[]` | Initial sort configuration |
+| `sortedColumns` | `(string \| ColumnSortOptions)[]` | Initial sort configuration; strings sort ascending. Rows given to `setRows()` are only sorted with `setRows(rows, true)`. (`sortColumn` is accepted as a legacy alias.) |
 | `onComparatorRequired` | `(columnName: string, descending: boolean, defaultComparator: ComparatorFunction) => ComparatorFunction` | Custom comparator provider |
 | `customSortingProvider` | `(data: RowData[], sort: (data: RowData[]) => RowData[]) => RowData[]` | Custom sorting implementation |
 
@@ -174,7 +188,7 @@ table.setColumnWidth(column, width)              // Set column width
 table.getColumnWidth(column)                     // Get column width
 table.autoFitColumn(column)                      // Fit column to header/content width
 table.getColumnConfig(column): ColumnOptions     // Get column config
-table.getColumnsConfig(): ColumnOptions[]        // Get all columns config
+table.getColumnsConfig(): Record<string, ColumnOptions> // Get all columns config, keyed by column name
 ```
 
 #### Sorting
@@ -541,7 +555,7 @@ import type {
     
     // Event map (for advanced typing)
     DGTableEventMap,       // Maps event names to their data types
-} from '@danielgindi/dgtable';
+} from '@danielgindi/dgtable.js';
 ```
 
 The `DGTableEventMap` interface provides full autocompletion when using `.on()`, `.once()`, `.off()`, and `.emit()`:
