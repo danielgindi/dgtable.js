@@ -72,6 +72,7 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
     };
 
     (event as any)[RelatedTouchSymbol] = event.changedTouches[0];
+    // On a resize hotspot (resize or double click): no tap/long-press handling for this touch
     const resizeStartResult = onMouseDownColumnHeader(table, event as unknown as MouseEvent & { [RelatedTouchSymbol]?: PositionHost });
     if (resizeStartResult === true) {
         p.currentTouchId = null;

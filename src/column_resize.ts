@@ -266,6 +266,7 @@ export function cancelColumnResize(table: DGTableInterface): DGTableInterface {
 
 /**
  * Handle mouse down on column header for resize
+ * @returns true when the pointer down was consumed by the resize area (resize pending or double click)
  */
 export function onMouseDownColumnHeader(table: DGTableInterface, event: Event): boolean | void {
     const mouseEvent = event as MouseEvent;
@@ -300,6 +301,9 @@ export function onMouseDownColumnHeader(table: DGTableInterface, event: Event): 
             .add(document, 'touchend.colresize', (e: Event) => onResizerPointerUp(table, e));
 
         event.preventDefault();
+
+        // A resize is pending: the caller must not treat this pointer down as anything else
+        return true;
     }
 }
 
