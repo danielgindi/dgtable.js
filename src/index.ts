@@ -363,6 +363,14 @@ class DGTable {
             clearTimeout(p._deferredRender);
         }
 
+        if (p.wheelScrollTimeout) {
+            clearTimeout(p.wheelScrollTimeout);
+        }
+
+        // Unbind every DOM listener we added (scroll sync, wheel, drag end, ...),
+        // including the ones on a caller-provided `el`
+        p.eventsSink.remove();
+
         // Cleanup
         for (let prop in this) {
             if (hasOwnProperty.call(this, prop)) {
