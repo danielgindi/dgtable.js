@@ -28,8 +28,10 @@ export interface ColumnOptions {
      * consume the remaining table width after other columns are measured.
      */
     width?: number | string | null;
-    dataPath?: string | null;
-    comparePath?: string | null;
+    /** Path to the value: a dotted string ("a.b") or an array of keys. Defaults to `name`. */
+    dataPath?: string | string[] | null;
+    /** Path to the value used for sorting, like `dataPath`. Defaults to `dataPath`. */
+    comparePath?: string | string[] | null;
     resizable?: boolean | null;
     movable?: boolean | null;
     sortable?: boolean | null;
