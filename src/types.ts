@@ -272,14 +272,6 @@ export interface DGTableOptions {
     onComparatorRequired?: OnComparatorRequired | null;
 
     /**
-     * Deprecated comparator callback name.
-     * Use `onComparatorRequired` instead.
-     * @deprecated Use `onComparatorRequired` instead.
-     * @default undefined
-     */
-    comparatorCallback?: OnComparatorRequired | null;
-
-    /**
      * Custom sorting provider that can wrap or replace the built-in sort routine.
      * @default null
      */
