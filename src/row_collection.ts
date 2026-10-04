@@ -190,6 +190,8 @@ function getDefaultComparator(column: SortColumn, descending: boolean): Comparat
         }
 
         if (leftVal === rightVal) return 0;
+        // null and undefined sort together; returning "less" for both would make the order engine-dependent
+        if (leftVal == null && rightVal == null) return 0;
         if (leftVal == null) return lessVal;
         if (rightVal == null) return moreVal;
         if (leftVal < rightVal) return lessVal;
