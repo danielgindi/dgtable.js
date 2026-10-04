@@ -1,0 +1,113 @@
+body {
+    margin: 0;
+    font: 13px/16px monospace;
+}
+
+.dgtable-wrapper {
+    border: 1px solid #ccc;
+}
+
+.dgtable-wrapper * {
+    box-sizing: content-box;
+}
+
+[dir=rtl] .dgtable-wrapper {
+    direction: rtl;
+}
+
+/* Classic 15px scrollbars in Chromium/WebKit, so scrollbar compensation is always exercised. */
+.dgtable::-webkit-scrollbar {
+    width: 15px;
+    height: 15px;
+}
+
+.dgtable::-webkit-scrollbar-thumb {
+    background: #999;
+}
+
+.dgtable-header {
+    overflow: hidden;
+}
+
+/* The header row must have a height (example.css gives it one): WebKit leaves zero-height boxes
+   out of the scroll range, so a row of bare floats would ignore the row's min-width, and the
+   header could not scroll as far as the body. */
+.dgtable-header-row {
+    display: flow-root;
+}
+
+.dgtable-header-cell,
+.dgtable-cell-preview.header {
+    float: left;
+    height: 26px;
+    padding: 4px;
+    border-left: 1px solid #ccc;
+    line-height: 16px;
+}
+
+.dgtable-header-cell > div,
+.dgtable-cell > div,
+.dgtable-cell-preview > div {
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.dgtable-header-cell.sorted .sort-arrow {
+    float: right;
+    display: inline-block;
+    width: 15px;
+    height: 6px;
+    margin: 5px 0 0;
+}
+
+.dgtable-row {
+    height: 28px;
+    border-bottom: 1px solid #ccc;
+    background-color: #fff;
+}
+
+.dgtable-row-alt {
+    background-color: #fafafa;
+}
+
+.dgtable-cell,
+.dgtable-cell-preview {
+    float: left;
+    padding: 4px;
+    line-height: 20px;
+}
+
+.dgtable-cell {
+    min-height: 100%;
+    border-left: 1px solid #ccc;
+    background-color: inherit;
+}
+
+.dgtable-header-cell:first-child,
+.dgtable-cell:first-child {
+    border-left: 0;
+}
+
+[dir=rtl] .dgtable-header-cell,
+[dir=rtl] .dgtable-cell {
+    float: right;
+    border-left: 0;
+    border-right: 1px solid #ccc;
+}
+
+[dir=rtl] .dgtable-header-cell:first-child,
+[dir=rtl] .dgtable-cell:first-child {
+    border-right: 0;
+}
+
+[dir=rtl] .dgtable-header-cell.sorted .sort-arrow {
+    float: left;
+}
+
+/* border-box variant: keyed on the wrapper class, because the off-screen measurement
+   wrappers copy table.el.className and are appended to <body>, outside the test host. */
+.test-border-box .dgtable-header-cell,
+.test-border-box .dgtable-cell,
+.test-border-box .dgtable-cell-preview {
+    box-sizing: border-box;
+}

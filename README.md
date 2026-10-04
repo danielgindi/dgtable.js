@@ -588,6 +588,24 @@ npm run build
 npm run lint
 ```
 
+### Testing
+
+Tests run with [Vitest](https://vitest.dev): pure modules in Node, everything else in real browsers through Playwright.
+
+```bash
+# One-time: download the browsers
+npx playwright install chromium firefox webkit
+
+npm test                  # unit + browser (Chromium, Firefox, WebKit) + type tests
+npm run test:watch        # watch mode
+npm run test:coverage     # coverage report (Chromium)
+npm run test:dist         # build, then test the bundles and the npm package contents
+npm run test:perf         # performance and leak checks (Chromium)
+
+# Limit the browsers
+TEST_BROWSERS=chromium npm run test:browser
+```
+
 ## Author
 
 **Daniel Cohen Gindi** - danielgindi@gmail.com
