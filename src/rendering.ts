@@ -309,7 +309,11 @@ export function renderSkeletonBody(table: DGTableInterface): DGTableInterface {
 
         tableEl.appendChild(tbody);
         table.el.appendChild(fragment);
+    }
 
+    // In non-virtual mode the table element survives a skeleton re-render,
+    // but the list helper was destroyed by renderSkeletonBase(), so recreate it.
+    if (!p.virtualListHelper) {
         setupVirtualTable(table);
     }
 
