@@ -382,6 +382,10 @@ class DGTable {
             clearTimeout(p.wheelScrollTimeout);
         }
 
+        if (p.tapAndHoldTimeout) {
+            clearTimeout(p.tapAndHoldTimeout);
+        }
+
         // Unbind every DOM listener we added (scroll sync, wheel, drag end, ...),
         // including the ones on a caller-provided `el`
         p.eventsSink.remove();

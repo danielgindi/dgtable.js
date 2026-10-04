@@ -142,6 +142,7 @@ export interface DGTablePrivateState {
     resizer?: HTMLElement | null;
     columnResizeStartTimeout?: ReturnType<typeof setTimeout> | null;
     currentTouchId?: number | null;
+    tapAndHoldTimeout?: ReturnType<typeof setTimeout> | null;
     lastResizeAreaClick?: ResizeAreaClickState | null;
     lastResizeAreaDoubleClick?: { columnName: string; time: number } | null;
     transparentBgColor1?: string;

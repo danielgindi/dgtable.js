@@ -63,12 +63,11 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
     let currentPos = startPos;
     const distanceTreshold = 9;
 
-    let tapAndHoldTimeout: ReturnType<typeof setTimeout>;
-
     const unbind = function () {
         p.currentTouchId = null;
         p.eventsSink.remove(cellEl, '.colheader');
-        clearTimeout(tapAndHoldTimeout);
+        clearTimeout(p.tapAndHoldTimeout);
+        p.tapAndHoldTimeout = null;
     };
 
     (event as any)[RelatedTouchSymbol] = event.changedTouches[0];
@@ -79,7 +78,8 @@ export function onTouchStartColumnHeader(table: DGTableInterface, event: TouchEv
         return;
     }
 
-    tapAndHoldTimeout = setTimeout(() => {
+    // Kept on the table state so destroy() can cancel it
+    p.tapAndHoldTimeout = setTimeout(() => {
         unbind();
 
         p.eventsSink
