@@ -112,7 +112,7 @@ new DGTable(options?: DGTableOptions)
 | `relativeWidthShrinksToFillWidth` | `boolean`         | `false` | Shrink relative columns to fit             |
 | `convertColumnWidthsToRelative` | `boolean`         | `false` | Convert auto widths to relative            |
 | `autoFillTableWidth` | `boolean`         | `false` | Stretch columns to fill table width        |
-| `autoFillLastColumn` | `boolean`         | `true`  | Expand last visible column to fill leftover width |
+| `autoFillLastColumn` | `boolean`         | `true`  | Expand the last resizable, non-sticky column to fill leftover width |
 | `resizeAreaWidth` | `number`          | `8`     | Width of resize drag area in pixels        |
 | `resizeAreaDoubleClickDuration` | `number`          | `300`     | Duration of double-click event for auto column resize |
 | `autoFitColumnOnResizeDoubleClick` | `boolean` | `false` | Auto-fit columns on resize-area double click |
@@ -137,7 +137,7 @@ new DGTable(options?: DGTableOptions)
 }
 ```
 
-By default, if the visible columns do not reach the table edge, the last visible column is expanded as a layout-only fallback. This does not change that column's configured or serialized width. Set `autoFillLastColumn: false` to opt out.
+By default, if the visible columns do not reach the table edge, the last visible resizable, non-sticky column is expanded as a layout-only fallback, so a fixed-size or sticky trailing column keeps its width. When there is no such column, the last resizable column is used, then the last column. This does not change that column's configured or serialized width. Set `autoFillLastColumn: false` to opt out.
 
 #### Formatting & Filtering
 

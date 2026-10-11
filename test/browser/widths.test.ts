@@ -188,6 +188,66 @@ describe.each(layouts)('column widths ($dir, $boxSizing, virtual=$virtualTable)'
         checkInvariants(table);
     });
 
+    it('WID-20: a fixed-size end-sticky last column keeps its width; the column before it fills', () => {
+        const table = mount([
+            { name: 'a', width: 100 },
+            { name: 'b', width: 80 },
+            { name: 'c', width: 40, resizable: false, sticky: 'end' },
+        ]);
+
+        expect(width(table, 'a')).toBe(100);
+        expect(width(table, 'b')).toBeGreaterThan(80);
+        expect(width(table, 'c')).toBe(40);
+        expect(table.getColumnWidth('b')).toBe(80);
+        expectNoGapAtEnd(table);
+        checkInvariants(table);
+    });
+
+    it('WID-21: a non-resizable last column keeps its width; the last resizable column fills', () => {
+        const table = mount([
+            { name: 'a', width: 100 },
+            { name: 'b', width: 80 },
+            { name: 'c', width: 40, resizable: false },
+        ]);
+
+        expect(width(table, 'b')).toBeGreaterThan(80);
+        expect(width(table, 'c')).toBe(40);
+        expectNoGapAtEnd(table);
+        checkInvariants(table);
+    });
+
+    it('WID-22: the vertical scrollbar is taken from the filling column, not the fixed end-sticky', () => {
+        const table = mount([
+            { name: 'a', width: 100 },
+            { name: 'b', width: 80 },
+            { name: 'c', width: 40, resizable: false, sticky: 'end' },
+        ], { height: 150 }, 500, 50);
+        const bodyStyleWidth = (column: string) =>
+            parseFloat(renderedRows(table)[0].querySelector<HTMLElement>(`[data-column="${column}"]`)!.style.width);
+
+        expect(bodyStyleWidth('c')).toBe(40);
+        expect(bodyStyleWidth('b')).toBeGreaterThan(80);
+        expectNoGapAtEnd(table);
+        checkInvariants(table);
+
+        table.removeRows(0, 50);
+        expect(width(table, 'c')).toBe(40);
+        expectNoGapAtEnd(table);
+        checkInvariants(table);
+    });
+
+    it('WID-23: falls back to the last column when every column is fixed-size', () => {
+        const table = mount([
+            { name: 'a', width: 100, resizable: false },
+            { name: 'b', width: 80, resizable: false },
+        ]);
+
+        expect(width(table, 'a')).toBe(100);
+        expect(width(table, 'b')).toBeGreaterThan(80);
+        expectNoGapAtEnd(table);
+        checkInvariants(table);
+    });
+
     it('WID-19: random column configurations keep the invariants', () => {
         const columnArb = fc.record({
             width: fc.oneof(

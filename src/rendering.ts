@@ -14,6 +14,7 @@ import {
     relativizeElement,
     webkitRenderBugfix,
     calculateTbodyWidth,
+    getWidthAbsorbingColumnIndex,
     isTableRtl,
     disableCssSelect,
 } from './helpers';
@@ -470,22 +471,22 @@ export function updateLastCellWidthFromScrollbar(table: DGTableInterface, force?
         }
 
         if (p.visibleColumns.length > 0 && p.tbody && p.headerRow) {
-            const lastColIndex = p.visibleColumns.length - 1;
-            const lastColumn = p.visibleColumns[lastColIndex];
+            const absorbingColIndex = getWidthAbsorbingColumnIndex(table);
+            const absorbingColumn = p.visibleColumns[absorbingColIndex];
 
             // When the scrollbar went away, this restores the full width
-            lastColumn.actualWidthConsideringScrollbarWidth = p.scrollbarWidth > 0
-                ? (lastColumn.actualWidth ?? 0) - p.scrollbarWidth
+            absorbingColumn.actualWidthConsideringScrollbarWidth = p.scrollbarWidth > 0
+                ? (absorbingColumn.actualWidth ?? 0) - p.scrollbarWidth
                 : null;
-            const lastColWidth = (lastColumn.actualWidthConsideringScrollbarWidth ?? lastColumn.actualWidth ?? 0) + 'px';
+            const absorbingColWidth = (absorbingColumn.actualWidthConsideringScrollbarWidth ?? absorbingColumn.actualWidth ?? 0) + 'px';
             const tbodyChildren = p.tbody.childNodes;
             for (let i = 0, count = tbodyChildren.length; i < count; i++) {
                 const row = tbodyChildren[i] as HTMLElement;
                 if (row.nodeType !== 1) continue;
-                (row.childNodes[lastColIndex] as HTMLElement).style.width = lastColWidth;
+                (row.childNodes[absorbingColIndex] as HTMLElement).style.width = absorbingColWidth;
             }
 
-            (p.headerRow.childNodes[lastColIndex] as HTMLElement).style.width = lastColWidth;
+            (p.headerRow.childNodes[absorbingColIndex] as HTMLElement).style.width = absorbingColWidth;
         }
 
         updateStickyColumnPositions(table);

@@ -140,6 +140,31 @@ export function measureAutoFitColumnWidth(table: DGTableInterface, col: Internal
 }
 
 /**
+ * Find the visible column that absorbs layout slack: the leftover width filled by
+ * `autoFillLastColumn`, and the width taken by the vertical scrollbar.
+ *
+ * Prefers the last resizable, non-sticky column, so fixed-size and sticky columns keep
+ * their configured width. Falls back to the last resizable column, then to the last column.
+ * Returns -1 when there are no visible columns.
+ */
+export function getWidthAbsorbingColumnIndex(table: DGTableInterface): number {
+    const visibleColumns = table._p.visibleColumns;
+
+    for (let i = visibleColumns.length - 1; i >= 0; i--) {
+        const col = visibleColumns[i];
+        if (col.resizable && !col.sticky)
+            return i;
+    }
+
+    for (let i = visibleColumns.length - 1; i >= 0; i--) {
+        if (visibleColumns[i].resizable)
+            return i;
+    }
+
+    return visibleColumns.length - 1;
+}
+
+/**
  * Calculate width available for columns
  */
 export function calculateWidthAvailableForColumns(table: DGTableInterface): number {

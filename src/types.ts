@@ -183,8 +183,10 @@ export interface DGTableOptions {
     autoFillTableWidth?: boolean | null;
 
     /**
-     * Expand the last visible column to fill any remaining table width without
-     * changing its configured or serialized width.
+     * Expand a column to fill any remaining table width without changing its
+     * configured or serialized width. The last visible resizable, non-sticky column
+     * is expanded, so fixed-size and sticky columns keep their width; when there is
+     * none, the last resizable column is used, then the last column.
      * @default true
      */
     autoFillLastColumn?: boolean | null;

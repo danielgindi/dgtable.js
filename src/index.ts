@@ -25,6 +25,7 @@ import {
 import {
     calculateWidthAvailableForColumns,
     calculateTbodyWidth,
+    getWidthAbsorbingColumnIndex,
     serializeColumnWidth, measureAutoFitColumnWidth,
 } from './helpers';
 
@@ -1533,6 +1534,7 @@ class DGTable {
             p.lastDetectedWidth = detectedWidth;
 
             let absWidthTotal = 0, changedColumnIndexes = [], totalRelativePercentage = 0, rests = 0;
+            const absorbingColumnIndex = getWidthAbsorbingColumnIndex(this);
 
             for (let i = 0; i < p.columns.length; i++) {
                 p.columns[i].actualWidthConsideringScrollbarWidth = null;
@@ -1566,8 +1568,8 @@ class DGTable {
                 } else if (col.widthMode === ColumnWidthMode.AUTO) {
                     let width = measureAutoFitColumnWidth(this, col);
 
-                    // Account for scrollbar width in last column
-                    if (col === p.visibleColumns[p.visibleColumns.length - 1])
+                    // Account for scrollbar width in the column that absorbs it
+                    if (i === absorbingColumnIndex)
                         width += p.scrollbarWidth;
 
                     sizeLeft -= width;
@@ -1764,27 +1766,28 @@ class DGTable {
                 }
             }
 
-            if (o.autoFillLastColumn && p.visibleColumns.length) {
+            if (o.autoFillLastColumn && absorbingColumnIndex !== -1) {
                 let actualWidthTotal = 0;
                 for (let i = 0; i < p.visibleColumns.length; i++) {
                     actualWidthTotal += p.visibleColumns[i].actualWidth ?? 0;
                 }
 
-                const lastColumnIndex = p.visibleColumns.length - 1;
-                const lastColumn = p.visibleColumns[lastColumnIndex];
+                // Fixed-size (non-resizable) and sticky columns keep their width; the slack goes elsewhere
+                const absorbingColumn = p.visibleColumns[absorbingColumnIndex];
                 const fallbackWidth = detectedWidth - actualWidthTotal;
                 if (fallbackWidth > 0) {
-                    lastColumn.actualWidth = (lastColumn.actualWidth ?? 0) + fallbackWidth;
-                    if (changedColumnIndexes.indexOf(lastColumnIndex) === -1) {
-                        changedColumnIndexes.push(lastColumnIndex);
+                    absorbingColumn.actualWidth = (absorbingColumn.actualWidth ?? 0) + fallbackWidth;
+                    if (changedColumnIndexes.indexOf(absorbingColumnIndex) === -1) {
+                        changedColumnIndexes.push(absorbingColumnIndex);
                     }
                 }
             }
 
-            if (p.visibleColumns.length) {
+            if (absorbingColumnIndex !== -1) {
                 // (There should always be at least 1 column visible, but just in case)
-                p.visibleColumns[p.visibleColumns.length - 1].actualWidthConsideringScrollbarWidth =
-                    p.visibleColumns[p.visibleColumns.length - 1].actualWidth - (p.scrollbarWidth || 0);
+                const absorbingColumn = p.visibleColumns[absorbingColumnIndex];
+                absorbingColumn.actualWidthConsideringScrollbarWidth =
+                    absorbingColumn.actualWidth - (p.scrollbarWidth || 0);
             }
 
             p.notifyRendererOfColumnsConfig?.();
