@@ -14,419 +14,826 @@
         window.domUtilsCss = domutils.Css;
     </script>
     <script type="text/javascript" src="../dist/lib.umd.js"></script>
-    <script>
-        const sampleData = [
-            { first: 'Pearl', last: 'Button', address: '69 Hendford Hill', city: 'MOSS-SIDE' },
-            { first: 'Daisy', last: 'Brockhouse', address: '4667 rue Levy', city: 'Montreal' },
-            { first: 'Asphodel', last: 'Goodchild', address: '74 New Dover Rd', city: 'WALPOLE ST ANDREW' },
-            { first: 'Primrose', last: 'Oldbuck', address: '1331 Sherwood Circle', city: 'Lafayette' },
-            { first: 'Savanna', last: 'Took', address: '4200 Penn Street', city: 'Stlouis' },
-            { first: 'Maxima', last: 'Sackville', address: 'Tabaré 22', city: 'Riachuelo' },
-            { first: 'Pearl', last: 'Baggins', address: 'Del Monte 92', city: 'Los Titanes' },
-            { first: 'Belladonna', last: 'Boffin', address: '63 Palmerston Street', city: 'Dinsdale' },
-            { first: 'Rorimac', last: 'Bolger-Baggins', address: '3028 Scotchmere Dr', city: 'Sarnia' },
-            { first: 'Merimac', last: 'Brown', address: 'Ibirapita 4', city: 'Montevideo' },
-            { first: 'Olo', last: 'Maggot', address: '72 Golden Knowes Road', city: 'FRITH BANK' },
-            { first: 'Primula', last: 'Goold', address: '4143 7th Ave', city: 'Calgary' },
-            { first: 'Briffo', last: 'Mugwort', address: '139 Amun Place', city: 'Fairy Springs' },
-            { first: 'Merimac', last: 'Banks', address: '180 Murray Street', city: 'Welbourn' },
-            { first: 'Bowman', last: 'Goold', address: 'Del Monte 2', city: 'Lomas de Solymar' },
-            { first: 'Athanaric', last: 'Goldworthy', address: '76 Front St', city: 'HENBURY' },
-            { first: 'Hildigrim', last: 'Galbassi', address: '52 Haslemere Road', city: 'EASTINGTON' },
-            { first: 'Peony', last: 'Gammidge', address: 'Arenales 22', city: 'Montevideo' },
-            { first: 'Theobald', last: 'Roper', address: '10 Ross Road', city: 'MARSTON' },
-            { first: 'Poppy', last: 'Gawkroger', address: '1883 Gambler Lane', city: 'Sugar Land' },
-            { first: 'Jasmine', last: 'Greenhand', address: 'Purificacion 80', city: 'Baltasar Brum' },
-            { first: 'Isumbras', last: 'Roper', address: '188 Rata Street', city: 'Mamaku' },
-            { first: 'Heribald', last: 'Baggins', address: '2827 Woodlawn Drive', city: 'Waukesha' },
-            { first: 'Haiduc', last: 'Brownlock', address: '94 Sonia Place', city: 'Redwood' },
-            { first: 'Fulvus', last: 'Rumble', address: '814 Adelaide St', city: 'Toronto' },
-            { first: 'Gundobad', last: 'Goold', address: '98 Malcolm Rd', city: 'LLANFIHANGEL-Y-PENNANT' },
-            { first: 'Bilbo', last: 'Clayhanger', address: '2435 Sheppard Ave', city: 'Toronto' },
-            { first: 'Heribald', last: 'Whitfoot', address: '423 Rebecca Street', city: 'Elk Grove Village' },
-            { first: 'Poppy', last: 'Lightfoot', address: '2151 St Marys Rd', city: 'Winnipeg' },
-            { first: 'Frodo', last: 'Brockhouse', address: '1878 Blanshard', city: 'Victoria' },
-            { first: 'Elanor', last: 'Gawkroger', address: '46 Brook Street', city: 'Parkvale' },
-            { first: 'Rowan', last: 'Grubb', address: '159 Karen Lane', city: 'Woolston' },
-            { first: 'Tobold', last: 'Tunnelly', address: '4867 St Jean Baptiste St', city: 'La Pocatiere' },
-            { first: 'Alaric', last: 'Sackville-Baggins', address: '85 Shore Street', city: 'STITTENHAM' },
-            { first: 'Lalia', last: 'Brandybuck', address: '56 Gainsborough Court', city: 'Rolleston' },
-            { first: 'Myrtle', last: 'Goold', address: '1413 Bloor Street', city: 'Vegreville' },
-            { first: 'Theobald', last: 'Clayhanger', address: '171 Glenbrae Street', city: 'Marybank' },
-            { first: 'Moro', last: 'Maggot', address: '36 Boughton Rd', city: 'WHITTON' },
-            { first: 'Semolina', last: 'Chubb', address: '3034 Goyeau Ave', city: 'Windsor' },
-            { first: 'Lavinia', last: 'Baggins', address: '69 Hazard Grove', city: 'Porirua East' },
-            { first: 'Bercilac', last: 'Chubb', address: 'Sarandí 27', city: 'La Paz' },
-            { first: 'Fredegar', last: 'Took-Took', address: '1947 Toy Avenue', city: 'Oshawa' },
-            { first: 'Amaranth', last: 'Brown', address: '970 Pitfield Blvd', city: 'Pierrefonds' },
-            { first: 'Grimalda', last: 'Galbassi', address: '38 Crown Street', city: 'LONDON' },
-            { first: 'Amethyst', last: 'Clayhanger', address: '4725 Lee Avenue', city: 'Pennsauken' },
-            { first: 'Lily', last: 'Gaukrogers', address: 'Porongos 75', city: 'Piedra Sola' },
-            { first: 'Berilac', last: 'Hayward', address: '65 Norna Crescent', city: 'Wadestown' },
-            { first: 'Maxima', last: 'Gamgee', address: '213 Huia Street', city: 'Camberley' },
-            { first: 'Isengrim', last: 'Longhole', address: '67 Speers Road', city: 'Oakville' },
-            { first: 'Gerontius', last: 'Whitfoot', address: '628 Hilltop Street', city: 'Springfield' },
-            { first: 'Alfrida', last: 'Proudfoot', address: '16 Leicester Road', city: 'AULTANRYNIE' },
-            { first: 'Caramella', last: 'Banks', address: '2395 Main Street', city: 'Seattle' },
-            { first: 'Tolman', last: 'Brockhouse', address: '263 Port Washington Road', city: 'Crowsnest Pass' },
-            { first: 'Salvia', last: 'Took-Took', address: 'Neruda 44', city: 'Solís de Mataojo' },
-            { first: 'Ranugad', last: 'Tûk', address: '932 Scotchmere Dr', city: 'Goderich' },
-            { first: 'Dudo', last: 'Galbassi', address: '1977 Red Maple Drive', city: 'Hollywood' },
-            { first: 'Gloriana', last: 'Grubb', address: '1365 Davisson Street', city: 'Blountsville' },
-            { first: 'Faramir', last: 'Banks', address: '1994 Walton Street', city: 'Provo' },
-            { first: 'Folco', last: 'Mugwort', address: '26 Usk Street', city: 'Waimataitai' },
-            { first: 'Balbo', last: 'Gammidge', address: '245 Haines Terrace', city: 'Vogeltown' },
-            { first: 'Amanda', last: 'Took-Took', address: '93 Friar Street', city: 'CLEARWELL' },
-            { first: 'Mentha', last: 'Longhole', address: '36 Farburn Terrace', city: 'LITTLE LEIGH' },
-            { first: 'Iago', last: 'Banks', address: '163 Dulles Place', city: 'Christchurch Airport' },
-            { first: 'Celendine', last: 'Puddifoot', address: '162 Ellsworth Place', city: 'Queenwood' },
-            { first: 'Amaranth', last: 'Proudfoot', address: '40 Raumati Crescent', city: 'Whangarei Central' },
-            { first: 'Laura', last: 'Goodchild', address: '650 Thurston Dr', city: 'Ottawa' },
-            { first: 'Blanco', last: 'Puddifoot', address: '3189 Tycos Dr', city: 'Toronto' },
-            { first: 'Bell', last: 'Headstrong', address: 'Costanera 63', city: 'Rafael Perazza' },
-            { first: 'Pervinca', last: 'Tûk', address: '155 Claremont Road', city: 'Washdyke Flat' },
-            { first: 'Flavus', last: 'Puddifoot', address: '98 Clasper Way', city: 'HERNE COMMON' },
-            { first: 'Asphodel', last: 'Roper', address: '2940 43rd Avenue', city: 'Whitehorse' },
-            { first: 'Savanna', last: 'Sandyman', address: '2976 Jasper Ave', city: 'Edmonton' },
-            { first: 'Cora', last: 'Took', address: '142 Westpark Place', city: 'Makaraka' },
-            { first: 'Selina', last: 'Gaukrogers', address: '27 Gordon Terrace', city: 'BARTON' },
-            { first: 'Heribald', last: 'Gamgee', address: '16 Stone St', city: 'CRANFORD ST ANDREW' },
-            { first: 'Lobelia', last: 'Zaragamba', address: '74 Trafalgar Street', city: 'Taylorville' },
-            { first: 'Mattalic', last: 'Goldworthy', address: '91 Russell Rd', city: 'SHINNER\'S BRIDGE' },
-            { first: 'Caramella', last: 'Underhill', address: '30 Fairview Avenue', city: 'Paremoremo' },
-            { first: 'Theodoric', last: 'Diggle', address: '246 Gray Avenue', city: 'Maungakotukutuku' },
-            { first: 'Marco', last: 'Roper', address: '15 Graham Road', city: 'CHELDON' },
-            { first: 'Poppy', last: 'Rumble', address: '87 Souterhead Road', city: 'LOVESTON' },
-            { first: 'Roderic', last: 'Sackville-Baggins', address: 'Ansina 26', city: 'Velázquez' },
-            { first: 'Robinia', last: 'Hayward', address: '140 Runciman Street', city: 'Green Island' },
-            { first: 'Tomba', last: 'Zaragamba', address: '28 Tadcaster Rd', city: 'PILLATON' },
-            { first: 'Dora', last: 'Whitfoot', address: 'Colón 25', city: 'Chapicuy' },
-            { first: 'Lavinia', last: 'Hogpen', address: '104 Liverpool Street', city: 'Waitarere' },
-            { first: 'Rudolph', last: 'Burrows', address: '221 Waterloo Place', city: 'Brooklands' },
-            { first: 'Diamond', last: 'Twofoot', address: 'Misiones 17', city: 'José Enrique Rodó' },
-            { first: 'Bertha', last: 'Diggle', address: '209 Chesney Place', city: 'Tisbury' },
-            { first: 'Celendine', last: 'Puddifoot', address: 'Democracia 80', city: 'Piedras de Afilar' },
-            { first: 'Hildibrand', last: 'Took-Brandybuck', address: '238 Wye Street', city: 'Island Bay' },
-            { first: 'Pimpernel', last: 'Brandybuck', address: 'Cagancha 12', city: 'Paso de los Toros' },
-            { first: 'Moro', last: 'Noakes', address: 'Florianapolis 22', city: 'Nicolich' },
-            { first: 'Ruby', last: 'Brandybuck', address: '2188 Kelly Street', city: 'Charlotte' },
-            { first: 'Salvia', last: 'Puddifoot', address: '3650 Irving Road', city: 'Columbus' },
-            { first: 'Rosamunda', last: 'Bolger-Baggins', address: '3103 Carolyns Circle', city: 'Josephine' },
-            { first: 'Nicol', last: 'Bolger-Baggins', address: '2563 Kinchant St', city: 'Chilako River' },
-            { first: 'Belisarius', last: 'Gaukrogers', address: '209 Gillatt Gardens', city: 'Westmorland' },
-            { first: 'Caramella', last: 'Goodbody', address: '247 Buxton Road', city: 'Wanganui Airport' },
-            { first: 'Duenna', last: 'Fairbairn', address: '3536 Florence Street', city: 'Emory' },
-            { first: 'Gilly', last: 'Hayward', address: '62 Grenoble Road', city: 'BRIDGE OF DEE' },
-            { first: 'Alaric', last: 'Tûk', address: '236 Ballance Street', city: 'Kensington' },
-            { first: 'Briffo', last: 'Bolger', address: '53 Caradon Hill', city: 'TYTHEGSTON' },
-            { first: 'Drogo', last: 'Brown', address: '190 Foley Drive', city: 'Selwyn Heights' },
-            { first: 'Gerda', last: 'Banks', address: '57 Prestwick Road', city: 'INGATESTONE' },
-            { first: 'Tim', last: 'Hornblower', address: 'Larrañaga 49', city: 'Las Piedras' },
-            { first: 'Marigold', last: 'Burrowes', address: '4050 90th Avenue', city: 'Youngstown' },
-            { first: 'Regina', last: 'Twofoot', address: '3665 90th Avenue', city: 'Youngstown' },
-            { first: 'Grossman', last: 'Headstrong', address: '1874 Nelson Street', city: 'Grassy Narrows' },
-            { first: 'Cara', last: 'Gardner', address: '4254 Lilac Lane', city: 'Saint Marys' },
-            { first: 'Grimalda', last: 'Sackville', address: 'Guaviyu 22', city: 'El Pinar' },
-            { first: 'Chilimanzar', last: 'Brownlock', address: '63 Golden Knowes Road', city: 'FRITCHLEY' },
-            { first: 'Celendine', last: 'Noakes', address: 'Copacabana 11', city: 'Montevideo' },
-            { first: 'Ponto', last: 'Mugwort', address: '4569 Albert Street', city: 'St Thomas' },
-            { first: 'Porro', last: 'Brandagamba', address: 'Rincon 35', city: 'Castellanos' },
-            { first: 'Theobald', last: 'Zaragamba', address: 'Neruda 78', city: 'Tacuarembó' },
-            { first: 'Hob', last: 'Grubb', address: '4517 Eagle Rd', city: 'Toronto' },
-            { first: 'Razanur', last: 'Goodchild', address: '17 40th Street', city: 'Calgary' },
-            { first: 'Cerdic', last: 'Rumble', address: 'Ituzaingó 73', city: 'Joanicó' },
-            { first: 'Matilda', last: 'Button', address: '33 Broomfield Place', city: 'STONEHAVEN' },
-            { first: 'Sméagol', last: 'Underhill', address: '21 Clifton Terrace', city: 'Washdyke' },
-            { first: 'Tanta', last: 'Bolger-Baggins', address: '2926 St Jean Baptiste St', city: 'Val Brillant' },
-            { first: 'Angelica', last: 'Longhole', address: '231 Montrose Crescent', city: 'Puketaha' },
-            { first: 'Prisca', last: 'Brown', address: '46 Bootham Terrace', city: 'REDBROOK' },
-            { first: 'Déagol', last: 'Tunnelly', address: 'Florianapolis 66', city: 'Montevideo' },
-            { first: 'Bercilac', last: 'Hogpen', address: '1464 99th St', city: 'Grande Prairie' },
-            { first: 'Gerda', last: 'Hayward', address: '25 Russell Rd', city: 'SHEPPERDINE' },
-            { first: 'Marco', last: 'Headstrong', address: '99 Oxford Avenue', city: 'Tikipunga' },
-            { first: 'Bell', last: 'Chubb-Baggins', address: '169 Cardrona Street', city: 'Avondale' },
-            { first: 'Camelia', last: 'Brown', address: '3524 Augusta Park', city: 'Dunbar' },
-            { first: 'Bungo', last: 'Maggot', address: '79 Worthy Lane', city: 'MEALSGATE' },
-            { first: 'Tim', last: 'Oldbuck', address: '503 Olive Street', city: 'Mansfield' },
-            { first: 'Duenna', last: 'Diggle', address: 'Misiones 46', city: 'José Ignacio' },
-            { first: 'Melissa', last: 'Sackville', address: 'Neptuno 55', city: 'Independencia' },
-            { first: 'Mimosa', last: 'Burrowes', address: '89 Graham Road', city: 'CHELMORTON' },
-            { first: 'Saradoc', last: 'Goldworthy', address: 'Hocquart 95', city: 'Paso Bonilla' },
-            { first: 'Isengrim', last: 'Took', address: '21 Boat Lane', city: 'REDNAL' },
-            { first: 'Lalia', last: 'Tunnelly', address: '199 Ruihi Street', city: 'Glenholme' },
-            { first: 'Toby', last: 'Baggins', address: 'Canelones 27', city: 'Sarandí de Navarro' },
-            { first: 'Caramella', last: 'Roper', address: '27 Stroud Rd', city: 'OAKLEY' },
-            { first: 'Valdemar', last: 'Brown', address: '1036 Lost Creek Road', city: 'Allentown' },
-            { first: 'Jessamine', last: 'Goodchild', address: '22 Sutton Wick Lane', city: 'BRINMORE' },
-            { first: 'Daisy', last: 'Boffin', address: '2876 Reserve St', city: 'Calabogie' },
-            { first: 'Will', last: 'Tunnelly', address: '312 Granville St', city: 'Halifax' },
-            { first: 'Laura', last: 'Maggot', address: '110 John Street', city: 'Aro Valley' },
-            { first: 'Fosco', last: 'Gamgee', address: '1767 Nelson Street', city: 'Geraldton' },
-            { first: 'Meriadoc', last: 'Burrows', address: 'Baltasar Brum 82', city: 'La Paloma' },
-            { first: 'Rhoda', last: 'Zaragamba', address: '3141 Hannah Street', city: 'Newton' },
-            { first: 'Sméagol', last: 'Goldworthy', address: '81 Temple Way', city: 'WITCHFORD' },
-            { first: 'Chica ', last: 'Goold', address: '75 Stone St', city: 'CRAIGTON' },
-            { first: 'Bucca', last: 'Button', address: '3425 Ontario St', city: 'St Catharines' },
-            { first: 'Miranda', last: 'Clayhanger', address: '151 Mayfield Avenue', city: 'Helensburgh' },
-            { first: 'Donnamira', last: 'Goodchild', address: '3124 9th Ave', city: 'Lethbridge' },
-            { first: 'Savanna', last: 'Sackville', address: '2684 Bellwood Acres Rd', city: 'Sundridge' },
-            { first: 'Rosa', last: 'Hayward', address: '144 Nalanda Crescent', city: 'Ngaio' },
-            { first: 'Savanna', last: 'Sackville-Baggins', address: 'Rincon 91', city: 'Castellanos' },
-            { first: 'Madoc', last: 'Smallburrow', address: '3305 Robinson Lane', city: 'Columbus' },
-            { first: 'Harding', last: 'Sackville-Baggins', address: 'Misiones 96', city: 'Juan Lacaze' },
-            { first: 'Bungo', last: 'Hornblower', address: '127 Esmeralda Street', city: 'Greerton' },
-            { first: 'Gerda', last: 'Labingi', address: 'Arenales 59', city: 'Montevideo' },
-            { first: 'Dina', last: 'Goodbody', address: '3380 Kinchant St', city: 'Williams Lake' },
-            { first: 'Merry', last: 'Smallburrow', address: '1315 Stuart Street', city: 'Bridgeville' },
-            { first: 'Robinia', last: 'Burrows', address: '155 Maoribank Grove', city: 'Birchville' },
-            { first: 'Hugo', last: 'Headstrong', address: '41 Gloddaeth Street', city: 'BILLINGSHURST' },
-            { first: 'Primula', last: 'Gardner', address: 'Republica de Chile 15', city: 'Biassini' },
-            { first: 'Hobson', last: 'Sandyman', address: '91 Southern Way', city: 'NORTH MILLBREX' },
-            { first: 'Herugar', last: 'Sandyman', address: '2953 Papineau Avenue', city: 'Montreal' },
-            { first: 'Semolina', last: 'Longhole', address: '90 Flora Mccurdy Walk', city: 'Haywards' },
-            { first: 'Belladonna', last: 'Underhill', address: 'Leandro Gomez 95', city: 'Casupá' },
-            { first: 'Tim', last: 'Gaukrogers', address: '2564 Nelson Street', city: 'Wawa' },
-            { first: 'Inigo', last: 'Gammidge', address: '537 Bragg Road', city: 'Collingwood' },
-            { first: 'Jemima', last: 'Bracegirdle', address: '2966 Bloomfield Way', city: 'Rockland' },
-            { first: 'Chica ', last: 'Fairbairn', address: '2373 Franklee Lane', city: 'Philadelphia' },
-            { first: 'Porro', last: 'Button', address: '181 Hedge Street', city: 'Great Meadows' },
-            { first: 'Pansy', last: 'Smallburrow', address: '2080 Tycos Dr', city: 'Toronto' },
-            { first: 'Rhoda', last: 'Brandybuck', address: '21 Taranaki Road', city: 'Orakei' },
-            { first: 'Gringamor', last: 'Bracegirdle', address: 'Guayabos 34', city: 'Capilla del Sauce' },
-            { first: 'Pearl', last: 'Sandheaver', address: '61 Shire Oak Road', city: 'SCALE HOUSES' },
-            { first: 'Malva', last: 'Gammidge', address: '48 Witney Way', city: 'KIRKTON OF STRATHMARTINE' },
-            { first: 'Rowan', last: 'Smallburrow', address: '74 Harehills Lane', city: 'ROXWELL' },
-            { first: 'Isengrim', last: 'Maggot', address: '4784 rue Saint-Antoine', city: 'Granby' },
-            { first: 'Melba', last: 'Goold', address: 'Purificacion 3', city: 'Baltasar Brum' },
-            { first: 'Rosa', last: 'Hogpen', address: '123 Carmen Road', city: 'Hornby' },
-            { first: 'Amanda', last: 'Sackville', address: '2806 Caynor Circle', city: 'Somerville' },
-            { first: 'Flavus', last: 'Boffin', address: '8 Homer Place Upper', city: 'Ilam' },
-            { first: 'Frodo', last: 'Oldbuck', address: '74 Charles Street', city: 'Parahaki' },
-            { first: 'Hildibrand', last: 'Grubb', address: '4396 Single Street', city: 'South Boston' },
-            { first: 'Largo', last: 'Labingi', address: 'Ombù 53', city: 'Conchillas' },
-            { first: 'Caramella', last: 'Brandybuck', address: '43 Corpening Drive', city: 'Southfield' },
-            { first: 'Flambard', last: 'Greenhand', address: '910 Churchill Plaza', city: 'Sault Ste Marie' },
-            { first: 'Seredic', last: 'Goodbody', address: '3517 Goldie Lane', city: 'Cincinnati' },
-            { first: 'Carambo', last: 'Smallburrow', address: '10 Essex Rd', city: 'TARREL' },
-            { first: 'Amalda', last: 'Hayward', address: '34 Brynglas Road', city: 'GLYNDE' },
-            { first: 'Mentha', last: 'Hornblower', address: '52 Clasper Way', city: 'HERTFORD HEATH' },
-            { first: 'Bodo', last: 'Rumble', address: 'Acuña de Figeroa 42', city: 'Playa Pascual' },
-            { first: 'Rosa', last: 'Goold', address: '89 Academy Street', city: 'BERGH APTON' },
-            { first: 'Robur', last: 'Baggins', address: '2507 Lockhart Drive', city: 'Barrie' },
-            { first: 'Mentha', last: 'Bracegirdle', address: '41 Steeles Lane', city: 'West Brook' },
-            { first: 'Duenna', last: 'Bolger', address: 'Democracia 89', city: 'Las Toscas' },
-            { first: 'Adaldrida', last: 'Burrows', address: '44 Old Chapel Road', city: 'GAYTON' },
-            { first: 'Fastred', last: 'Greenhand', address: '194 Somerset Lane', city: 'Anderson Park' },
-            { first: 'Lily', last: 'Brown', address: '1966 Marcus Street', city: 'Huntsville' },
-            { first: 'Salvia', last: 'Sackville-Baggins', address: '1565 Blanshard', city: 'Victoria' },
-            { first: 'Everard', last: 'Sandheaver', address: '2137 Rosewood Court', city: 'Owatonna' },
-            { first: 'Pippin', last: 'Sandyman', address: '171 Earls Court', city: 'Hillcrest' },
-            { first: 'Donnamira', last: 'Brockhouse', address: '361 Algonquin Blvd', city: 'Timmins' },
-            { first: 'Melba', last: 'Hornblower', address: '3533 Walnut Avenue', city: 'Cedar Knolls' },
-            { first: 'Largo', last: 'Hogpen', address: '17 Cunnery Rd', city: 'MANATON' },
-            { first: 'Gormadoc', last: 'Brown', address: '4134 Church Street', city: 'Bayside' },
-            { first: 'Rose', last: 'Zaragamba', address: '199 Gayhurst Road', city: 'Avondale' },
-            { first: 'Laura', last: 'Brockhouse', address: '4334 Coulter Lane', city: 'Richmond' },
-            { first: 'Grossman', last: 'Chubb', address: '82 Wade Lane', city: 'SALFORD' },
-            { first: 'Nora ', last: 'Burrowes', address: '901 Bluff Street', city: 'Gaithersburg' },
-            { first: 'Rufus', last: 'Brown', address: '96 Queens Drive', city: 'Invercargill Airport' },
-            { first: 'Brutus', last: 'Baggins', address: '1422 Bailey Drive', city: 'Cedar Rapids' },
-            { first: 'Estella', last: 'Bolger', address: '62 Main Rd', city: 'FLORE' },
-            { first: 'Balbo', last: 'Oldbuck', address: '123 Playfair Avenue', city: 'Toronto' },
-            { first: 'Lotho', last: 'Gawkroger', address: '3467 Lakeland Park Drive', city: 'Norcross' },
-            { first: 'Seredic', last: 'Gamgee', address: 'Avenida Agraciada 24', city: '19 de Abril' },
-            { first: 'Marco', last: 'Brockhouse', address: '31 Argyle Grove', city: 'Haywards' },
-            { first: 'Pamphila', last: 'Chubb', address: 'Del Monte 18', city: 'Lomas de Solymar' },
-            { first: 'Mat', last: 'Bolger', address: 'Republica de Chile 80', city: 'Bernabe Rivera' },
-            { first: 'Semolina', last: 'Longhole', address: 'Tacuarembo 99', city: 'Ansina' },
-            { first: 'Salvia', last: 'Noakes', address: '33 Academy Street', city: 'BESCAR' },
-            { first: 'Griffo', last: 'Tunnelly', address: '182 Euan Street', city: 'Selwyn Heights' },
-            { first: 'Matilda', last: 'Lightfoot', address: '2334 Veltri Drive', city: 'Anchorage' },
-            { first: 'Maura', last: 'Gawkroger', address: '1 Wenlock Terrace', city: 'PERRANZABULOE' },
-            { first: 'Gilly', last: 'Brockhouse', address: '51 Canterbury Road', city: 'VAUL' },
-            { first: 'Gilly', last: 'Gardner', address: '52 Wressle Road', city: 'PLASISAF' },
-            { first: 'Prima', last: 'Labingi', address: '63 Folkestone Road', city: 'WINKSLEY' },
-            { first: 'Priamus', last: 'Bolger-Baggins', address: '104 Duval Grove', city: 'Grenada North' },
-            { first: 'Gilly', last: 'Goodbody', address: '71 Roxburgh Crescent', city: 'Palmerston North' },
-            { first: 'Fredegar', last: 'Puddifoot', address: 'Paso Rivero 81', city: 'Tomas Gomensoro' },
-            { first: 'Minto', last: 'Tunnelly', address: '3919 St. John Street', city: 'Jansen' },
-            { first: 'Belisarius', last: 'Whitfoot', address: '81 Malaghan Street', city: 'Kelvin Heights' },
-            { first: 'Diamond', last: 'Burrowes', address: 'Del Monte 85', city: 'Lorenzo Geyres' },
-            { first: 'Chica ', last: 'Zaragamba', address: 'Colonia Ofir 41', city: 'San José de Carrasco' },
-            { first: 'Lily', last: 'Chubb', address: '175 Southview Place', city: 'Manurewa' },
-            { first: 'Isengrin', last: 'Goodchild', address: 'Marejada 20', city: 'Melo' },
-            { first: 'Chica ', last: 'Sandheaver', address: '2354 Derry Rd', city: 'Malton' },
-            { first: 'Samwise', last: 'Labingi', address: 'Juncal 56', city: 'Calpica Itacumbú' },
-            { first: 'Porro', last: 'Proudfoot', address: 'Guipúzcoa 21', city: 'San Antonio' },
-            { first: 'Myrtle', last: 'Bracegirdle', address: '3177 Pine Tree Lane', city: 'Gaithersburg' },
-            { first: 'Merimas', last: 'Mugwort', address: 'Rincon 86', city: 'Carlos Reyles' },
-            { first: 'Olo', last: 'Sandyman', address: '1502 Terry Lane', city: 'Longwood' },
-            { first: 'Adelbert', last: 'Noakes', address: '194 Lincoln Road', city: 'Masterton' },
-            { first: 'Pamphila', last: 'Hornblower', address: '1715 Rose Avenue', city: 'Metairie' },
-            { first: 'Lotho', last: 'Fairbairn', address: '118 Riverlea Avenue', city: 'Pakuranga' },
-            { first: 'Jemima', last: 'Bolger', address: '182 Parade', city: 'Waimataitai' },
-            { first: 'Hildigrim', last: 'Lothran', address: '4603 Nelson Street', city: 'Wawa' },
-            { first: 'Yolanda', last: 'Bolger-Baggins', address: '4317 Toy Avenue', city: 'Oshawa' },
-            { first: 'Asphodel', last: 'Gamgee', address: '85 Fore St', city: 'TUFFLEY' },
-            { first: 'Harding', last: 'Goodchild', address: '4 Boughton Rd', city: 'WHITWELL' },
-            { first: 'Gerda', last: 'Brandagamba', address: '4302 Lynch Street', city: 'New Berlin' },
-            { first: 'Poppy', last: 'Goodchild', address: '121 Tupara Road', city: 'Acacia Bay' },
-            { first: 'Mantissa', last: 'Lothran', address: '70 Harrogate Road', city: 'RUSHALL' },
-            { first: 'Cerdic', last: 'Burrows', address: 'Mirasoles 69', city: 'Montevideo' },
-            { first: 'Bucca', last: 'Bolger', address: '1942 Nelson Street', city: 'Thessalon' },
-            { first: 'Valdemar', last: 'Boffin', address: '141 Dinwiddie Avenue', city: 'Marewa' },
-            { first: 'Tanta', last: 'Zaragamba', address: '665 Goldcliff Circle', city: 'Washington' },
-            { first: 'Daisy', last: 'Headstrong', address: '2692 Beaver Creek', city: 'Thornhill' },
-            { first: 'Lalia', last: 'Brandybuck', address: '6 West Lane', city: 'DARLEY' },
-            { first: 'Obo', last: 'Proudfoot', address: '185 Dawson Street', city: 'Abbey Caves' },
-            { first: 'Adelard', last: 'Sackville-Baggins', address: '73 Kingsford Drive', city: 'Enner Glynn' },
-            { first: 'Matilda', last: 'Burrows', address: '40 Maidstone Road', city: 'WELSHAMPTON' },
-            { first: 'Ted', last: 'Brandybuck', address: '3 Sutton Wick Lane', city: 'BRIDGE OF EARN' },
-            { first: 'Primrose', last: 'Burrowes', address: '211 Natone Street', city: 'Ranui Heights' },
-            { first: 'Dina', last: 'Took-Brandybuck', address: '144 Renall Street', city: 'Masterton' },
-            { first: 'Alfrida', last: 'Mugwort', address: 'Rigoberto Lopez 88', city: 'Sauce' },
-            { first: 'Sméagol', last: 'Whitfoot', address: '73 Union Terrace', city: 'LOANHEAD' },
-            { first: 'Nibs', last: 'Took-Brandybuck', address: '2265 Victoria Park Ave', city: 'Toronto' },
-            { first: 'Bilbo', last: 'Took-Brandybuck', address: '3764 Abia Martin Drive', city: 'Sayville' },
-            { first: 'Banazir', last: 'Smallburrow', address: '19 Rochester Street', city: 'South New Brighton' },
-            { first: 'Selina', last: 'Labingi', address: '7 Lansdown Street', city: 'Wanaka' },
-            { first: 'Goldilocks', last: 'Oldbuck', address: '4190 Turkey Pen Road', city: 'New York' },
-            { first: 'Saradas', last: 'Goold', address: '4060 Islington Ave', city: 'Toronto' },
-            { first: 'Merry', last: 'Oldbuck', address: '832 Russell Street', city: 'Victoria' },
-            { first: 'May', last: 'Grubb', address: '2010 Dundas St', city: 'Toronto' },
-            { first: 'Folcard', last: 'Bracegirdle', address: '99 Trehafod Road', city: 'BUCKNALL' },
-            { first: 'Porro', last: 'Chubb', address: 'Republica de Chile 39', city: 'Bernabe Rivera' },
-            { first: 'Crispus', last: 'Twofoot', address: '210 Shortcut Road', city: 'Cromwell' },
-            { first: 'Mimosa', last: 'Hayward', address: '54 Logan Place', city: 'Islington' },
-            { first: 'Timba', last: 'Puddifoot', address: 'Tacuarembo 73', city: 'Andresito' },
-            { first: 'Cornelia', last: 'Burrowes', address: '4499 Hiney Road', city: 'Searchlight' },
-            { first: 'Malva', last: 'Bracegirdle', address: '3864 Traders Alley', city: 'Overland Park' },
-            { first: 'Matilda', last: 'Twofoot', address: 'Sarandi 96', city: 'Cerro Chato' },
-            { first: 'Linda', last: 'Whitfoot', address: '2489 Elk Creek Road', city: 'Smyrna' },
-            { first: 'Prisca', last: 'Gamgee', address: '1294 Whiskey Cove Road', city: 'Ocean Falls' },
-            { first: 'Toby', last: 'Bracegirdle', address: '723 Burdett Avenue', city: 'Terrace' },
-            { first: 'Rose', last: 'Chubb-Baggins', address: '1757 Cedar Lane', city: 'Boston' },
-            { first: 'Marmadoc', last: 'Proudfoot', address: '56 North Road', city: 'NETHERTON' },
-            { first: 'Hildifons', last: 'Took', address: '187 Short Street', city: 'Prestonville' },
-            { first: 'Marigold', last: 'Longhole', address: 'Porongos 77', city: 'Piedras Coloradas' },
-            { first: 'Gundolpho', last: 'Bunce', address: '99 Tadcaster Rd', city: 'PILLETH' },
-            { first: 'Yolanda', last: 'Baggins', address: '2395 Brannon Avenue', city: 'Jacksonville' },
-            { first: 'Lavinia', last: 'Sackville-Baggins', address: '2049 rue Levy', city: 'Montreal' },
-            { first: 'Bosco', last: 'Baggins', address: '3786 St George Street', city: 'Vancouver' },
-            { first: 'Linda', last: 'Bolger', address: '109 Isola Place', city: 'Papatoetoe' },
-            { first: 'Caramella', last: 'Brandybuck', address: 'Coquimbo 40', city: 'Nuevo Berlín' },
-            { first: 'Prima', last: 'Chubb', address: '4340 Apple Lane', city: 'Peoria' },
-        ];
-    </script>
+    <style>
+        body {
+            padding: 20px 30px;
+            color: #222;
+        }
+
+        h1 {
+            margin: 0 0 4px;
+            font-size: 22px;
+        }
+
+        .intro {
+            margin: 0 0 16px;
+            max-width: 900px;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 260px minmax(0, 1fr);
+            gap: 20px;
+            align-items: start;
+        }
+
+        .panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            font-size: 13px;
+        }
+
+        .panel fieldset {
+            min-width: 0;
+            margin: 0;
+            padding: 8px 10px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        .panel legend {
+            padding: 0 4px;
+            font-weight: bold;
+        }
+
+        .panel label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 4px 0;
+        }
+
+        .panel .row {
+            display: flex;
+            gap: 6px;
+            margin: 6px 0 0;
+        }
+
+        .panel .row[role=radiogroup] {
+            gap: 16px;
+        }
+
+        .panel input[type=number] {
+            width: 80px;
+        }
+
+        .panel input[type=text], .panel select {
+            flex: 1;
+            min-width: 0;
+            font: inherit;
+        }
+
+        .panel input[type=range] {
+            flex: 1;
+        }
+
+        .panel button {
+            flex: 1;
+            padding: 4px 6px;
+            font: inherit;
+            cursor: pointer;
+        }
+
+        .hint {
+            margin: 6px 0 0;
+            color: #777;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+
+        .status {
+            margin: 0 0 8px;
+            color: #555;
+            font-size: 13px;
+        }
+
+        #log {
+            height: 160px;
+            margin: 6px 0 0;
+            padding: 6px;
+            overflow: auto;
+            border: 1px solid #ddd;
+            background: #fafafa;
+            font: 11px/15px monospace;
+            white-space: pre;
+        }
+
+        /* ---- Body rows ---- */
+
+        .dgtable-wrapper .dgtable-cell.highlight {
+            background: rgba(0, 210, 0, 0.35);
+        }
+
+        .dgtable-cell.num, .dgtable-cell-preview.num {
+            text-align: right;
+        }
+
+        [dir=rtl] .dgtable-cell.num {
+            text-align: left;
+        }
+
+        /* ---- Sticky end rows ---- */
+
+        .dgtable-sticky-end-rows {
+            box-shadow: 0 -3px 6px rgba(0, 0, 0, 0.12);
+        }
+
+        .dgtable-wrapper .dgtable-row.dgtable-sticky-end-row {
+            border-top: solid 1px #b9c6da;
+            border-bottom: 0;
+            background-color: #eef3fa;
+            font-weight: bold;
+        }
+
+        .dgtable-wrapper .dgtable-row.dgtable-sticky-end-row.dgtable-row-alt {
+            background-color: #e3ebf6;
+        }
+
+        .dgtable-sticky-end-row.kind-filter {
+            font-weight: normal;
+        }
+
+        .dgtable-sticky-end-row input {
+            box-sizing: border-box;
+            width: 100%;
+            height: 20px;
+            margin: 0;
+            padding: 0 4px;
+            border: 1px solid #aab7cc;
+            border-radius: 3px;
+            background: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            outline-offset: -2px;
+        }
+
+        .muted {
+            color: #8693a6;
+            font-weight: normal;
+        }
+    </style>
 </head>
 <body>
-<div>
+<h1>DGTable.js</h1>
+<p class="intro">
+    A virtual table with sticky columns, resizable and movable columns, multi-column sorting, filtering,
+    variable row heights, web worker updates, and sticky end rows: rows pinned to the bottom of the viewport,
+    separate from the data. The first sticky end row holds filter controls. Type in it, sort, resize or move columns,
+    and the inputs keep their value and focus. The totals and averages rows are refreshed on their own with
+    <code>refreshStickyEndRow(index)</code> whenever the filtered data changes.
+</p>
 
-    <label for="filterInput">Filter by second column:</label>
-    <input id="filterInput" type="text" onkeyup="table.filter({ column: 'last', keyword: this.value, caseSensitive: false });" /> <br />
+<div class="layout">
+    <div class="panel">
+        <fieldset>
+            <legend>Sticky end rows</legend>
+            <label><input type="checkbox" id="optFilterRow" checked> Filter row (controls)</label>
+            <label><input type="checkbox" id="optTotalsRow" checked> Totals row</label>
+            <label><input type="checkbox" id="optAveragesRow"> Averages row</label>
+            <label><input type="checkbox" id="optOwnFormatter" checked> Use <code>stickyEndRowFormatter</code></label>
+            <div class="row" role="radiogroup" aria-label="Placement">
+                <label><input type="radio" name="optMode" value="sticky" checked> Sticky</label>
+                <label><input type="radio" name="optMode" value="fixed"> Fixed</label>
+            </div>
+            <p class="hint">
+                <code>stickyEndRowsMode</code>: they only differ when the rows don't fill the table.
+                Sticky follows the last row, fixed stays at the bottom. Try it with a filter matching few rows, or 5 rows.
+            </p>
+            <p class="hint">Without its own formatter, sticky end rows fall back to the regular <code>cellFormatter</code>.</p>
+        </fieldset>
 
-    <button id="k100button">Add 100,000 records</button> | <button id="resetButton">Reset to initial records</button> | <button id="wwbutton">Create a web worker</button> |
-    <button id="amsbutton">Allow multiple sort</button> | <button id="rcmpbutton">Set random comparator for sorting 4th column</button>
+        <fieldset>
+            <legend>Data</legend>
+            <div class="row">
+                <input type="number" id="rowCount" min="0" step="10" value="200">
+                <button id="setRowsButton">Set rows</button>
+            </div>
+            <div class="row">
+                <button id="add1kButton">+1,000</button>
+                <button id="add100kButton">+100,000</button>
+                <button id="clearButton">Clear</button>
+            </div>
+            <div class="row">
+                <button id="mutateButton">Double the first row's qty</button>
+            </div>
+            <div class="row">
+                <button id="workerButton">Start web worker</button>
+            </div>
+            <p class="hint">The web worker appends 3 rows every 2 seconds through <code>createWebWorker()</code>.</p>
+        </fieldset>
 
-    <hr />
+        <fieldset>
+            <legend>Built-in column filter</legend>
+            <div class="row">
+                <select id="builtinColumn">
+                    <option value="product">Product</option>
+                    <option value="region">Region</option>
+                    <option value="notes" selected>Notes</option>
+                </select>
+            </div>
+            <div class="row">
+                <input type="text" id="builtinKeyword" placeholder="keyword…">
+            </div>
+            <label><input type="checkbox" id="builtinCaseSensitive"> Case sensitive</label>
+            <p class="hint">
+                Uses the built-in filter, <code>filter({ column, keyword, caseSensitive })</code>.
+                A table has one filter function, so this and the filter row replace each other.
+            </p>
+        </fieldset>
 
-    <div id='example'></div>
+        <fieldset>
+            <legend>Sorting</legend>
+            <label>Max sorted columns <input type="number" id="optMaxSort" min="1" max="4" value="1"></label>
+            <label><input type="checkbox" id="optRegionComparator"> Sort Region in compass order</label>
+            <p class="hint">
+                Each header click adds that column to the sort, keeping up to the max. The compass order
+                comes from <code>setOnComparatorRequired()</code>.
+            </p>
+        </fieldset>
 
-    <script>
-        const table = new DGTable({
-            columns: [
-                { name: 'first', label: 'Locked column', movable: false, sticky: 'start', width: '10%' },
-                { name: 'last', label: 'Test data', sticky: 'start', width: '30%' },
-                { name: 'address', label: 'More', width: '30%' },
-                { name: 'city', label: 'Example', width: '40%' },
-            ],
-            height: 500,
-            width: DGTable.Width.SCROLL,
-            autoFitColumnOnResizeDoubleClick: true,
-            //virtualTable: false,
-            cellFormatter: function (val, colName) {
-                if (colName === 'address') {
-                    return '<i>' + val + '</i>';
-                }
-                return val;
-            },
-        });
+        <fieldset>
+            <legend>Table</legend>
+            <label><input type="checkbox" id="optVirtual" checked> Virtual table</label>
+            <label><input type="checkbox" id="optScroll" checked> Horizontal scroll (<code>Width.SCROLL</code>)</label>
+            <label><input type="checkbox" id="optStickyColumns" checked> Sticky columns</label>
+            <label><input type="checkbox" id="optRelativeWidths"> Relative column widths (%)</label>
+            <label><input type="checkbox" id="optVariableHeights" checked> Taller row every 7 rows</label>
+            <label><input type="checkbox" id="optHighlight" checked> Highlight “Quill” products</label>
+            <label><input type="checkbox" id="optRtl"> RTL</label>
+            <label>Height <input type="range" id="optHeight" min="150" max="700" step="10" value="420"> <span id="heightValue">420</span></label>
+            <p class="hint">
+                Changing these options re-creates the table, keeping the data and the filter.
+                Row heights and highlights are set in <code>rowcreate</code>.
+                The # column can't be moved. Double-click a column's resize edge to fit it to its content.
+            </p>
+        </fieldset>
 
-        table.on('rowcreate', ({ rowIndex, rowEl, rowData }) => {
-            if (rowData['last'] === 'Banks') {
-                rowEl.querySelector('[data-column=last]').style.background = 'rgba(0, 210, 0, 0.8)';
-            }
+        <fieldset>
+            <legend>Events</legend>
+            <label><input type="checkbox" id="optLogBodyRows"> Also log body row clicks</label>
+            <div class="row">
+                <button id="clearLogButton">Clear log</button>
+            </div>
+            <div id="log"></div>
+        </fieldset>
+    </div>
 
-            if (rowIndex % 7 === 6) {
-                rowEl.style.height = '65px';
-            } else {
-                rowEl.style.height = '';
-            }
-        });
-
-        document.getElementById('example').append(table.el);
-
-        table.render().addRows(sampleData);
-
-        document.getElementById('k100button').addEventListener('click', () => {
-            const startTime = +new Date;
-
-            const data = [];
-            for (let i = 0; i < 100000; i ++) {
-                data.push({
-                    'first': sampleData[Math.floor(Math.random() * sampleData.length)].first,
-                    'last': sampleData[Math.floor(Math.random() * sampleData.length)].last,
-                    'address': sampleData[Math.floor(Math.random() * sampleData.length)].address,
-                    'city': sampleData[Math.floor(Math.random() * sampleData.length)].city
-                });
-            }
-
-            const generatedTime = +new Date;
-
-            table.addRows(data);
-
-            const addTime = +new Date;
-
-            console.log('100,000 rows generated in ' + ((generatedTime - startTime) / 1000).toFixed(2) + ' seconds');
-            console.log('100,000 rows added to table in ' + ((addTime - generatedTime) / 1000).toFixed(2) + ' seconds');
-        });
-
-        document.getElementById('resetButton').addEventListener('click', () => {
-            table.setRows(sampleData);
-        });
-
-        document.getElementById('wwbutton').addEventListener('click', () => {
-            const workerUrl = table.getUrlForElementContent('data-worker-script');
-            table.createWebWorker(workerUrl);
-
-        });
-
-        document.getElementById('amsbutton').addEventListener('click', () => {
-            table.setMaxColumnSortCount(2);
-        });
-
-        document.getElementById('rcmpbutton').addEventListener('click', () => {
-            table.setOnComparatorRequired((column, descending) => {
-                if (column === 'city') {
-                    return (left, right) => Math.floor(Math.random() * 3) - 1
-                }
-                return null;
-            })
-
-        });
-
-    </script>
+    <div>
+        <p class="status" id="status"></p>
+        <div id="example"></div>
+    </div>
 </div>
-<script type="text/x-worker-script" language="javascript" id="data-worker-script">
-    const sampleData = [
-        { first: 'Bilbo', last: 'Baggins', address: 'The Shire', city: 'Middle Earth' },
-        { first: 'Frodo', last: 'Baggins', address: 'The Shire', city: 'Middle Earth' },
-        { first: 'Precious', last: 'Baggins', address: 'Frodo\'s Finger', city: 'Middle Earth' },
-    ];
+
+<script type="text/x-worker-script" id="data-worker-script">
+    const PRODUCTS = ['Anvil', 'Bellows', 'Candle', 'Quill', 'Rope', 'Sextant', 'Teapot'];
+    const REGIONS = ['North', 'South', 'East', 'West', 'Central', 'Overseas'];
+
+    let nextId = 100001;
 
     setInterval(() => {
-        self.postMessage({rows: sampleData, append: true});
+        const rows = [];
+
+        for (let i = 0; i < 3; i++) {
+            const qty = 1 + Math.floor(Math.random() * 40);
+            const price = Math.round((2 + Math.random() * 98) * 100) / 100;
+
+            rows.push({
+                id: nextId,
+                product: PRODUCTS[Math.floor(Math.random() * PRODUCTS.length)],
+                region: REGIONS[Math.floor(Math.random() * REGIONS.length)],
+                qty: qty,
+                price: price,
+                amount: Math.round(qty * price * 100) / 100,
+                notes: 'From the web worker, order #' + nextId++,
+            });
+        }
+
+        self.postMessage({ rows: rows, append: true });
     }, 2000);
+</script>
+
+<script>
+    const PRODUCTS = [
+        'Anvil', 'Bellows', 'Candle', 'Doorknob', 'Easel', 'Funnel', 'Gimbal', 'Hammock',
+        'Inkwell', 'Jigsaw', 'Kettle', 'Lantern', 'Mallet', 'Notebook', 'Oar', 'Pulley',
+        'Quill', 'Rope', 'Sextant', 'Teapot', 'Umbrella', 'Valve', 'Whistle', 'Yarn',
+    ];
+    const REGIONS = ['North', 'South', 'East', 'West', 'Central', 'Overseas'];
+    const COMPASS_ORDER = ['North', 'East', 'South', 'West', 'Central', 'Overseas'];
+
+    const FILTER_COLUMNS = ['product', 'region', 'qty', 'amount'];
+
+    const state = {
+        table: null,
+        nextId: 1,
+        worker: null,
+        // Totals of the filtered rows, computed once per refresh and shared by all summary cells
+        summary: null,
+        // Which filter is applied: null, 'row' (the sticky filter row) or 'builtin'
+        filterSource: null,
+        filters: { product: '', region: '', qty: '', amount: '' },
+    };
+
+    const $ = id => document.getElementById(id);
+
+    const numberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+    const integerFormat = new Intl.NumberFormat('en-US');
+
+    function makeRows(count) {
+        const rows = [];
+
+        for (let i = 0; i < count; i++) {
+            const qty = 1 + Math.floor(Math.random() * 40);
+            const price = Math.round((2 + Math.random() * 98) * 100) / 100;
+
+            rows.push({
+                id: state.nextId++,
+                product: PRODUCTS[Math.floor(Math.random() * PRODUCTS.length)],
+                region: REGIONS[Math.floor(Math.random() * REGIONS.length)],
+                qty: qty,
+                price: price,
+                amount: Math.round(qty * price * 100) / 100,
+                notes: 'Order note #' + (state.nextId - 1) + ' with some extra text to make this column wide',
+            });
+        }
+
+        return rows;
+    }
+
+    function getAllRows(table) {
+        const rows = [];
+
+        for (let i = 0, count = table.getRowCount(); i < count; i++)
+            rows.push(table.getDataForRow(i));
+
+        return rows;
+    }
+
+    function escapeHtml(value) {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ---- Filtering ----
+
+    function hasRowFilter() {
+        return FILTER_COLUMNS.some(column => state.filters[column] !== '');
+    }
+
+    function getBuiltinFilterArgs() {
+        return {
+            column: $('builtinColumn').value,
+            keyword: $('builtinKeyword').value,
+            caseSensitive: $('builtinCaseSensitive').checked,
+        };
+    }
+
+    function rowPassesFilter(row, filters) {
+        if (filters.product && !row.product.toLowerCase().includes(filters.product.toLowerCase()))
+            return false;
+
+        if (filters.region && !row.region.toLowerCase().includes(filters.region.toLowerCase()))
+            return false;
+
+        if (filters.qty !== '' && row.qty < Number(filters.qty))
+            return false;
+
+        if (filters.amount !== '' && row.amount < Number(filters.amount))
+            return false;
+
+        return true;
+    }
+
+    /** Applies the current filter source to the table; `null` as the filter function means the built-in one */
+    function applyFilter() {
+        const table = state.table;
+
+        if (state.filterSource === 'row') {
+            table.setFilter(rowPassesFilter);
+            table.filter({ ...state.filters });
+        } else if (state.filterSource === 'builtin') {
+            table.setFilter(null);
+            table.filter(getBuiltinFilterArgs());
+        } else {
+            table.clearFilter();
+        }
+
+        refreshSummaryRows();
+    }
+
+    function onRowFilterInput(column, value) {
+        state.filters[column] = value;
+
+        if (state.filterSource === 'builtin')
+            $('builtinKeyword').value = '';
+
+        state.filterSource = hasRowFilter() ? 'row' : null;
+        applyFilter();
+    }
+
+    function onBuiltinFilterInput() {
+        const hadRowFilter = state.filterSource === 'row';
+
+        for (const column of FILTER_COLUMNS)
+            state.filters[column] = '';
+
+        state.filterSource = $('builtinKeyword').value ? 'builtin' : null;
+
+        // Re-create only the filter row, to empty its inputs
+        if (hadRowFilter)
+            refreshFilterRow();
+
+        applyFilter();
+    }
+
+    // ---- Sticky end rows ----
+
+    function computeSummary() {
+        const table = state.table;
+        const count = table.getFilteredRowCount();
+        let qty = 0;
+        let amount = 0;
+        let price = 0;
+
+        for (let i = 0; i < count; i++) {
+            const row = table.getDataForFilteredRow(i);
+            qty += row.qty;
+            amount += row.amount;
+            price += row.price;
+        }
+
+        return { count, qty, amount, price };
+    }
+
+    function getStickyRows() {
+        const rows = [];
+
+        if ($('optFilterRow').checked)
+            rows.push({ kind: 'filter', id: 'Filter' });
+
+        if ($('optTotalsRow').checked)
+            rows.push({ kind: 'sum', id: 'Σ' });
+
+        if ($('optAveragesRow').checked)
+            rows.push({ kind: 'avg', id: 'Avg' });
+
+        return rows;
+    }
+
+    function getSummary() {
+        if (!state.summary)
+            state.summary = computeSummary();
+
+        return state.summary;
+    }
+
+    function refreshSummaryRows() {
+        const table = state.table;
+        const rows = table.getStickyEndRows();
+
+        state.summary = null;
+
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].kind !== 'filter')
+                table.refreshStickyEndRow(i);
+        }
+
+        updateStatus();
+    }
+
+    function refreshFilterRow() {
+        const table = state.table;
+        const index = table.getStickyEndRows().findIndex(row => row.kind === 'filter');
+
+        if (index !== -1)
+            table.refreshStickyEndRow(index);
+    }
+
+    function stickyEndRowFormatter(value, columnName, rowData) {
+        if (rowData.kind === 'filter') {
+            if (FILTER_COLUMNS.includes(columnName)) {
+                const isNumber = columnName === 'qty' || columnName === 'amount';
+                const placeholder = isNumber ? '≥ min' : 'contains…';
+
+                return '<input data-filter="' + columnName + '"' +
+                    ' type="' + (isNumber ? 'number' : 'text') + '"' +
+                    ' placeholder="' + placeholder + '"' +
+                    ' value="' + escapeHtml(state.filters[columnName]) + '">';
+            }
+
+            return columnName === 'id' ? '<span class="muted">Filter</span>' : '';
+        }
+
+        const summary = getSummary();
+        const isAverage = rowData.kind === 'avg';
+        const divisor = isAverage ? Math.max(summary.count, 1) : 1;
+
+        switch (columnName) {
+            case 'id':
+                return isAverage ? 'Avg' : 'Σ';
+
+            case 'product':
+                return integerFormat.format(summary.count) + ' <span class="muted">rows</span>';
+
+            case 'qty':
+                return isAverage
+                    ? numberFormat.format(summary.qty / divisor)
+                    : integerFormat.format(summary.qty);
+
+            case 'price':
+                return isAverage ? numberFormat.format(summary.price / divisor) : '';
+
+            case 'amount':
+                return numberFormat.format(summary.amount / divisor);
+
+            default:
+                return '';
+        }
+    }
+
+    // ---- Formatting & sorting ----
+
+    function cellFormatter(value, columnName) {
+        if (value === undefined || value === null)
+            return '';
+
+        if (columnName === 'price' || columnName === 'amount')
+            return typeof value === 'number' ? numberFormat.format(value) : escapeHtml(value);
+
+        // Formatters return HTML
+        if (columnName === 'notes')
+            return '<i>' + escapeHtml(value) + '</i>';
+
+        return escapeHtml(value);
+    }
+
+    function onComparatorRequired(columnName, descending, defaultComparator) {
+        if (columnName !== 'region' || !$('optRegionComparator').checked)
+            return defaultComparator;
+
+        const direction = descending ? -1 : 1;
+
+        return (a, b) => direction * (COMPASS_ORDER.indexOf(a.region) - COMPASS_ORDER.indexOf(b.region));
+    }
+
+    // ---- Table ----
+
+    function getColumns() {
+        const sticky = $('optStickyColumns').checked;
+        const relative = $('optRelativeWidths').checked;
+        const width = (pixels, percent) => relative ? percent + '%' : pixels;
+
+        return [
+            { name: 'id', label: '#', width: width(70, 6), movable: false, sticky: sticky ? 'start' : null, cellClasses: 'num' },
+            { name: 'product', label: 'Product', width: width(160, 14), sticky: sticky ? 'start' : null },
+            { name: 'region', label: 'Region', width: width(140, 12) },
+            { name: 'qty', label: 'Qty', width: width(110, 9), cellClasses: 'num' },
+            { name: 'price', label: 'Unit price', width: width(120, 10), cellClasses: 'num' },
+            { name: 'notes', label: 'Notes', width: width(420, 34) },
+            { name: 'amount', label: 'Amount', width: width(140, 15), cellClasses: 'num', sticky: sticky ? 'end' : null },
+        ];
+    }
+
+    function createTable() {
+        const previous = state.table;
+        const sortedColumns = previous ? previous.getSortedColumns() : [];
+        const data = previous ? getAllRows(previous) : makeRows(Number($('rowCount').value));
+        const workerWasRunning = !!state.worker;
+
+        stopWorker();
+
+        if (previous)
+            previous.destroy();
+
+        $('example').dir = $('optRtl').checked ? 'rtl' : 'ltr';
+
+        const table = new DGTable({
+            columns: getColumns(),
+            height: Number($('optHeight').value),
+            width: $('optScroll').checked ? DGTable.Width.SCROLL : DGTable.Width.NONE,
+            virtualTable: $('optVirtual').checked,
+            sortedColumns: sortedColumns,
+            maxColumnsSortCount: Number($('optMaxSort').value) || 1,
+            onComparatorRequired: onComparatorRequired,
+            autoFitColumnOnResizeDoubleClick: true,
+            cellFormatter: cellFormatter,
+            stickyEndRows: getStickyRows(),
+            stickyEndRowFormatter: $('optOwnFormatter').checked ? stickyEndRowFormatter : null,
+            stickyEndRowsMode: getMode(),
+        });
+
+        state.table = table;
+        state.summary = null;
+
+        bindTableEvents(table);
+
+        $('example').innerHTML = '';
+        $('example').append(table.el);
+
+        table.render();
+        table.setRows(data, true);
+
+        applyFilter();
+
+        if (workerWasRunning)
+            startWorker();
+    }
+
+    function bindTableEvents(table) {
+        table.on('rowcreate', ({ rowEl, rowData }) => {
+            rowEl.style.height = $('optVariableHeights').checked && rowData.id % 7 === 0 ? '65px' : '';
+
+            const productCell = rowEl.querySelector('[data-column=product]');
+            if (productCell)
+                productCell.classList.toggle('highlight', $('optHighlight').checked && rowData.product === 'Quill');
+        });
+
+        table.on('stickyendrowcreate', ({ stickyRowIndex, rowEl, rowData }) => {
+            rowEl.classList.add('kind-' + rowData.kind);
+            log('stickyendrowcreate', 'index ' + stickyRowIndex + ' (' + rowData.kind + ')');
+
+            // Controls are plain DOM: bind them when their row is created
+            for (const input of rowEl.querySelectorAll('input[data-filter]')) {
+                input.addEventListener('input', () => onRowFilterInput(input.getAttribute('data-filter'), input.value));
+
+                // Keep clicks in the input from counting as row clicks in the demo log
+                input.addEventListener('click', event => event.stopPropagation());
+            }
+        });
+
+        table.on('stickyendrowdestroy', rowEl => {
+            log('stickyendrowdestroy', rowEl.className.replace(/.*kind-/, ''));
+        });
+
+        table.on('stickyendrowclick', ({ stickyRowIndex, rowData }) => {
+            log('stickyendrowclick', 'index ' + stickyRowIndex + ' (' + rowData.kind + ')');
+        });
+
+        table.on('rowclick', ({ rowIndex, rowData }) => {
+            if ($('optLogBodyRows').checked)
+                log('rowclick', 'row ' + rowIndex + ' (#' + rowData.id + ')');
+        });
+
+        table.on('sort', ({ sorts }) => {
+            log('sort', sorts.map(s => s.column + (s.descending ? ' desc' : '')).join(', ') || 'none');
+        });
+
+        table.on('columnwidth', ({ name, width }) => {
+            log('columnwidth', name + ' → ' + width);
+        });
+
+        table.on('movecolumn', ({ name }) => {
+            log('movecolumn', name);
+        });
+
+        table.on('addrows', () => refreshSummaryRows());
+    }
+
+    function updateStatus() {
+        const table = state.table;
+
+        $('status').textContent =
+            integerFormat.format(table.getFilteredRowCount()) + ' of ' +
+            integerFormat.format(table.getRowCount()) + ' rows' +
+            (state.filterSource ? ' (filtered)' : '') + ' · ' +
+            table.getStickyEndRowCount() + ' sticky end row(s)';
+    }
+
+    // ---- Web worker ----
+
+    function startWorker() {
+        const url = state.table.getUrlForElementContent('data-worker-script');
+
+        state.worker = state.table.createWebWorker(url, true, true);
+        $('workerButton').textContent = 'Stop web worker';
+        log('worker', 'started');
+    }
+
+    function stopWorker() {
+        if (!state.worker)
+            return;
+
+        state.table.unbindWebWorker(state.worker);
+        state.worker.terminate();
+        state.worker = null;
+        $('workerButton').textContent = 'Start web worker';
+        log('worker', 'stopped');
+    }
+
+    // ---- Event log ----
+
+    function log(event, details) {
+        const el = $('log');
+        const time = new Date().toLocaleTimeString();
+        el.textContent = time + '  ' + event.padEnd(20) + details + '\n' + el.textContent.split('\n').slice(0, 200).join('\n');
+    }
+
+    // ---- Controls ----
+
+    function getMode() {
+        return document.querySelector('input[name=optMode]:checked').value;
+    }
+
+    for (const id of ['optFilterRow', 'optTotalsRow', 'optAveragesRow']) {
+        $(id).addEventListener('change', () => {
+            state.table.setStickyEndRows(getStickyRows());
+            updateStatus();
+        });
+    }
+
+    for (const radio of document.querySelectorAll('input[name=optMode]')) {
+        radio.addEventListener('change', () => {
+            state.table.setStickyEndRowsMode(getMode());
+            log('mode', getMode());
+        });
+    }
+
+    $('optOwnFormatter').addEventListener('change', () => {
+        state.table.setStickyEndRowFormatter($('optOwnFormatter').checked ? stickyEndRowFormatter : null);
+    });
+
+    $('builtinKeyword').addEventListener('input', onBuiltinFilterInput);
+    $('builtinColumn').addEventListener('change', onBuiltinFilterInput);
+    $('builtinCaseSensitive').addEventListener('change', onBuiltinFilterInput);
+
+    $('optMaxSort').addEventListener('change', () => {
+        state.table.setMaxColumnSortCount(Math.max(1, Number($('optMaxSort').value) || 1));
+    });
+
+    $('optRegionComparator').addEventListener('change', () => {
+        state.table.resort();
+    });
+
+    const recreatingOptions = [
+        'optVirtual', 'optScroll', 'optStickyColumns', 'optRelativeWidths',
+        'optVariableHeights', 'optHighlight', 'optRtl',
+    ];
+
+    for (const id of recreatingOptions)
+        $(id).addEventListener('change', createTable);
+
+    $('optHeight').addEventListener('input', () => {
+        $('heightValue').textContent = $('optHeight').value;
+    });
+    $('optHeight').addEventListener('change', createTable);
+
+    $('setRowsButton').addEventListener('click', () => {
+        state.nextId = 1;
+        state.table.setRows(makeRows(Math.max(0, Number($('rowCount').value) || 0)), true);
+        applyFilter();
+    });
+
+    for (const [id, count] of [['add1kButton', 1000], ['add100kButton', 100000]]) {
+        $(id).addEventListener('click', () => {
+            const startTime = performance.now();
+            const rows = makeRows(count);
+            const generatedTime = performance.now();
+
+            state.table.addRows(rows, true);
+
+            const addedTime = performance.now();
+            log('addrows', integerFormat.format(count) + ' rows: generated in ' +
+                Math.round(generatedTime - startTime) + 'ms, added in ' + Math.round(addedTime - generatedTime) + 'ms');
+        });
+    }
+
+    $('clearButton').addEventListener('click', () => {
+        state.table.setRows([]);
+        refreshSummaryRows();
+    });
+
+    $('mutateButton').addEventListener('click', () => {
+        const table = state.table;
+        const row = table.getDataForRow(0);
+
+        if (!row)
+            return;
+
+        row.qty *= 2;
+        row.amount = Math.round(row.qty * row.price * 100) / 100;
+        table.refreshRow(0);
+        refreshSummaryRows();
+    });
+
+    $('workerButton').addEventListener('click', () => {
+        if (state.worker)
+            stopWorker();
+        else
+            startWorker();
+    });
+
+    $('clearLogButton').addEventListener('click', () => {
+        $('log').textContent = '';
+    });
+
+    createTable();
 </script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { RowClickEvent, RowCreateEvent, SerializedColumnSort } from '../../src/index';
-import { mountTable } from '../helpers/table';
+import { makeRows, mountTable } from '../helpers/table';
 import { bodyCell, clickHeader, headerCell, renderedRows, rowTexts } from '../helpers/dom';
 import { hover, resizeEdgeX } from '../helpers/pointer';
 import { checkInvariants } from '../helpers/invariants';
@@ -347,5 +347,22 @@ describe('sorting', () => {
         table.setRows([{ a: 1, c: 3 }]);
         table.sort('a');
         expect(parseFloat(headerCell(table, 'a').style.width)).toBe(100);
+    });
+
+    it('SORT-19: resort() shows the re-sorted rows', () => {
+        let descending = false;
+        const { table } = mountTable({
+            columns: [{ name: 'a' }],
+            onComparatorRequired: (_column, _descending, defaultComparator) => descending
+                ? (x, y) => -defaultComparator(x, y)
+                : defaultComparator,
+        });
+        table.setRows(makeRows(5, i => ({ a: i })));
+        table.sort('a');
+        expect(rowTexts(table, 'a')).toEqual(['0', '1', '2', '3', '4']);
+
+        descending = true;
+        table.resort();
+        expect(rowTexts(table, 'a')).toEqual(['4', '3', '2', '1', '0']);
     });
 });

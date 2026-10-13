@@ -8,6 +8,9 @@ import {
     FilterFunction,
     HeaderCellFormatter,
     OnComparatorRequired,
+    RowData,
+    StickyEndRowFormatter,
+    StickyEndRowsMode,
 } from "./types";
 
 // Symbols for internal use
@@ -20,6 +23,7 @@ export const OriginalCellSymbol = Symbol('cell');
 export const RelatedTouchSymbol = Symbol('related_touch');
 export const OriginalRowIndex = Symbol('original_row_index');
 export const IsDestroyedSymbol = Symbol('destroyed');
+export const StickyEndRowClickEventSymbol = Symbol('sticky_end_row_click');
 
 // External untyped modules - use any
 type DomEventsSink = any;
@@ -89,6 +93,8 @@ export interface DGTableInternalOptions {
     relativeWidthGrowsToFillWidth: boolean;
     relativeWidthShrinksToFillWidth: boolean;
     cellFormatter: CellFormatter;
+    stickyEndRowFormatter: StickyEndRowFormatter | null;
+    stickyEndRowsMode: StickyEndRowsMode;
     headerCellFormatter: HeaderCellFormatter;
     filter: FilterFunction | null;
     height?: number;
@@ -109,6 +115,16 @@ export interface SortColumn {
 export interface WorkerListener {
     worker: Worker;
     listener: (evt: MessageEvent) => void;
+}
+
+/**
+ * Focus inside the sticky end rows, saved while their container is moved between scroll elements
+ */
+export interface StickyEndRowsFocusState {
+    el: HTMLElement;
+    selectionStart: number | null;
+    selectionEnd: number | null;
+    selectionDirection: 'forward' | 'backward' | 'none' | null;
 }
 
 export interface ResizeAreaClickState {
@@ -139,6 +155,13 @@ export interface DGTablePrivateState {
     headerRow?: HTMLElement;
     table?: HTMLElement;
     tbody?: HTMLElement;
+    stickyEndRows: RowData[];
+    stickyEndRowsEl?: HTMLElement | null;
+    stickyEndRowsNeedRendering?: boolean;
+    stickyEndRowsColumnsKey?: string;
+    stickyEndRowsFocus?: StickyEndRowsFocusState | null;
+    stickyEndRowsResizeObserver?: ResizeObserver | null;
+    stickyEndRowsObservedEl?: HTMLElement | null;
     resizer?: HTMLElement | null;
     columnResizeStartTimeout?: ReturnType<typeof setTimeout> | null;
     currentTouchId?: number | null;

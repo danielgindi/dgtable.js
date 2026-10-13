@@ -282,4 +282,20 @@ describe.each(layouts)('sticky columns ($dir, $boxSizing, virtual=$virtualTable)
         expect(headerCell(table, 'e1').style[edge]).toBe('0px');
         expectColumnsAligned(table);
     });
+
+    it('STK-14: an end-sticky column followed by normal columns keeps the header aligned', () => {
+        const { table } = mountLayout(layout, {
+            columns: [...columns, { name: 'd', width: 120 }],
+            width: DGTable.Width.SCROLL,
+        }, { width: 500 });
+        table.setRows(makeRows(30, i => Object.fromEntries([...columns.map(c => c.name), 'd'].map(n => [n, n + i]))));
+
+        // Stuck at the end edge, then scrolled into its natural place, then in between
+        for (const distance of [0, 100_000, 150]) {
+            scrollHorizontally(table, distance);
+            expectColumnsAligned(table);
+        }
+
+        checkInvariants(table);
+    });
 });

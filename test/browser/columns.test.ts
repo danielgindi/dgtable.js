@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import DGTable from '../../src/index';
 import type { ColumnOptions } from '../../src/index';
 import { boxFormatter, layoutName, layouts, makeRows, mountLayout, mountTable } from '../helpers/table';
 import { bodyCell, headerCell, headerNames, renderedRows, scrollVertically } from '../helpers/dom';
@@ -338,6 +339,30 @@ describe('columns API', () => {
         expect(table.getSortableColumns()).toBe(3);
         table.setSortableColumns(2);
         expect(table.getMaxColumnSortCount()).toBe(2);
+    });
+
+    it.each([false, true])('COLS-19: moving the column that absorbs the scrollbar width keeps widths right (virtual=%s)', virtualTable => {
+        // Wider than the table, so nothing absorbs left-over width, only the scrollbar width
+        const { table } = mountTable({
+            columns: [{ name: 'a', width: 200 }, { name: 'b', width: 200 }, { name: 'c', width: 200 }],
+            width: DGTable.Width.SCROLL,
+            virtualTable,
+        });
+        table.setRows(makeRows(40, i => ({ a: 'a' + i, b: 'b' + i, c: 'c' + i })));
+
+        // 'c' absorbs the width left over and the scrollbar width; after the move, 'b' does
+        table.moveColumn('c', 'a');
+        checkInvariants(table);
+
+        // Re-rendered rows must agree with the header
+        table.refreshAllVirtualRows();
+        checkInvariants(table);
+
+        // Cell content must follow later width changes
+        table.setColumnWidth('c', 260);
+        const cell = bodyCell(table, 0, 'c');
+        expect(cell.firstElementChild!.getBoundingClientRect().width).toBeGreaterThan(230);
+        checkInvariants(table);
     });
 });
 

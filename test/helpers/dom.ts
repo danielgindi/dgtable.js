@@ -87,3 +87,20 @@ export function scrollVertically(table: DGTable, top: number): void {
 export function nextFrame(): Promise<void> {
     return new Promise(resolve => requestAnimationFrame(() => resolve()));
 }
+
+export function stickyEndRowsContainer(table: DGTable): HTMLElement | null {
+    return scrollContainer(table)?.querySelector<HTMLElement>(':scope > .dgtable-sticky-end-rows') ?? null;
+}
+
+export function stickyEndRows(table: DGTable): HTMLElement[] {
+    const container = stickyEndRowsContainer(table);
+    return container ? Array.from(container.children) as HTMLElement[] : [];
+}
+
+export function stickyEndCell(table: DGTable, index: number, column: string): HTMLElement {
+    const cell = stickyEndRows(table)[index]?.querySelector<HTMLElement>(`[data-column="${column}"]`);
+    if (!cell)
+        throw new Error(`No sticky end cell for row ${index}, column "${column}"`);
+
+    return cell;
+}

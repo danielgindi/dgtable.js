@@ -22,6 +22,7 @@ const createElement = document.createElement.bind(document);
 interface PreviewCellElement extends HTMLDivElement {
     rowVIndex?: number;
     rowIndex?: number;
+    stickyEndRowIndex?: number;
     columnName?: string;
     [OriginalCellSymbol]?: HTMLElement;
 }
@@ -33,6 +34,22 @@ interface CellElement extends HTMLElement {
 interface RowElement extends HTMLElement {
     vIndex?: number;
     index?: number;
+    stickyEndIndex?: number;
+}
+
+/**
+ * Resolve the data of a body row (by data row index) or of a sticky end row (by its index).
+ */
+function getPreviewRowData(table: DGTableInterface, rowIndex: number | null | undefined, stickyEndRowIndex: number | null | undefined): RowData | null {
+    const p = table._p;
+
+    if (rowIndex != null)
+        return (p.rows[rowIndex] as RowData) ?? null;
+
+    if (stickyEndRowIndex != null)
+        return p.stickyEndRows[stickyEndRowIndex] ?? null;
+
+    return null;
 }
 
 interface ElementOffset {
@@ -70,18 +87,25 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
         return;
 
     const rowIndex = rowEl.index;
+    const stickyEndRowIndex = rowEl.stickyEndIndex;
+    const rowData = getPreviewRowData(table, rowIndex, stickyEndRowIndex);
 
     // Fired before the built-in preview is built/shown, and even when
     // `allowPreview` is false - a hook for custom overflow UI (e.g. a tooltip).
     table.emit('cellhoveroverflow', {
         name: columnName,
         rowIndex: rowIndex ?? null,
-        rowData: rowIndex == null ? null : p.rows[rowIndex] as RowData,
+        rowData: rowData,
+        stickyEndRowIndex: stickyEndRowIndex ?? null,
         cell: el,
         cellEl: elInner,
     });
 
     if (column.allowPreview === false)
+        return;
+
+    // A preview would be a copy of the controls in a sticky end row cell, covering the real ones
+    if (stickyEndRowIndex != null && elInner.querySelector('input, select, textarea, button, [contenteditable]'))
         return;
 
     const isHeaderCell = el.classList.contains(`${o.tableClassName}-header-cell`);
@@ -181,6 +205,7 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
 
     previewCell.rowVIndex = rowEl.vIndex;
     previewCell.rowIndex = rowIndex;
+    previewCell.stickyEndRowIndex = stickyEndRowIndex;
     previewCell.columnName = columnName;
 
     try {
@@ -195,7 +220,8 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
         el: previewCell.firstElementChild,
         name: previewCell.columnName,
         rowIndex: rowIndex ?? null,
-        rowData: rowIndex == null ? null : p.rows[rowIndex] as RowData,
+        rowData: rowData,
+        stickyEndRowIndex: stickyEndRowIndex ?? null,
         cell: el,
         cellEl: elInner,
     });
@@ -213,6 +239,15 @@ export function cellMouseOverEvent(table: DGTableInterface, el: CellElement): vo
                 rowIndex: rowIndex,
                 rowEl: rowEl,
                 rowData: p.rows[rowIndex] as RowData,
+            });
+        });
+    } else if (stickyEndRowIndex != null && rowData) {
+        previewCell.addEventListener('click', (event: MouseEvent) => {
+            table.emit('stickyendrowclick', {
+                event: event,
+                stickyRowIndex: stickyEndRowIndex,
+                rowEl: rowEl,
+                rowData: rowData,
             });
         });
     }
@@ -329,7 +364,8 @@ export function hideCellPreview(table: DGTableInterface): DGTableInterface {
             el: previewCell.firstChild,
             name: previewCell.columnName,
             rowIndex: previewCell.rowIndex ?? null,
-            rowData: previewCell.rowIndex == null ? null : p.rows[previewCell.rowIndex] as RowData,
+            rowData: getPreviewRowData(table, previewCell.rowIndex, previewCell.stickyEndRowIndex),
+            stickyEndRowIndex: previewCell.stickyEndRowIndex ?? null,
             cell: origCell,
             cellEl: origCell?.firstChild,
         });

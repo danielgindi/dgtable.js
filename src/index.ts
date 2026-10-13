@@ -58,6 +58,15 @@ import {
     resizeColumnElements,
     clearSortArrows,
     showSortArrow, updateStickyColumnPositions,
+    updateStickyEndRows,
+    unrenderStickyEndRows,
+    rerenderStickyEndRow,
+    forEachRenderedRow,
+    getStickyEndRowsColumnsKey,
+    applyStickyEndRowsMode,
+    disconnectStickyEndRowsResizeObserver,
+    forEachStickyEndRow,
+    updateAfterStickyEndRowsResize,
 } from './rendering';
 
 // Internal helpers (not exposed on class)
@@ -84,6 +93,8 @@ import {
     CustomSortingProvider,
     SerializedColumnSort,
     DGTableEventMap,
+    StickyEndRowFormatter,
+    StickyEndRowsMode,
 } from './types';
 
 // Private types
@@ -128,6 +139,8 @@ class DGTable {
             eventsSink: new DomEventsSink(),
             mitt: mitt(),
             tableSkeletonNeedsRendering: true,
+            stickyEndRows: Array.isArray(options.stickyEndRows) ? options.stickyEndRows.slice() : [],
+            stickyEndRowsNeedRendering: true,
         } as DGTablePrivateState;
 
         this.el = (options.el && options.el instanceof HTMLElement) ? options.el : document.createElement('div');
@@ -210,6 +223,8 @@ class DGTable {
         o.relativeWidthShrinksToFillWidth = options.relativeWidthShrinksToFillWidth === undefined ? false : !!options.relativeWidthShrinksToFillWidth;
 
         this.setCellFormatter(options.cellFormatter);
+        o.stickyEndRowFormatter = options.stickyEndRowFormatter || null;
+        o.stickyEndRowsMode = options.stickyEndRowsMode === 'fixed' ? 'fixed' : 'sticky';
         this.setHeaderCellFormatter(options.headerCellFormatter);
         this.setFilter(options.filter);
 
@@ -360,6 +375,12 @@ class DGTable {
         p.virtualListHelper?.destroy();
         p.virtualListHelper = null;
 
+        disconnectStickyEndRowsResizeObserver(this);
+        unrenderStickyEndRows(this);
+        p.stickyEndRowsEl = null;
+        p.stickyEndRowsFocus = null;
+        p.stickyEndRows = [];
+
         destroyHeaderCells(this);
 
         p.table?.remove();
@@ -474,6 +495,9 @@ class DGTable {
                 this.tableWidthChanged();
             }
 
+            // The sticky end rows are part of the scroll height: put them back before restoring the position
+            updateStickyEndRows(this);
+
             if (!isNaN(lastScrollTop))
                 p.table.scrollTop = lastScrollTop;
 
@@ -488,6 +512,8 @@ class DGTable {
         }
 
         p.virtualListHelper.render();
+
+        updateStickyEndRows(this);
 
         // Rendering rows may have made the vertical scrollbar appear or disappear
         const scrollbarWidth = p.scrollbarWidth;
@@ -545,6 +571,9 @@ class DGTable {
 
         p.columns = normalizedCols;
         p.visibleColumns = normalizedCols.getVisibleColumns();
+
+        // New column definitions (data paths, classes) may change the sticky end rows' cells
+        p.stickyEndRowsNeedRendering = true;
 
         ensureVisibleColumns(this);
         this.clearAndRender(render);
@@ -660,6 +689,10 @@ class DGTable {
                 const fromPos = p.visibleColumns.indexOf(col);
                 const toPos = p.visibleColumns.indexOf(destCol);
 
+                // Whether the sticky end rows were up to date, so moving their cells keeps them so
+                const stickyEndRowsInSync = !p.stickyEndRowsNeedRendering &&
+                    p.stickyEndRowsColumnsKey === getStickyEndRowsColumnsKey(p.visibleColumns);
+
                 p.visibleColumns = visibleColumns;
                 ensureVisibleColumns(this);
 
@@ -670,18 +703,18 @@ class DGTable {
                     const beforePos = fromPos < toPos ? toPos + 1 : toPos;
                     headerCells[0].parentNode.insertBefore(headerCells[fromPos], headerCells[beforePos]);
 
-                    const movedCol = p.visibleColumns[toPos];
-                    const movedWidth = ((movedCol.actualWidthConsideringScrollbarWidth || movedCol.actualWidth) ?? 0) + 'px';
-                    const shiftedCol = p.visibleColumns[fromPos];
-                    const shiftedWidth = ((shiftedCol.actualWidthConsideringScrollbarWidth || shiftedCol.actualWidth) ?? 0) + 'px';
-
-                    const tbodyChildren = p.tbody.childNodes;
-                    for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                        const row = tbodyChildren[i] as HTMLElement;
-                        if (row.nodeType !== 1) continue;
+                    // Cells keep their widths as they move; tableWidthChanged() below resizes the
+                    // columns whose width changed (e.g. which one absorbs the scrollbar width)
+                    const moveCells = (row: HTMLElement) => {
                         row.insertBefore(row.childNodes[fromPos], row.childNodes[beforePos]);
-                        ((row.childNodes[toPos] as HTMLElement).firstChild as HTMLElement).style.width = movedWidth;
-                        ((row.childNodes[fromPos] as HTMLElement).firstChild as HTMLElement).style.width = shiftedWidth;
+                    };
+
+                    // (The sticky end rows no longer match the visible columns, so this covers the body rows)
+                    forEachRenderedRow(this, moveCells);
+
+                    if (stickyEndRowsInSync) {
+                        forEachStickyEndRow(this, moveCells);
+                        p.stickyEndRowsColumnsKey = getStickyEndRowsColumnsKey(p.visibleColumns);
                     }
 
                     this.tableWidthChanged(true);
@@ -829,11 +862,11 @@ class DGTable {
         const rows = p.filteredRows || p.rows;
         const col = p.columns.get(column);
 
-        if (!col || rows.length < 1) {
+        if (!col || (rows.length + p.stickyEndRows.length) < 1) {
             return this;
         }
 
-        const width = measureAutoFitColumnWidth(this, col, rows);
+        const width = measureAutoFitColumnWidth(this, col, rows, p.stickyEndRows);
         if (width > 0) {
             this.setColumnWidth(column, width);
         }
@@ -1054,8 +1087,11 @@ class DGTable {
         return this.setSortedColumns(currentSort);
     }
 
-    /** Re-sort the table using current sort specifiers */
-    resort() {
+    /**
+     * Re-sort the table using current sort specifiers
+     * @param render - re-render the visible rows in their new order
+     */
+    resort(render = true) {
         const p = this._p;
         let columns = p.columns;
 
@@ -1075,6 +1111,9 @@ class DGTable {
             }
 
             p.virtualListHelper?.invalidate();
+
+            if (render && !p.tableSkeletonNeedsRendering)
+                p.virtualListHelper?.render();
 
             let sorts = [];
             for (let i = 0; i < currentSort.length; i++) {
@@ -1160,6 +1199,10 @@ class DGTable {
         }
 
         this._o.cellFormatter = formatter;
+
+        // Without their own formatter, the sticky end rows use this one
+        if (!this._o.stickyEndRowFormatter)
+            this._p.stickyEndRowsNeedRendering = true;
 
         return this;
     }
@@ -1340,7 +1383,7 @@ class DGTable {
                 refilter(this);
 
                 if (resort && p.rows.sortColumn.length) {
-                    this.resort();
+                    this.resort(false);
                 }
 
                 p.tableSkeletonNeedsRendering = true;
@@ -1483,7 +1526,132 @@ class DGTable {
     refreshAllVirtualRows() {
         const p = this._p;
         p.virtualListHelper?.invalidate().render();
+
+        updateStickyEndRows(this);
+
         return this;
+    }
+
+    // =========================================================================
+    // PUBLIC API - Sticky End Rows
+    // =========================================================================
+
+    /**
+     * Replace the rows pinned to the bottom of the table viewport (e.g. totals).
+     * Pass an empty array or `null` to remove them.
+     */
+    setStickyEndRows(rows: RowData[] | null, render = true) {
+        const p = this._p;
+
+        p.stickyEndRows = Array.isArray(rows) ? rows.slice() : [];
+        p.stickyEndRowsNeedRendering = true;
+
+        if (!render || p.tableSkeletonNeedsRendering || !p.table || !p.virtualListHelper)
+            return this;
+
+        updateStickyEndRows(this);
+        updateAfterStickyEndRowsResize(this);
+
+        return this;
+    }
+
+    /** Returns the rows pinned to the bottom of the table viewport */
+    getStickyEndRows(): RowData[] {
+        return this._p.stickyEndRows.slice();
+    }
+
+    /** Gets the number of rows pinned to the bottom of the table viewport */
+    getStickyEndRowCount(): number {
+        return this._p.stickyEndRows.length;
+    }
+
+    /**
+     * Re-creates the sticky end row elements, e.g. after their data objects were mutated.
+     * The elements are otherwise kept across renders, so controls in them keep their state.
+     */
+    refreshStickyEndRows() {
+        const p = this._p;
+
+        p.stickyEndRowsNeedRendering = true;
+
+        if (p.tableSkeletonNeedsRendering || !p.table)
+            return this;
+
+        updateStickyEndRows(this, true);
+        updateAfterStickyEndRowsResize(this);
+
+        return this;
+    }
+
+    /**
+     * Re-creates a single sticky end row element, e.g. a totals row after the data changed,
+     * leaving the other sticky end rows (and controls in them) untouched.
+     */
+    refreshStickyEndRow(index: number) {
+        const p = this._p;
+
+        if (index < 0 || index > p.stickyEndRows.length - 1)
+            return this;
+
+        if (p.tableSkeletonNeedsRendering || !p.table)
+            return this;
+
+        if (!rerenderStickyEndRow(this, index))
+            updateStickyEndRows(this, true);
+
+        updateAfterStickyEndRowsResize(this);
+
+        return this;
+    }
+
+    /**
+     * Sets how the sticky end rows are placed: `'sticky'` (after the last body row, sticking to the
+     * bottom of the viewport), or `'fixed'` (always at the bottom of the viewport).
+     */
+    setStickyEndRowsMode(mode: StickyEndRowsMode) {
+        const o = this._o, p = this._p;
+
+        mode = mode === 'fixed' ? 'fixed' : 'sticky';
+        if (o.stickyEndRowsMode === mode)
+            return this;
+
+        o.stickyEndRowsMode = mode;
+
+        if (p.tableSkeletonNeedsRendering || !p.table)
+            return this;
+
+        applyStickyEndRowsMode(this);
+
+        // Filling the viewport may have made the vertical scrollbar appear or disappear
+        updateAfterStickyEndRowsResize(this);
+
+        return this;
+    }
+
+    /** Gets how the sticky end rows are placed */
+    getStickyEndRowsMode(): StickyEndRowsMode {
+        return this._o.stickyEndRowsMode;
+    }
+
+    /** Sets the formatter of the sticky end row cells. `null` falls back to the cell formatter. */
+    setStickyEndRowFormatter(formatter?: StickyEndRowFormatter | null, render = true) {
+        this._o.stickyEndRowFormatter = formatter || null;
+
+        if (render)
+            this.refreshStickyEndRows();
+        else
+            this._p.stickyEndRowsNeedRendering = true;
+
+        return this;
+    }
+
+    /** Get the DOM element of a sticky end row, if it is rendered */
+    getStickyEndRowElement(index: number): HTMLElement | null {
+        const container = this._p.stickyEndRowsEl;
+        if (!container || index < 0)
+            return null;
+
+        return (container.children[index] as HTMLElement | undefined) ?? null;
     }
 
     /** Replace the whole dataset */
@@ -1496,7 +1664,7 @@ class DGTable {
         refilter(this);
 
         if (resort && p.rows.sortColumn.length) {
-            this.resort();
+            this.resort(false);
         }
 
         this.clearAndRender().emit('addrows', { count: data.length, clear: true });
@@ -1535,6 +1703,10 @@ class DGTable {
 
             let absWidthTotal = 0, changedColumnIndexes = [], totalRelativePercentage = 0, rests = 0;
             const absorbingColumnIndex = getWidthAbsorbingColumnIndex(this);
+
+            // The rendered widths, to detect columns that only gain or lose the scrollbar width
+            // (e.g. when another column becomes the one absorbing it)
+            const previousEffectiveWidths = p.visibleColumns.map(col => col.actualWidthConsideringScrollbarWidth ?? col.actualWidth);
 
             for (let i = 0; i < p.columns.length; i++) {
                 p.columns[i].actualWidthConsideringScrollbarWidth = null;
@@ -1790,6 +1962,13 @@ class DGTable {
                     absorbingColumn.actualWidth - (p.scrollbarWidth || 0);
             }
 
+            for (let i = 0; i < p.visibleColumns.length; i++) {
+                const col = p.visibleColumns[i];
+                const effectiveWidth = col.actualWidthConsideringScrollbarWidth ?? col.actualWidth;
+                if (effectiveWidth !== previousEffectiveWidths[i] && changedColumnIndexes.indexOf(i) === -1)
+                    changedColumnIndexes.push(i);
+            }
+
             p.notifyRendererOfColumnsConfig?.();
 
             if (renderColumns) {
@@ -1832,6 +2011,7 @@ class DGTable {
             o.height = height;
 
             updateTableHeight(this);
+            applyStickyEndRowsMode(this);
 
             if (o.virtualTable) {
                 this.clearAndRender();
@@ -1952,6 +2132,8 @@ export type {
     RowData,
     // Function types
     CellFormatter,
+    StickyEndRowFormatter,
+    StickyEndRowsMode,
     HeaderCellFormatter,
     FilterFunction,
     ComparatorFunction,
@@ -1969,6 +2151,8 @@ export type {
     ColumnResizeAreaDoubleClickEvent,
     AddRowsEvent,
     SortEvent,
+    StickyEndRowCreateEvent,
+    StickyEndRowClickEvent,
     // Event map for typed handlers
     DGTableEventMap,
 } from './types';

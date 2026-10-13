@@ -24,6 +24,10 @@ import type {
     RowData,
     SerializedColumnSort,
     SortEvent,
+    StickyEndRowClickEvent,
+    StickyEndRowCreateEvent,
+    StickyEndRowFormatter,
+    StickyEndRowsMode,
 } from '../../src/index';
 
 describe('public typings', () => {
@@ -41,6 +45,9 @@ describe('public typings', () => {
         table.on('columnresizeareadoubleclick', data => expectTypeOf(data).toEqualTypeOf<ColumnResizeAreaDoubleClickEvent>());
         table.on('addrows', data => expectTypeOf(data).toEqualTypeOf<AddRowsEvent>());
         table.on('sort', data => expectTypeOf(data).toEqualTypeOf<SortEvent>());
+        table.on('stickyendrowcreate', data => expectTypeOf(data).toEqualTypeOf<StickyEndRowCreateEvent>());
+        table.on('stickyendrowclick', data => expectTypeOf(data).toEqualTypeOf<StickyEndRowClickEvent>());
+        table.on('stickyendrowdestroy', data => expectTypeOf(data).toEqualTypeOf<HTMLElement>());
         table.once('addcolumn', data => expectTypeOf(data).toEqualTypeOf<string>());
         table.off('render', data => expectTypeOf(data).toEqualTypeOf<undefined>());
         table.on('custom', data => expectTypeOf(data).toEqualTypeOf<unknown>());
@@ -50,6 +57,7 @@ describe('public typings', () => {
             'render' | 'renderskeleton' | 'rowcreate' | 'rowclick' | 'rowdestroy' | 'cellpreview' | 'cellpreviewdestroy'
             | 'cellhoveroverflow' | 'headerrowcreate' | 'headercontextmenu' | 'addcolumn' | 'removecolumn' | 'movecolumn'
             | 'showcolumn' | 'hidecolumn' | 'columnwidth' | 'columnresizeareadoubleclick' | 'addrows' | 'sort' | 'filter' | 'filterclear'
+            | 'stickyendrowcreate' | 'stickyendrowclick' | 'stickyendrowdestroy'
         >();
     });
 
@@ -63,6 +71,7 @@ describe('public typings', () => {
         expectTypeOf<CustomSortingProvider>().returns.toEqualTypeOf<RowData[]>();
         expectTypeOf<ColumnSortOptions>().toHaveProperty('column');
         expectTypeOf<SerializedColumnSort>().toHaveProperty('descending').toEqualTypeOf<boolean>();
+        expectTypeOf<StickyEndRowFormatter>().parameters.toEqualTypeOf<[unknown, string, RowData, number]>();
     });
 
     it('TYPE-03: accepts the documented options', () => {
@@ -76,6 +85,9 @@ describe('public typings', () => {
             sortedColumns: ['a', { column: 'b', descending: true }],
             cellFormatter: (value, column, row) => String(value) + column + Object.keys(row).length,
             filter: (row, args) => !!row && !!args,
+            stickyEndRows: [{ a: 'total' }],
+            stickyEndRowFormatter: (value, column, row, index) => String(value) + column + Object.keys(row).length + index,
+            stickyEndRowsMode: 'fixed',
         };
         expectTypeOf(options).toExtend<DGTableOptions>();
 
@@ -95,6 +107,14 @@ describe('public typings', () => {
         expectTypeOf(table.getColumnWidth('a')).toEqualTypeOf<string | number | null>();
         expectTypeOf(table.getSortedColumns()).toEqualTypeOf<SerializedColumnSort[]>();
         expectTypeOf(table.getColumnsConfig()).toEqualTypeOf<Record<string, ColumnOptions | null>>();
+        expectTypeOf(table.setStickyEndRows([{ a: 1 }]).refreshStickyEndRows()).toEqualTypeOf<DGTable>();
+        expectTypeOf(table.setStickyEndRowFormatter(null).refreshStickyEndRow(0)).toEqualTypeOf<DGTable>();
+        expectTypeOf(table.setStickyEndRowsMode('fixed')).toEqualTypeOf<DGTable>();
+        expectTypeOf(table.getStickyEndRowsMode()).toEqualTypeOf<StickyEndRowsMode>();
+        expectTypeOf<StickyEndRowsMode>().toEqualTypeOf<'sticky' | 'fixed'>();
+        expectTypeOf(table.getStickyEndRows()).toEqualTypeOf<RowData[]>();
+        expectTypeOf(table.getStickyEndRowCount()).toEqualTypeOf<number>();
+        expectTypeOf(table.getStickyEndRowElement(0)).toEqualTypeOf<HTMLElement | null>();
     });
 
     it('TYPE-06: the constructor argument is optional', () => {

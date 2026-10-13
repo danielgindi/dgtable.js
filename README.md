@@ -13,6 +13,7 @@ A high-performance virtual table component for vanilla JavaScript.
 - **Flexible Column Widths** - Mix absolute, relative, and auto-calculated widths
 - **Cell Preview** - Hover tooltips for truncated cell content
 - **Sticky Columns** - Pin columns to the start or end of the table
+- **Sticky End Rows** - Pin totals, summary or control rows to the bottom of the table
 - **RTL Support** - Native right-to-left language support
 - **Variable Row Height** - Support for rows with different heights
 - **Filtering** - Built-in filtering with custom filter function support
@@ -144,6 +145,9 @@ By default, if the visible columns do not reach the table edge, the last visible
 | Option | Type | Description |
 |--------|------|-------------|
 | `cellFormatter` | `(value: unknown, columnName: string, rowData: RowData) => string` | Custom cell HTML renderer |
+| `stickyEndRows` | `RowData[]` | Rows pinned to the bottom of the table viewport. See [Sticky End Rows](#sticky-end-rows) |
+| `stickyEndRowFormatter` | `(value: unknown, columnName: string, rowData: RowData, stickyRowIndex: number) => string` | Cell HTML renderer for the sticky end rows. Falls back to `cellFormatter` |
+| `stickyEndRowsMode` | `'sticky' \| 'fixed'` | Placement of the sticky end rows (default `'sticky'`). See [Sticky End Rows](#sticky-end-rows) |
 | `headerCellFormatter` | `(label: string, columnName: string) => string` | Custom header cell renderer |
 | `filter` | `(row: RowData, args: unknown) => boolean` | Custom filter function |
 | `sortedColumns` | `(string \| ColumnSortOptions)[]` | Initial sort configuration; strings sort ascending. Rows given to `setRows()` are only sorted with `setRows(rows, true)`. (`sortColumn` is accepted as a legacy alias.) |
@@ -195,7 +199,7 @@ table.getColumnsConfig(): Record<string, ColumnOptions> // Get all columns confi
 
 ```typescript
 table.sort(column: string, descending, add=false)                   // Sort by column
-table.resort()                                                      // Re-apply current sort
+table.resort(render=true)                                           // Re-apply current sort
 table.setSortedColumns(columns: SerializedColumnSort[])             // Set current sort state
 table.getSortedColumns(): SerializedColumnSort[]                    // Get current sort state
 table.setMaxColumnSortCount(count)                                  // Set max sortable columns
@@ -220,6 +224,20 @@ table.getIndexForRow(rowData)              // Find row index
 table.getIndexForFilteredRow(rowData)      // Find filtered row index
 table.getRowElement(rowIndex)              // Get row DOM element
 table.getRowYPos(rowIndex)                 // Get row Y position
+```
+
+#### Sticky End Rows
+
+```javascript
+table.setStickyEndRows(rows, render=true)       // Replace the sticky end rows ([] or null removes them)
+table.getStickyEndRows(): RowData[]             // Get the sticky end rows
+table.getStickyEndRowCount(): number            // Get the number of sticky end rows
+table.getStickyEndRowElement(index)             // Get a sticky end row DOM element
+table.refreshStickyEndRows()                    // Re-create the sticky end row elements
+table.refreshStickyEndRow(index)                // Re-create one sticky end row element (e.g. totals), keeping the others
+table.setStickyEndRowFormatter(fn, render=true) // Set the sticky end row formatter (null falls back to the cell formatter)
+table.setStickyEndRowsMode('sticky' | 'fixed')  // Set the placement of the sticky end rows
+table.getStickyEndRowsMode()                    // Get the placement of the sticky end rows
 ```
 
 #### Filtering
@@ -372,6 +390,29 @@ interface RowClickEvent {
 }
 ```
 
+#### Sticky End Row Events
+
+| Event | Data Type | Description |
+|-------|-----------|-------------|
+| `stickyendrowcreate` | `StickyEndRowCreateEvent` | Sticky end row element created |
+| `stickyendrowclick` | `StickyEndRowClickEvent` | Sticky end row clicked |
+| `stickyendrowdestroy` | `HTMLElement` | Sticky end row element about to be removed |
+
+```typescript
+interface StickyEndRowCreateEvent {
+    stickyRowIndex: number;    // Index among the sticky end rows
+    rowEl: HTMLElement;        // The row DOM element
+    rowData: RowData;          // The row data object
+}
+
+interface StickyEndRowClickEvent {
+    event: MouseEvent;         // The original mouse event
+    stickyRowIndex: number;    // Index among the sticky end rows
+    rowEl: HTMLElement;        // The row DOM element
+    rowData: RowData;          // The row data object
+}
+```
+
 #### Cell Preview Events
 
 | Event | Data Type | Description |
@@ -386,8 +427,9 @@ interface RowClickEvent {
 interface CellPreviewEvent {
     el: Element | null;        // Preview element's first child
     name: string;              // Column name
-    rowIndex: number | null;   // Row index (null for header)
+    rowIndex: number | null;   // Row index (null for header and sticky end rows)
     rowData: RowData | null;   // Row data (null for header)
+    stickyEndRowIndex: number | null; // Index among the sticky end rows (null otherwise)
     cell: HTMLElement;         // Original cell element
     cellEl: HTMLElement;       // Cell's inner element
 }
@@ -395,16 +437,18 @@ interface CellPreviewEvent {
 interface CellPreviewDestroyEvent {
     el: ChildNode | null;      // Preview element's first child
     name: string;              // Column name
-    rowIndex: number | null;   // Row index (null for header)
+    rowIndex: number | null;   // Row index (null for header and sticky end rows)
     rowData: RowData | null;   // Row data (null for header)
+    stickyEndRowIndex: number | null; // Index among the sticky end rows (null otherwise)
     cell: HTMLElement | null;  // Original cell element
     cellEl: ChildNode | null;  // Cell's inner element
 }
 
 interface CellHoverOverflowEvent {
     name: string;              // Column name
-    rowIndex: number | null;   // Row index (null for header)
+    rowIndex: number | null;   // Row index (null for header and sticky end rows)
     rowData: RowData | null;   // Row data (null for header)
+    stickyEndRowIndex: number | null; // Index among the sticky end rows (null otherwise)
     cell: HTMLElement;         // Original cell element
     cellEl: HTMLElement;       // Cell's inner element (the element whose content overflows)
 }
@@ -519,6 +563,75 @@ table.on('cellhoveroverflow', (data) => {
 
 ---
 
+## Sticky End Rows
+
+Sticky end rows are pinned to the bottom of the table viewport, for things like totals, averages,
+or controls such as per-column filter inputs. They:
+
+- Are separate from the table data: never sorted, filtered or virtualized, and not counted by
+  row indices, `getRowCount()` or the `rowcreate`/`rowclick`/`rowdestroy` events (they have
+  `stickyendrowcreate`/`stickyendrowclick`/`stickyendrowdestroy` instead).
+- Use the same columns as the body: widths, order, visibility, sticky columns and RTL all apply,
+  and they scroll horizontally with the body.
+- Have two placement modes (`stickyEndRowsMode`), which only differ when the body rows do not
+  fill the viewport. Either way they stay in place while the body scrolls vertically.
+  - `'sticky'` (default): right after the last body row, sticking to the bottom of the viewport
+    when the body is taller than it.
+  - `'fixed'`: always at the bottom of the viewport, with empty space above them when the body
+    rows do not fill it. It works by giving the body a minimum height of "viewport height minus
+    the rows' height", tracked with a `ResizeObserver`. It needs a table `height`; without one it
+    lays out like `'sticky'`.
+- Are rendered inside the scroll element, in a `.dgtable-sticky-end-rows` container right after
+  `.dgtable-body`, with `position: sticky; bottom: 0`. Each row has the `dgtable-row` and
+  `dgtable-sticky-end-row` classes, so style them through those. The container gets
+  `z-index: 1` unless your stylesheet gives it one.
+- Are kept across renders: changing, sorting or filtering the data, resizing or scrolling only
+  updates their layout, so controls in them keep their value and focus. They are re-created
+  (with `stickyendrowdestroy`/`stickyendrowcreate`) only by `setStickyEndRows()`,
+  `refreshStickyEndRows()`, `refreshStickyEndRow(index)` (that row only),
+  `setStickyEndRowFormatter()`, `setColumns()`, adding, removing, showing or hiding columns,
+  moving columns in a virtual table, and `setCellFormatter()` when they have no
+  `stickyEndRowFormatter` of their own. Bind control listeners in `stickyendrowcreate`.
+- Get no cell preview on cells that contain controls (`input`, `select`, `textarea`, `button` or
+  `contenteditable`), since the preview would be a copy of them covering the real ones.
+  `cellhoveroverflow` still fires for those cells.
+- To keep a totals row up to date next to a row of controls, refresh just the totals row with
+  `refreshStickyEndRow(index)`, so the controls' row is left alone.
+
+```javascript
+// Sums a column over the rows that pass the current filter
+const sum = (table, column) => {
+    let total = 0;
+    for (let i = 0; i < table.getFilteredRowCount(); i++)
+        total += Number(table.getDataForFilteredRow(i)[column]) || 0;
+    return total;
+};
+
+const table = new DGTable({
+    columns: [
+        { name: 'product' },
+        { name: 'qty', width: 80 },
+        { name: 'price', width: 100 },
+    ],
+    height: 400,
+    stickyEndRows: [{ product: 'Total' }], // index 0
+    stickyEndRowFormatter: (value, columnName) => {
+        if (columnName === 'qty')
+            return String(sum(table, 'qty'));
+
+        return value == null ? '' : String(value);
+    },
+});
+
+// Recompute the totals whenever the data or the filter changes
+for (const event of ['addrows', 'filter', 'filterclear'])
+    table.on(event, () => table.refreshStickyEndRow(0));
+
+// removeRows(), removeRow() and refreshRow() emit no event: refresh after calling them
+table.removeRow(3);
+table.refreshStickyEndRow(0);
+```
+
 ## TypeScript Types
 
 The library exports the following types for TypeScript users:
@@ -534,6 +647,8 @@ import type {
     
     // Function types
     CellFormatter,         // Cell formatter function
+    StickyEndRowFormatter, // Sticky end row cell formatter function
+    StickyEndRowsMode,     // 'sticky' | 'fixed'
     HeaderCellFormatter,   // Header cell formatter function
     FilterFunction,        // Filter function
     ComparatorFunction,    // Row comparator function
@@ -552,6 +667,8 @@ import type {
     ColumnResizeAreaDoubleClickEvent, // 'columnresizeareadoubleclick' event data
     AddRowsEvent,          // 'addrows' event data
     SortEvent,             // 'sort' event data
+    StickyEndRowCreateEvent, // 'stickyendrowcreate' event data
+    StickyEndRowClickEvent,  // 'stickyendrowclick' event data
     
     // Event map (for advanced typing)
     DGTableEventMap,       // Maps event names to their data types

@@ -70,6 +70,7 @@ describe('events API', () => {
             'render', 'renderskeleton', 'rowcreate', 'rowclick', 'rowdestroy', 'cellpreview', 'cellpreviewdestroy',
             'cellhoveroverflow', 'headerrowcreate', 'headercontextmenu', 'addcolumn', 'removecolumn', 'movecolumn',
             'showcolumn', 'hidecolumn', 'columnwidth', 'columnresizeareadoubleclick', 'addrows', 'sort', 'filter', 'filterclear',
+            'stickyendrowcreate', 'stickyendrowclick', 'stickyendrowdestroy',
         ];
         for (const name of names) {
             table.on(name, (value: unknown) => {
@@ -80,6 +81,9 @@ describe('events API', () => {
 
         table.setRows([{ a: 'a long value that overflows', b: 1, c: 1 }, { a: 'x', b: 2, c: 2 }]);
         renderedRows(table)[0].click();
+        table.setStickyEndRows([{ a: 'total', b: 3, c: 3 }]);
+        table.getStickyEndRowElement(0)!.click();
+        table.setStickyEndRows([]);
         hover(bodyCell(table, 0, 'a'));
         unhover(bodyCell(table, 0, 'a'));
         mouse('mouseup', headerCell(table, 'b'), 10, 10, 2);
@@ -104,9 +108,12 @@ describe('events API', () => {
         expect(Object.keys(seen.get('rowcreate') as object).sort()).toEqual(['filteredRowIndex', 'rowData', 'rowEl', 'rowIndex']);
         expect(Object.keys(seen.get('rowclick') as object).sort()).toEqual(['event', 'filteredRowIndex', 'rowData', 'rowEl', 'rowIndex']);
         expect(seen.get('rowdestroy')).toBeInstanceOf(HTMLElement);
-        expect(Object.keys(seen.get('cellpreview') as object).sort()).toEqual(['cell', 'cellEl', 'el', 'name', 'rowData', 'rowIndex']);
-        expect(Object.keys(seen.get('cellpreviewdestroy') as object).sort()).toEqual(['cell', 'cellEl', 'el', 'name', 'rowData', 'rowIndex']);
-        expect(Object.keys(seen.get('cellhoveroverflow') as object).sort()).toEqual(['cell', 'cellEl', 'name', 'rowData', 'rowIndex']);
+        expect(Object.keys(seen.get('cellpreview') as object).sort()).toEqual(['cell', 'cellEl', 'el', 'name', 'rowData', 'rowIndex', 'stickyEndRowIndex']);
+        expect(Object.keys(seen.get('cellpreviewdestroy') as object).sort()).toEqual(['cell', 'cellEl', 'el', 'name', 'rowData', 'rowIndex', 'stickyEndRowIndex']);
+        expect(Object.keys(seen.get('cellhoveroverflow') as object).sort()).toEqual(['cell', 'cellEl', 'name', 'rowData', 'rowIndex', 'stickyEndRowIndex']);
+        expect(Object.keys(seen.get('stickyendrowcreate') as object).sort()).toEqual(['rowData', 'rowEl', 'stickyRowIndex']);
+        expect(Object.keys(seen.get('stickyendrowclick') as object).sort()).toEqual(['event', 'rowData', 'rowEl', 'stickyRowIndex']);
+        expect(seen.get('stickyendrowdestroy')).toBeInstanceOf(HTMLElement);
         expect(seen.get('headerrowcreate')).toBeInstanceOf(HTMLElement);
         expect(Object.keys(seen.get('headercontextmenu') as object).sort()).toEqual(['bounds', 'columnName', 'pageX', 'pageY']);
         expect(Object.keys((seen.get('headercontextmenu') as { bounds: object }).bounds).sort()).toEqual(['height', 'left', 'top', 'width']);

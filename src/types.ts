@@ -55,6 +55,21 @@ export type RowData = Record<string, unknown>
 export type CellFormatter = (value: unknown, columnName: string, rowData: RowData) => string;
 
 /**
+ * Sticky end row cell formatter function.
+ * Like `CellFormatter`, plus the index of the row among the sticky end rows.
+ */
+export type StickyEndRowFormatter = (value: unknown, columnName: string, rowData: RowData, stickyRowIndex: number) => string;
+
+/**
+ * How the sticky end rows are placed:
+ * - `'sticky'`: right after the last body row, sticking to the bottom of the viewport when the
+ *   body is taller than it.
+ * - `'fixed'`: always at the bottom of the viewport, leaving empty space above them when the
+ *   body rows do not fill it.
+ */
+export type StickyEndRowsMode = 'sticky' | 'fixed';
+
+/**
  * Header cell formatter function
  */
 export type HeaderCellFormatter = (label: string, columnName: string) => string;
@@ -320,6 +335,31 @@ export interface DGTableOptions {
      * @default null
      */
     filter?: FilterFunction | null;
+
+    /**
+     * Rows pinned to the bottom of the table viewport, such as totals or summary rows.
+     * They are rendered with the same columns and cell formatter as the body rows, scroll
+     * horizontally with the body, and stay visible while the body scrolls vertically.
+     * They are separate from the table data: never sorted, filtered or virtualized,
+     * and not counted by row indices or `getRowCount()`.
+     * @default []
+     */
+    stickyEndRows?: RowData[] | null;
+
+    /**
+     * Formatter used to produce the cell HTML of the sticky end rows, e.g. for totals or
+     * controls. Falls back to `cellFormatter` when not set.
+     * Return an empty string for cells that should stay empty.
+     * @default null
+     */
+    stickyEndRowFormatter?: StickyEndRowFormatter | null;
+
+    /**
+     * Placement of the sticky end rows. Either way they stay in place while the body scrolls
+     * vertically. `'fixed'` only differs from `'sticky'` when the table has a height (`height`).
+     * @default "sticky"
+     */
+    stickyEndRowsMode?: StickyEndRowsMode | null;
 }
 
 // ============================================================================
@@ -348,13 +388,35 @@ export interface RowClickEvent {
 }
 
 /**
+ * Event data for 'stickyendrowcreate' event
+ */
+export interface StickyEndRowCreateEvent {
+    stickyRowIndex: number;
+    rowEl: HTMLElement;
+    rowData: RowData;
+}
+
+/**
+ * Event data for 'stickyendrowclick' event
+ */
+export interface StickyEndRowClickEvent {
+    event: MouseEvent;
+    stickyRowIndex: number;
+    rowEl: HTMLElement;
+    rowData: RowData;
+}
+
+/**
  * Event data for 'cellpreview' event
  */
 export interface CellPreviewEvent {
     el: Element | null;
     name: string;
+    /** `null` for header cells and sticky end rows */
     rowIndex: number | null;
     rowData: RowData | null;
+    /** Index in the sticky end rows when the cell belongs to one, otherwise `null` */
+    stickyEndRowIndex: number | null;
     cell: HTMLElement;
     cellEl: HTMLElement;
 }
@@ -365,8 +427,11 @@ export interface CellPreviewEvent {
 export interface CellPreviewDestroyEvent {
     el: ChildNode | null;
     name: string;
+    /** `null` for header cells and sticky end rows */
     rowIndex: number | null;
     rowData: RowData | null;
+    /** Index in the sticky end rows when the cell belongs to one, otherwise `null` */
+    stickyEndRowIndex: number | null;
     cell: HTMLElement | null;
     cellEl: ChildNode | null;
 }
@@ -382,8 +447,11 @@ export interface CellPreviewDestroyEvent {
  */
 export interface CellHoverOverflowEvent {
     name: string;
+    /** `null` for header cells and sticky end rows */
     rowIndex: number | null;
     rowData: RowData | null;
+    /** Index in the sticky end rows when the cell belongs to one, otherwise `null` */
+    stickyEndRowIndex: number | null;
     cell: HTMLElement;
     cellEl: HTMLElement;
 }
@@ -459,6 +527,11 @@ export interface DGTableEventMap {
     'rowcreate': RowCreateEvent;
     'rowclick': RowClickEvent;
     'rowdestroy': HTMLElement;
+
+    // Sticky end row events
+    'stickyendrowcreate': StickyEndRowCreateEvent;
+    'stickyendrowclick': StickyEndRowClickEvent;
+    'stickyendrowdestroy': HTMLElement;
 
     // Cell preview events
     'cellpreview': CellPreviewEvent;

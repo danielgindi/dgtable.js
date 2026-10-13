@@ -278,21 +278,58 @@ export function getHtmlForCell(
     rowData: RowData,
     column: InternalColumn
 ): string {
-    let dataPath = column.dataPath;
+    const formatter = options.cellFormatter;
+    const colValue = getCellValue(rowData, column);
+
+    return formatCellContent(column, !!(formatter as unknown as Record<symbol, boolean>)[IsSafeSymbol],
+        () => formatter(colValue, column.name, rowData));
+}
+
+/**
+ * Get HTML content for a cell of a sticky end row.
+ * Uses `stickyEndRowFormatter`, falling back to `cellFormatter`.
+ */
+export function getHtmlForStickyEndRowCell(
+    options: DGTableInternalOptions,
+    rowData: RowData,
+    column: InternalColumn,
+    stickyRowIndex: number
+): string {
+    const formatter = options.stickyEndRowFormatter;
+    if (!formatter)
+        return getHtmlForCell(options, rowData, column);
+
+    const colValue = getCellValue(rowData, column);
+
+    return formatCellContent(column, false,
+        () => formatter(colValue, column.name, rowData, stickyRowIndex));
+}
+
+/**
+ * Resolve a cell's value through the column's data path
+ */
+function getCellValue(rowData: RowData, column: InternalColumn): unknown {
+    const dataPath = column.dataPath;
     let colValue: unknown = rowData[dataPath[0]];
     for (let dataPathIndex = 1; dataPathIndex < dataPath.length; dataPathIndex++) {
         if (colValue == null) break;
         colValue = colValue && (colValue as Record<string, unknown>)[dataPath[dataPathIndex]];
     }
 
-    const formatter = options.cellFormatter;
+    return colValue;
+}
+
+/**
+ * Run a formatter, guarding against user formatter exceptions and empty results
+ */
+function formatCellContent(column: InternalColumn, isSafe: boolean, format: () => string): string {
     let content;
 
-    if ((formatter as unknown as Record<symbol, boolean>)[IsSafeSymbol]) {
-        content = formatter(colValue, column.name, rowData);
+    if (isSafe) {
+        content = format();
     } else {
         try {
-            content = formatter(colValue, column.name, rowData);
+            content = format();
         } catch (err) {
             content = '[ERROR]';
             // eslint-disable-next-line no-console

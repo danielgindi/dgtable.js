@@ -21,13 +21,19 @@ import {
 import {
     bindHeaderColumnEvents,
     unbindCellEventsForRow,
-    getHtmlForCell, onTableScrolledHorizontally,
+    getHtmlForCell,
+    getHtmlForStickyEndRowCell,
+    onTableScrolledHorizontally,
 } from './internal';
 import type { RowData } from './types';
 
 import {
-    DGTableInterface, OriginalRowIndex,
+    DGTableInterface,
+    InternalColumn,
+    OriginalRowIndex,
     RowClickEventSymbol,
+    StickyEndRowClickEventSymbol,
+    StickyEndRowsFocusState,
 } from './private_types';
 
 const nativeIndexOf = Array.prototype.indexOf;
@@ -41,6 +47,11 @@ interface HeaderCellElement extends HTMLDivElement {
     columnName?: string;
 }
 
+interface StickyEndRowElement extends HTMLDivElement {
+    stickyEndIndex?: number;
+    [StickyEndRowClickEventSymbol]?: ((event: MouseEvent) => void) | null;
+}
+
 /**
  * Setup virtual table rendering
  */
@@ -50,17 +61,13 @@ export function setupVirtualTable(table: DGTableInterface): void {
     const tableClassName = o.tableClassName;
     const rowClassName = tableClassName + '-row';
     const altRowClassName = tableClassName + '-row-alt';
-    const cellClassName = tableClassName + '-cell';
-    const stickyClassName = tableClassName + '-sticky';
 
     let visibleColumns = p.visibleColumns;
-    let colCount = visibleColumns.length;
 
     p.notifyRendererOfColumnsConfig = () => {
         visibleColumns = p.visibleColumns;
-        colCount = visibleColumns.length;
 
-        for (let colIndex = 0; colIndex < colCount; colIndex++) {
+        for (let colIndex = 0, colCount = visibleColumns.length; colIndex < colCount; colIndex++) {
             const column = visibleColumns[colIndex];
             column._finalWidth = (column.actualWidthConsideringScrollbarWidth || column.actualWidth);
         }
@@ -81,8 +88,6 @@ export function setupVirtualTable(table: DGTableInterface): void {
             const rows = p.filteredRows || p.rows;
             const isDataFiltered = !!p.filteredRows;
 
-            const isStickyColumns = p.isStickyColumns;
-
             row.className = rowClassName;
             if ((virtualIndex % 2) === 1)
                 row.className += ' ' + altRowClassName;
@@ -93,35 +98,7 @@ export function setupVirtualTable(table: DGTableInterface): void {
             (row as any).vIndex = virtualIndex;
             (row as any).index = rowIndex;
 
-            for (let colIndex = 0; colIndex < colCount; colIndex++) {
-                const column = visibleColumns[colIndex];
-                const cell = createElement('div') as CellElement;
-                cell.columnName = column.name;
-                cell.setAttribute('data-column', column.name);
-                cell.className = cellClassName;
-                cell.style.width = (column._finalWidth ?? 0) + 'px';
-                if (column.cellClasses)
-                    cell.className += ' ' + column.cellClasses;
-
-                if (column.stickyPos) {
-                    cell.className += ' ' + stickyClassName;
-                    cell.style.position = 'sticky';
-                    (cell.style as any)[column.stickyPos.absDirection] = column.stickyPos.offset + 'px';
-
-                    const isStickySide = isStickyColumns?.get(colIndex);
-                    if (isStickySide === 'start' && !p.lastIsRtl || isStickySide === 'end' && p.lastIsRtl)
-                        cell.classList.add('is-sticky-left');
-                    else if (isStickySide === 'start' && p.lastIsRtl || isStickySide === 'end' && !p.lastIsRtl)
-                        cell.classList.add('is-sticky-right');
-                }
-
-                p._bindCellHoverIn(cell);
-
-                const cellInner = cell.appendChild(createElement('div'));
-                cellInner.innerHTML = getHtmlForCell(o, rowData, column);
-
-                row.appendChild(cell);
-            }
+            appendRowCells(table, row, visibleColumns, column => getHtmlForCell(o, rowData, column));
 
             row.addEventListener('click', (row as any)[RowClickEventSymbol] = (event: MouseEvent) => {
                 table.emit('rowclick', {
@@ -155,6 +132,470 @@ export function setupVirtualTable(table: DGTableInterface): void {
     p.virtualListHelper.setCount((p.filteredRows ?? p.rows).length);
 
     p.notifyRendererOfColumnsConfig();
+}
+
+/**
+ * Create the cells of a body row or a sticky end row, and append them to the row element.
+ */
+function appendRowCells(
+    table: DGTableInterface,
+    row: HTMLElement,
+    columns: InternalColumn[],
+    getHtml: (column: InternalColumn) => string,
+): void {
+    const p = table._p, o = table._o;
+
+    const tableClassName = o.tableClassName;
+    const cellClassName = tableClassName + '-cell';
+
+    for (let colIndex = 0, colCount = columns.length; colIndex < colCount; colIndex++) {
+        const column = columns[colIndex];
+        const cell = createElement('div') as CellElement;
+        cell.columnName = column.name;
+        cell.setAttribute('data-column', column.name);
+        cell.className = cellClassName;
+        cell.style.width = (column._finalWidth ?? 0) + 'px';
+        if (column.cellClasses)
+            cell.className += ' ' + column.cellClasses;
+
+        if (column.stickyPos)
+            applyCellStickyLayout(table, cell, column, colIndex);
+
+        p._bindCellHoverIn(cell);
+
+        const cellInner = cell.appendChild(createElement('div'));
+        cellInner.innerHTML = getHtml(column);
+
+        row.appendChild(cell);
+    }
+}
+
+/**
+ * Apply (or clear) a column's sticky position, and the sticky overlap markers, on a body cell.
+ */
+function applyCellStickyLayout(table: DGTableInterface, cell: HTMLElement, column: InternalColumn, colIndex: number): void {
+    const p = table._p;
+    const stickyClassName = table._o.tableClassName + '-sticky';
+    const stickyPos = column.stickyPos;
+
+    cell.style.left = '';
+    cell.style.right = '';
+
+    if (!stickyPos) {
+        cell.classList.remove(stickyClassName, 'is-sticky-left', 'is-sticky-right');
+        cell.style.position = '';
+        return;
+    }
+
+    cell.classList.add(stickyClassName);
+    cell.style.position = 'sticky';
+    cell.style[stickyPos.absDirection] = stickyPos.offset + 'px';
+
+    const isStickySide = p.isStickyColumns?.get(colIndex);
+    const isLeft = isStickySide === 'start' && !p.lastIsRtl || isStickySide === 'end' && p.lastIsRtl;
+    const isRight = isStickySide === 'start' && p.lastIsRtl || isStickySide === 'end' && !p.lastIsRtl;
+    cell.classList.toggle('is-sticky-left', isLeft);
+    cell.classList.toggle('is-sticky-right', isRight);
+}
+
+/**
+ * Call `callback` for every rendered row element: the body rows, then the sticky end rows.
+ *
+ * Sticky end rows are included only while they are in place and match the visible columns.
+ * Otherwise (e.g. during a re-render after a column change) they still have the old cells,
+ * and are re-created by `updateStickyEndRows()` anyway.
+ */
+export function forEachRenderedRow(table: DGTableInterface, callback: (rowEl: HTMLElement) => void): void {
+    const p = table._p;
+
+    for (let rowEl = p.tbody?.firstElementChild; rowEl; rowEl = rowEl.nextElementSibling) {
+        callback(rowEl as HTMLElement);
+    }
+
+    if (isStickyEndRowsInSync(table))
+        forEachStickyEndRow(table, callback);
+}
+
+/**
+ * Call `callback` for every rendered sticky end row element
+ */
+export function forEachStickyEndRow(table: DGTableInterface, callback: (rowEl: HTMLElement) => void): void {
+    for (let rowEl = table._p.stickyEndRowsEl?.firstElementChild; rowEl; rowEl = rowEl.nextElementSibling) {
+        callback(rowEl as HTMLElement);
+    }
+}
+
+/**
+ * Whether the sticky end rows are in the scroll element and their cells match the visible columns
+ */
+export function isStickyEndRowsInSync(table: DGTableInterface): boolean {
+    const p = table._p;
+    const container = p.stickyEndRowsEl;
+
+    return !!container && !!p.table && container.parentNode === p.table &&
+        !p.stickyEndRowsNeedRendering &&
+        p.stickyEndRowsColumnsKey === getStickyEndRowsColumnsKey(p.visibleColumns);
+}
+
+/**
+ * After the sticky end rows changed height: the vertical scrollbar may have appeared or disappeared
+ */
+export function updateAfterStickyEndRowsResize(table: DGTableInterface): void {
+    const p = table._p;
+
+    const scrollbarWidth = p.scrollbarWidth;
+    updateLastCellWidthFromScrollbar(table);
+    if (p.scrollbarWidth !== scrollbarWidth)
+        updateTableWidth(table, false);
+}
+
+/**
+ * Bring the sticky end rows up to date with the table.
+ *
+ * The rows live in a container inside the scroll element, right after the body, which sticks
+ * to its bottom. They are kept across renders, so controls in them keep their state and focus:
+ * they are re-created only when their data, their formatter or the visible columns changed
+ * (or when `force` is set), and otherwise only their cells' layout is updated in place.
+ */
+export function updateStickyEndRows(table: DGTableInterface, force = false): void {
+    const p = table._p, o = table._o;
+
+    if (!p.table || !p.tbody)
+        return;
+
+    const rows = p.stickyEndRows;
+
+    if (!rows.length) {
+        p.stickyEndRowsNeedRendering = false;
+        unrenderStickyEndRows(table);
+        p.stickyEndRowsEl?.remove();
+        p.stickyEndRowsEl = null;
+        p.stickyEndRowsFocus = null;
+        applyStickyEndRowsMode(table);
+        return;
+    }
+
+    let container = p.stickyEndRowsEl;
+    if (!container) {
+        container = p.stickyEndRowsEl = createElement('div');
+        container.className = o.tableClassName + '-sticky-end-rows';
+        setCssProps(container, {
+            // A formatting context of its own: floating cells overflowing the last body row
+            // can not push into it, and its own cells' overflow stays inside the pinned area.
+            display: 'flow-root',
+            position: 'sticky',
+            bottom: '0',
+        });
+    }
+
+    if (container.parentNode !== p.table || container.previousElementSibling !== p.tbody) {
+        p.table.insertBefore(container, p.tbody.nextSibling);
+
+        // Paint above the body rows and their sticky cells, unless the stylesheet says otherwise
+        container.style.zIndex = '';
+        if (getComputedStyle(container).zIndex === 'auto')
+            container.style.zIndex = '1';
+    }
+
+    container.style.minWidth = p.tbody.style.minWidth;
+
+    const columnsKey = getStickyEndRowsColumnsKey(p.visibleColumns);
+
+    if (force || p.stickyEndRowsNeedRendering || columnsKey !== p.stickyEndRowsColumnsKey ||
+        container.children.length !== rows.length) {
+        renderStickyEndRowElements(table, container, columnsKey);
+    } else {
+        syncStickyEndRowsLayout(table, container);
+    }
+
+    applyStickyEndRowsMode(table);
+    restoreStickyEndRowsFocus(table);
+}
+
+/**
+ * Apply the sticky end rows placement mode.
+ *
+ * Both modes keep the rows at the bottom of the viewport while the body scrolls. In `'fixed'` mode
+ * the body also gets a minimum height of "viewport height minus the rows' height", so the rows
+ * stay at the bottom when the body rows do not fill the viewport. The percentage resolves against
+ * the scroll element's content box, so it follows the horizontal scrollbar coming and going; only
+ * the rows' own height needs tracking, which a ResizeObserver does.
+ */
+export function applyStickyEndRowsMode(table: DGTableInterface): void {
+    const p = table._p;
+    const container = getFixedStickyEndRowsContainer(table);
+
+    updateFixedStickyEndRowsMinHeight(table, container);
+
+    if (!container || typeof ResizeObserver !== 'function') {
+        disconnectStickyEndRowsResizeObserver(table);
+        return;
+    }
+
+    let observer = p.stickyEndRowsResizeObserver;
+    if (!observer) {
+        // Only updates the body's minimum height: (re-)observing from here would notify again, endlessly
+        observer = p.stickyEndRowsResizeObserver = new ResizeObserver(() => {
+            if (p.stickyEndRowsResizeObserver === observer)
+                updateFixedStickyEndRowsMinHeight(table, getFixedStickyEndRowsContainer(table));
+        });
+    }
+
+    if (p.stickyEndRowsObservedEl !== container) {
+        observer.disconnect();
+        observer.observe(container);
+        p.stickyEndRowsObservedEl = container;
+    }
+}
+
+export function disconnectStickyEndRowsResizeObserver(table: DGTableInterface): void {
+    const p = table._p;
+
+    p.stickyEndRowsResizeObserver?.disconnect();
+    p.stickyEndRowsResizeObserver = null;
+    p.stickyEndRowsObservedEl = null;
+}
+
+/**
+ * The sticky end rows container when it is placed in `'fixed'` mode, otherwise null
+ */
+function getFixedStickyEndRowsContainer(table: DGTableInterface): HTMLElement | null {
+    const p = table._p, o = table._o;
+    const container = p.stickyEndRowsEl;
+
+    if (o.stickyEndRowsMode !== 'fixed' || !o.height || !container || !p.table || container.parentNode !== p.table)
+        return null;
+
+    return container;
+}
+
+function updateFixedStickyEndRowsMinHeight(table: DGTableInterface, container: HTMLElement | null): void {
+    const tbody = table._p.tbody;
+    if (!tbody)
+        return;
+
+    const minHeight = container
+        ? `max(1px, calc(100% - ${getLayoutHeight(container)}px))`
+        : '1px';
+
+    if (tbody.style.minHeight !== minHeight)
+        tbody.style.minHeight = minHeight;
+}
+
+/**
+ * The border-box height in CSS pixels, unaffected by transforms (unlike getBoundingClientRect)
+ * and not rounded (unlike offsetHeight)
+ */
+function getLayoutHeight(el: HTMLElement): number {
+    const style = getComputedStyle(el);
+    let height = parseFloat(style.height) || 0;
+
+    if (style.boxSizing !== 'border-box') {
+        height += (parseFloat(style.paddingTop) || 0) + (parseFloat(style.paddingBottom) || 0) +
+            (parseFloat(style.borderTopWidth) || 0) + (parseFloat(style.borderBottomWidth) || 0);
+    }
+
+    return height;
+}
+
+/**
+ * Identifies the visible columns (and their order) the sticky end rows were rendered with
+ */
+export function getStickyEndRowsColumnsKey(columns: InternalColumn[]): string {
+    return columns.map(column => column.name).join('\u0000');
+}
+
+/**
+ * Re-create the sticky end row elements
+ */
+function renderStickyEndRowElements(table: DGTableInterface, container: HTMLElement, columnsKey: string): void {
+    const p = table._p;
+
+    p.stickyEndRowsNeedRendering = false;
+    p.stickyEndRowsColumnsKey = columnsKey;
+    p.stickyEndRowsFocus = null;
+    unrenderStickyEndRows(table);
+
+    const rows = p.stickyEndRows;
+
+    for (let stickyRowIndex = 0; stickyRowIndex < rows.length; stickyRowIndex++) {
+        const row = createStickyEndRowElement(table, stickyRowIndex);
+        container.appendChild(row);
+        emitStickyEndRowCreate(table, row);
+    }
+}
+
+/**
+ * Re-create a single sticky end row element, leaving the others (and their controls) alone.
+ * Returns false when the rows are not rendered in a way that allows it.
+ */
+export function rerenderStickyEndRow(table: DGTableInterface, stickyRowIndex: number): boolean {
+    const p = table._p;
+    const container = p.stickyEndRowsEl;
+
+    if (!container || p.stickyEndRowsNeedRendering || container.children.length !== p.stickyEndRows.length)
+        return false;
+
+    const oldRow = container.children[stickyRowIndex] as StickyEndRowElement | undefined;
+    if (!oldRow)
+        return false;
+
+    const row = createStickyEndRowElement(table, stickyRowIndex);
+    releaseStickyEndRow(table, oldRow, row);
+    emitStickyEndRowCreate(table, row);
+
+    return true;
+}
+
+/**
+ * Create the element of a sticky end row, with its cells and click handler
+ */
+function createStickyEndRowElement(table: DGTableInterface, stickyRowIndex: number): StickyEndRowElement {
+    const p = table._p, o = table._o;
+
+    const tableClassName = o.tableClassName;
+    const rowData = p.stickyEndRows[stickyRowIndex];
+    const row = createElement('div') as StickyEndRowElement;
+
+    row.className = tableClassName + '-row ' + tableClassName + '-sticky-end-row';
+    if ((stickyRowIndex % 2) === 1)
+        row.className += ' ' + tableClassName + '-row-alt';
+
+    row.stickyEndIndex = stickyRowIndex;
+
+    appendRowCells(table, row, p.visibleColumns, column => getHtmlForStickyEndRowCell(o, rowData, column, stickyRowIndex));
+
+    row.addEventListener('click', row[StickyEndRowClickEventSymbol] = (event: MouseEvent) => {
+        table.emit('stickyendrowclick', {
+            event: event,
+            stickyRowIndex: stickyRowIndex,
+            rowEl: row,
+            rowData: rowData,
+        });
+    });
+
+    return row;
+}
+
+function emitStickyEndRowCreate(table: DGTableInterface, row: StickyEndRowElement): void {
+    const stickyRowIndex = row.stickyEndIndex!;
+
+    table.emit('stickyendrowcreate', {
+        stickyRowIndex: stickyRowIndex,
+        rowEl: row,
+        rowData: table._p.stickyEndRows[stickyRowIndex],
+    });
+}
+
+/**
+ * Unbind a sticky end row, remove it (or swap it with `replacement`), and emit 'stickyendrowdestroy'
+ */
+function releaseStickyEndRow(table: DGTableInterface, row: StickyEndRowElement, replacement?: HTMLElement): void {
+    const clickHandler = row[StickyEndRowClickEventSymbol];
+    if (clickHandler) {
+        row.removeEventListener('click', clickHandler);
+        row[StickyEndRowClickEventSymbol] = null;
+    }
+
+    unbindCellEventsForRow(table, row);
+
+    if (replacement)
+        row.replaceWith(replacement);
+    else
+        row.remove();
+
+    table.emit('stickyendrowdestroy', row);
+}
+
+/**
+ * Update the widths and sticky positions of the existing sticky end row cells, keeping their content
+ */
+function syncStickyEndRowsLayout(table: DGTableInterface, container: HTMLElement): void {
+    const columns = table._p.visibleColumns;
+
+    for (let rowEl = container.firstElementChild; rowEl; rowEl = rowEl.nextElementSibling) {
+        const cells = rowEl.children;
+
+        for (let colIndex = 0, colCount = columns.length; colIndex < colCount; colIndex++) {
+            const column = columns[colIndex];
+            const cell = cells[colIndex] as HTMLElement;
+
+            cell.style.width = (column._finalWidth ?? 0) + 'px';
+            applyCellStickyLayout(table, cell, column, colIndex);
+        }
+    }
+}
+
+/**
+ * Detach the sticky end rows container from the scroll element, keeping its rows, so it can be
+ * moved into a re-created scroll element. Remembers the focused control in it, if any.
+ */
+export function detachStickyEndRows(table: DGTableInterface): void {
+    const p = table._p;
+    const container = p.stickyEndRowsEl;
+
+    if (!container || !container.parentNode)
+        return;
+
+    const active = document.activeElement as HTMLElement | null;
+    if (active && active !== container && container.contains(active)) {
+        const input = active as HTMLInputElement;
+        let selectionStart: number | null = null;
+        let selectionEnd: number | null = null;
+        let selectionDirection: StickyEndRowsFocusState['selectionDirection'] = null;
+
+        try {
+            selectionStart = input.selectionStart ?? null;
+            selectionEnd = input.selectionEnd ?? null;
+            selectionDirection = input.selectionDirection ?? null;
+        } catch {
+            /* not a text control */
+        }
+
+        p.stickyEndRowsFocus = { el: active, selectionStart, selectionEnd, selectionDirection };
+    }
+
+    container.remove();
+}
+
+/**
+ * Re-focus the control that was focused when the sticky end rows were detached
+ */
+function restoreStickyEndRowsFocus(table: DGTableInterface): void {
+    const p = table._p;
+    const focus = p.stickyEndRowsFocus;
+    p.stickyEndRowsFocus = null;
+
+    if (!focus || !focus.el.isConnected || !p.stickyEndRowsEl?.contains(focus.el))
+        return;
+
+    focus.el.focus({ preventScroll: true });
+
+    if (focus.selectionStart !== null && focus.selectionEnd !== null) {
+        try {
+            (focus.el as HTMLInputElement).setSelectionRange(
+                focus.selectionStart,
+                focus.selectionEnd,
+                focus.selectionDirection ?? undefined,
+            );
+        } catch {
+            /* not a text control */
+        }
+    }
+}
+
+/**
+ * Release the rendered sticky end rows, emitting 'stickyendrowdestroy' for each.
+ * Keeps the (now empty) container in place.
+ */
+export function unrenderStickyEndRows(table: DGTableInterface): void {
+    const container = table._p.stickyEndRowsEl;
+    if (!container)
+        return;
+
+    for (let rowEl = container.firstElementChild; rowEl; rowEl = container.firstElementChild) {
+        releaseStickyEndRow(table, rowEl as StickyEndRowElement);
+    }
 }
 
 /**
@@ -200,6 +641,9 @@ export function renderSkeletonBase(table: DGTableInterface): DGTableInterface {
     p.virtualListHelper = null;
 
     if (p.table && o.virtualTable) {
+        // Keep the sticky end rows (and the state of controls in them) for the new scroll element
+        detachStickyEndRows(table);
+
         p.table.remove();
         p.table = undefined;
         p.tbody = undefined;
@@ -479,12 +923,11 @@ export function updateLastCellWidthFromScrollbar(table: DGTableInterface, force?
                 ? (absorbingColumn.actualWidth ?? 0) - p.scrollbarWidth
                 : null;
             const absorbingColWidth = (absorbingColumn.actualWidthConsideringScrollbarWidth ?? absorbingColumn.actualWidth ?? 0) + 'px';
-            const tbodyChildren = p.tbody.childNodes;
-            for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-                const row = tbodyChildren[i] as HTMLElement;
-                if (row.nodeType !== 1) continue;
-                (row.childNodes[absorbingColIndex] as HTMLElement).style.width = absorbingColWidth;
-            }
+            forEachRenderedRow(table, row => {
+                const cell = row.childNodes[absorbingColIndex] as HTMLElement | undefined;
+                if (cell)
+                    cell.style.width = absorbingColWidth;
+            });
 
             (p.headerRow.childNodes[absorbingColIndex] as HTMLElement).style.width = absorbingColWidth;
         }
@@ -508,6 +951,8 @@ export function updateTableWidth(table: DGTableInterface, parentSizeMayHaveChang
     const width = calculateTbodyWidth(table);
 
     p.tbody.style.minWidth = width + 'px';
+    if (p.stickyEndRowsEl)
+        p.stickyEndRowsEl.style.minWidth = width + 'px';
     p.headerRow.style.minWidth = (width + (p.scrollbarWidth || 0)) + 'px';
 
     p.eventsSink.remove(p.table, 'scroll');
@@ -744,9 +1189,11 @@ export function syncHorizontalStickies(table: DGTableInterface): void {
                 const cellEl = lastEndSticky[0];
                 const column = p.columns.get(cellEl.getAttribute('data-column')!);
                 const marginProp = isRtl ? 'marginRight' : 'marginLeft';
+                const endMarginProp = isRtl ? 'marginLeft' : 'marginRight';
 
                 // reset for proper calculations
                 cellEl.style[marginProp] = '';
+                cellEl.style[endMarginProp] = '';
                 cellEl.style.width = ((column.actualWidthConsideringScrollbarWidth ?? column.actualWidth ?? 0)) + 'px';
 
                 let headerScrollbarCompensation = 0;
@@ -758,8 +1205,12 @@ export function syncHorizontalStickies(table: DGTableInterface): void {
                     if (delta <= p.scrollbarWidth) {
                         headerScrollbarCompensation = Math.min(p.scrollbarWidth, Math.max(0, p.scrollbarWidth - delta + 1));
 
-                        if (headerScrollbarCompensation < p.scrollbarWidth)
+                        if (headerScrollbarCompensation < p.scrollbarWidth) {
                             cellEl.style[marginProp] = `${-headerScrollbarCompensation}px`;
+                        } else if (cellEl.nextElementSibling) {
+                            // Grows over the scrollbar gutter without pushing the header cells that follow it
+                            cellEl.style[endMarginProp] = `${-headerScrollbarCompensation}px`;
+                        }
                     }
                 }
 
@@ -798,8 +1249,7 @@ export function syncHorizontalStickies(table: DGTableInterface): void {
     if (!newStickies.length && !removeStickies.length)
         return;
 
-    let rowEl = p.tbody.firstElementChild as HTMLElement | null;
-    while (rowEl) {
+    forEachRenderedRow(table, rowEl => {
         const children = rowEl.children;
 
         for (const sticky of removeStickies)
@@ -807,9 +1257,7 @@ export function syncHorizontalStickies(table: DGTableInterface): void {
 
         for (const sticky of newStickies)
             children[sticky.index]?.classList.add(sticky.start !== p.lastIsRtl ? 'is-sticky-left' : 'is-sticky-right');
-
-        rowEl = rowEl.nextElementSibling as HTMLElement | null;
-    }
+    });
 
     p.isStickyColumns = new Map();
     for (const idx of stickiesSetStart) p.isStickyColumns.set(idx, 'start');
@@ -836,12 +1284,11 @@ export function resizeColumnElements(table: DGTableInterface, cellIndex: number)
         headerCell.style.width = ((col.actualWidthConsideringScrollbarWidth ?? col.actualWidth ?? 0) + headerScrollbarCompensation) + 'px';
 
         const width = (col.actualWidthConsideringScrollbarWidth || col.actualWidth || 0) + 'px';
-        const tbodyChildren = p.tbody.childNodes;
-        for (let i = 0, count = tbodyChildren.length; i < count; i++) {
-            const rowEl = tbodyChildren[i] as HTMLElement;
-            if (rowEl.nodeType !== 1) continue;
-            (rowEl.childNodes[cellIndex] as HTMLElement).style.width = width;
-        }
+        forEachRenderedRow(table, rowEl => {
+            const cell = rowEl.childNodes[cellIndex] as HTMLElement | undefined;
+            if (cell)
+                cell.style.width = width;
+        });
     }
 
     return table;

@@ -9,8 +9,8 @@ import { getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js'
 
 import { ColumnWidthMode } from './constants';
 import type { InternalColumn, DGTableInterface } from './private_types';
-import RowCollection from './row_collection';
-import {getHtmlForCell} from './internal';
+import type { RowData } from './types';
+import { getHtmlForCell, getHtmlForStickyEndRowCell } from './internal';
 
 const createElement = document.createElement.bind(document);
 
@@ -74,7 +74,12 @@ export function disableCssSelect(el: HTMLElement): void {
     style['user-select'] = 'none';
 }
 
-export function measureAutoFitColumnWidth(table: DGTableInterface, col: InternalColumn, rows: RowCollection | null = null): number {
+export function measureAutoFitColumnWidth(
+    table: DGTableInterface,
+    col: InternalColumn,
+    rows: ArrayLike<RowData> | null = null,
+    stickyEndRows: ArrayLike<RowData> | null = null,
+): number {
     const o = table._o;
     const tableClassName = o.tableClassName;
 
@@ -109,7 +114,7 @@ export function measureAutoFitColumnWidth(table: DGTableInterface, col: Internal
 
     let width = getElementWidth(headerCell, true, true, true) + o.columnAutoWidthExtraSize;
 
-    if (rows) {
+    if (rows || stickyEndRows) {
         const body = createElement('div');
         body.className = `${tableClassName}-body`;
         const row = createElement('div');
@@ -122,10 +127,16 @@ export function measureAutoFitColumnWidth(table: DGTableInterface, col: Internal
         body.appendChild(row);
         wrapper.appendChild(body);
 
-        for (let i = 0; i < rows.length; i++) {
-            cellInner.innerHTML = getHtmlForCell(o, rows[i], col);
+        const measure = (html: string) => {
+            cellInner.innerHTML = html;
             width = Math.max(width, getElementWidth(cell, true, true, true));
-        }
+        };
+
+        for (let i = 0; rows && i < rows.length; i++)
+            measure(getHtmlForCell(o, rows[i], col));
+
+        for (let i = 0; stickyEndRows && i < stickyEndRows.length; i++)
+            measure(getHtmlForStickyEndRowCell(o, stickyEndRows[i], col, i));
     }
 
     wrapper.remove();
