@@ -144,6 +144,35 @@ describe.each(modeLayouts)('sticky end rows ($mode; $dir, $boxSizing, virtual=$v
         expectStickyEndRowsAligned(table);
     });
 
+    it('SER-36: fractional widths keep every sticky end cell on the same line', () => {
+        const table = mount({
+            columns: Array.from({ length: 50 }, (_, index) => ({ name: 'c' + index, width: 100.03 })),
+            stickyEndRows: [{}],
+            autoFillLastColumn: false,
+        }, 1);
+
+        const expectNoWrap = () => {
+            const container = stickyEndRowsContainer(table)!;
+            const body = container.previousElementSibling!;
+            const cells = Array.from(stickyEndRows(table)[0].children);
+            const top = cells[0].getBoundingClientRect().top;
+
+            expect(container.getBoundingClientRect().width).toBe(body.getBoundingClientRect().width);
+            for (const cell of cells)
+                expect(cell.getBoundingClientRect().top).toBe(top);
+        };
+
+        expectNoWrap();
+        table.render();
+        expectNoWrap();
+        table.setColumnWidth('c0', 100.13);
+        table.refreshStickyEndRows();
+        expectNoWrap();
+        table.setStickyEndRows([]);
+        table.setStickyEndRows([{}]);
+        expectNoWrap();
+    });
+
     it('SER-04: sticky columns stick and get the overlap markers in sticky end rows too', () => {
         const table = mount();
         const startClass = isRtl(table) ? 'is-sticky-right' : 'is-sticky-left';

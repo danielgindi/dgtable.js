@@ -297,7 +297,8 @@ export function updateStickyEndRows(table: DGTableInterface, force = false): voi
             container.style.zIndex = '1';
     }
 
-    container.style.minWidth = p.tbody.style.minWidth;
+    // Keep the numeric width: reading style.minWidth can shorten its decimal representation.
+    container.style.minWidth = p.tbodyMinWidth === undefined ? '' : p.tbodyMinWidth + 'px';
 
     const columnsKey = getStickyEndRowsColumnsKey(p.visibleColumns);
 
@@ -950,6 +951,7 @@ export function updateTableWidth(table: DGTableInterface, parentSizeMayHaveChang
 
     const width = calculateTbodyWidth(table);
 
+    p.tbodyMinWidth = width;
     p.tbody.style.minWidth = width + 'px';
     if (p.stickyEndRowsEl)
         p.stickyEndRowsEl.style.minWidth = width + 'px';

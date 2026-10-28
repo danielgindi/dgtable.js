@@ -155,6 +155,7 @@ export interface DGTablePrivateState {
     headerRow?: HTMLElement;
     table?: HTMLElement;
     tbody?: HTMLElement;
+    tbodyMinWidth?: number;
     stickyEndRows: RowData[];
     stickyEndRowsEl?: HTMLElement | null;
     stickyEndRowsNeedRendering?: boolean;
