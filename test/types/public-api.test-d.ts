@@ -110,8 +110,9 @@ describe('public typings', () => {
         expectTypeOf(table.setStickyEndRows([{ a: 1 }]).refreshStickyEndRows()).toEqualTypeOf<DGTable>();
         expectTypeOf(table.setStickyEndRowFormatter(null).refreshStickyEndRow(0)).toEqualTypeOf<DGTable>();
         expectTypeOf(table.setStickyEndRowsMode('fixed')).toEqualTypeOf<DGTable>();
+        expectTypeOf(table.setStickyEndRowsMode('flow')).toEqualTypeOf<DGTable>();
         expectTypeOf(table.getStickyEndRowsMode()).toEqualTypeOf<StickyEndRowsMode>();
-        expectTypeOf<StickyEndRowsMode>().toEqualTypeOf<'sticky' | 'fixed'>();
+        expectTypeOf<StickyEndRowsMode>().toEqualTypeOf<'flow' | 'sticky' | 'fixed'>();
         expectTypeOf(table.getStickyEndRows()).toEqualTypeOf<RowData[]>();
         expectTypeOf(table.getStickyEndRowCount()).toEqualTypeOf<number>();
         expectTypeOf(table.getStickyEndRowElement(0)).toEqualTypeOf<HTMLElement | null>();

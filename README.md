@@ -145,9 +145,9 @@ By default, if the visible columns do not reach the table edge, the last visible
 | Option | Type | Description |
 |--------|------|-------------|
 | `cellFormatter` | `(value: unknown, columnName: string, rowData: RowData) => string` | Custom cell HTML renderer |
-| `stickyEndRows` | `RowData[]` | Rows pinned to the bottom of the table viewport. See [Sticky End Rows](#sticky-end-rows) |
+| `stickyEndRows` | `RowData[]` | End rows that flow after the body or stay pinned to the viewport bottom. See [Sticky End Rows](#sticky-end-rows) |
 | `stickyEndRowFormatter` | `(value: unknown, columnName: string, rowData: RowData, stickyRowIndex: number) => string` | Cell HTML renderer for the sticky end rows. Falls back to `cellFormatter` |
-| `stickyEndRowsMode` | `'sticky' \| 'fixed'` | Placement of the sticky end rows (default `'sticky'`). See [Sticky End Rows](#sticky-end-rows) |
+| `stickyEndRowsMode` | `'flow' \| 'sticky' \| 'fixed'` | Placement of the sticky end rows (default `'sticky'`). See [Sticky End Rows](#sticky-end-rows) |
 | `headerCellFormatter` | `(label: string, columnName: string) => string` | Custom header cell renderer |
 | `filter` | `(row: RowData, args: unknown) => boolean` | Custom filter function |
 | `sortedColumns` | `(string \| ColumnSortOptions)[]` | Initial sort configuration; strings sort ascending. Rows given to `setRows()` are only sorted with `setRows(rows, true)`. (`sortColumn` is accepted as a legacy alias.) |
@@ -236,7 +236,7 @@ table.getStickyEndRowElement(index)             // Get a sticky end row DOM elem
 table.refreshStickyEndRows()                    // Re-create the sticky end row elements
 table.refreshStickyEndRow(index)                // Re-create one sticky end row element (e.g. totals), keeping the others
 table.setStickyEndRowFormatter(fn, render=true) // Set the sticky end row formatter (null falls back to the cell formatter)
-table.setStickyEndRowsMode('sticky' | 'fixed')  // Set the placement of the sticky end rows
+table.setStickyEndRowsMode('flow' | 'sticky' | 'fixed') // Set the placement of the end rows
 table.getStickyEndRowsMode()                    // Get the placement of the sticky end rows
 ```
 
@@ -565,16 +565,17 @@ table.on('cellhoveroverflow', (data) => {
 
 ## Sticky End Rows
 
-Sticky end rows are pinned to the bottom of the table viewport, for things like totals, averages,
-or controls such as per-column filter inputs. They:
+End rows can flow after the body or stay pinned to the bottom of the table viewport, for things
+like totals, averages, or controls such as per-column filter inputs. They:
 
 - Are separate from the table data: never sorted, filtered or virtualized, and not counted by
   row indices, `getRowCount()` or the `rowcreate`/`rowclick`/`rowdestroy` events (they have
   `stickyendrowcreate`/`stickyendrowclick`/`stickyendrowdestroy` instead).
 - Use the same columns as the body: widths, order, visibility, sticky columns and RTL all apply,
   and they scroll horizontally with the body.
-- Have two placement modes (`stickyEndRowsMode`), which only differ when the body rows do not
-  fill the viewport. Either way they stay in place while the body scrolls vertically.
+- Have three placement modes (`stickyEndRowsMode`):
+  - `'flow'`: right after the last body row, scrolling vertically with the body. Use this for
+    totals that should only appear after scrolling to the end.
   - `'sticky'` (default): right after the last body row, sticking to the bottom of the viewport
     when the body is taller than it.
   - `'fixed'`: always at the bottom of the viewport, with empty space above them when the body
@@ -582,7 +583,8 @@ or controls such as per-column filter inputs. They:
     the rows' height", tracked with a `ResizeObserver`. It needs a table `height`; without one it
     lays out like `'sticky'`.
 - Are rendered inside the scroll element, in a `.dgtable-sticky-end-rows` container right after
-  `.dgtable-body`, with `position: sticky; bottom: 0`. Each row has the `dgtable-row` and
+  `.dgtable-body`, with `position: sticky; bottom: 0` in the pinned modes and `position: relative`
+  in `'flow'` mode. Each row has the `dgtable-row` and
   `dgtable-sticky-end-row` classes, so style them through those. The container gets
   `z-index: 1` unless your stylesheet gives it one.
 - Are kept across renders: changing, sorting or filtering the data, resizing or scrolling only
@@ -627,6 +629,11 @@ const table = new DGTable({
 for (const event of ['addrows', 'filter', 'filterclear'])
     table.on(event, () => table.refreshStickyEndRow(0));
 
+// Switch placement without moving totals into or out of the body data
+table.setStickyEndRowsMode('flow');
+table.setStickyEndRowsMode('sticky');
+table.setStickyEndRowsMode('fixed');
+
 // removeRows(), removeRow() and refreshRow() emit no event: refresh after calling them
 table.removeRow(3);
 table.refreshStickyEndRow(0);
@@ -648,7 +655,7 @@ import type {
     // Function types
     CellFormatter,         // Cell formatter function
     StickyEndRowFormatter, // Sticky end row cell formatter function
-    StickyEndRowsMode,     // 'sticky' | 'fixed'
+    StickyEndRowsMode,     // 'flow' | 'sticky' | 'fixed'
     HeaderCellFormatter,   // Header cell formatter function
     FilterFunction,        // Filter function
     ComparatorFunction,    // Row comparator function

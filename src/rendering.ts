@@ -253,9 +253,9 @@ export function updateAfterStickyEndRowsResize(table: DGTableInterface): void {
  * Bring the sticky end rows up to date with the table.
  *
  * The rows live in a container inside the scroll element, right after the body, which sticks
- * to its bottom. They are kept across renders, so controls in them keep their state and focus:
- * they are re-created only when their data, their formatter or the visible columns changed
- * (or when `force` is set), and otherwise only their cells' layout is updated in place.
+ * to its bottom unless the mode is `'flow'`. They are kept across renders, so controls keep
+ * their state and focus: they are re-created only when their data, formatter or visible columns
+ * changed (or when `force` is set), and otherwise only their cells' layout is updated in place.
  */
 export function updateStickyEndRows(table: DGTableInterface, force = false): void {
     const p = table._p, o = table._o;
@@ -281,10 +281,8 @@ export function updateStickyEndRows(table: DGTableInterface, force = false): voi
         container.className = o.tableClassName + '-sticky-end-rows';
         setCssProps(container, {
             // A formatting context of its own: floating cells overflowing the last body row
-            // can not push into it, and its own cells' overflow stays inside the pinned area.
+            // can not push into it, and its own cells' overflow stays inside the end rows.
             display: 'flow-root',
-            position: 'sticky',
-            bottom: '0',
         });
     }
 
@@ -316,14 +314,23 @@ export function updateStickyEndRows(table: DGTableInterface, force = false): voi
 /**
  * Apply the sticky end rows placement mode.
  *
- * Both modes keep the rows at the bottom of the viewport while the body scrolls. In `'fixed'` mode
- * the body also gets a minimum height of "viewport height minus the rows' height", so the rows
- * stay at the bottom when the body rows do not fill the viewport. The percentage resolves against
+ * `'flow'` scrolls after the body; `'sticky'` and `'fixed'` keep the rows at the viewport bottom
+ * while the body scrolls. In `'fixed'` mode the body also gets a minimum height of
+ * "viewport height minus the rows' height", so the rows stay at the bottom when the body rows
+ * do not fill the viewport. The percentage resolves against
  * the scroll element's content box, so it follows the horizontal scrollbar coming and going; only
  * the rows' own height needs tracking, which a ResizeObserver does.
  */
 export function applyStickyEndRowsMode(table: DGTableInterface): void {
     const p = table._p;
+    const endRowsContainer = p.stickyEndRowsEl;
+
+    if (endRowsContainer) {
+        const flowing = table._o.stickyEndRowsMode === 'flow';
+        endRowsContainer.style.position = flowing ? 'relative' : 'sticky';
+        endRowsContainer.style.bottom = flowing ? '' : '0';
+    }
+
     const container = getFixedStickyEndRowsContainer(table);
 
     updateFixedStickyEndRowsMinHeight(table, container);

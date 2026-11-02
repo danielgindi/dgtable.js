@@ -62,12 +62,13 @@ export type StickyEndRowFormatter = (value: unknown, columnName: string, rowData
 
 /**
  * How the sticky end rows are placed:
+ * - `'flow'`: right after the last body row, scrolling vertically with the body.
  * - `'sticky'`: right after the last body row, sticking to the bottom of the viewport when the
  *   body is taller than it.
  * - `'fixed'`: always at the bottom of the viewport, leaving empty space above them when the
  *   body rows do not fill it.
  */
-export type StickyEndRowsMode = 'sticky' | 'fixed';
+export type StickyEndRowsMode = 'flow' | 'sticky' | 'fixed';
 
 /**
  * Header cell formatter function
@@ -337,9 +338,10 @@ export interface DGTableOptions {
     filter?: FilterFunction | null;
 
     /**
-     * Rows pinned to the bottom of the table viewport, such as totals or summary rows.
+     * End rows, such as totals or summary rows, placed according to `stickyEndRowsMode`.
      * They are rendered with the same columns and cell formatter as the body rows, scroll
-     * horizontally with the body, and stay visible while the body scrolls vertically.
+     * horizontally with the body, and stay visible while the body scrolls vertically unless
+     * the mode is `'flow'`.
      * They are separate from the table data: never sorted, filtered or virtualized,
      * and not counted by row indices or `getRowCount()`.
      * @default []
@@ -355,8 +357,8 @@ export interface DGTableOptions {
     stickyEndRowFormatter?: StickyEndRowFormatter | null;
 
     /**
-     * Placement of the sticky end rows. Either way they stay in place while the body scrolls
-     * vertically. `'fixed'` only differs from `'sticky'` when the table has a height (`height`).
+     * Placement of the end rows: `'flow'` scrolls vertically with the body; `'sticky'` and
+     * `'fixed'` stay visible. `'fixed'` only differs from `'sticky'` with a table height (`height`).
      * @default "sticky"
      */
     stickyEndRowsMode?: StickyEndRowsMode | null;

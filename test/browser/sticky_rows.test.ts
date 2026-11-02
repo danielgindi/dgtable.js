@@ -61,7 +61,7 @@ function expectStickyEndRowsAligned(table: DGTable, tolerance = 0.5): void {
     }
 }
 
-const modeLayouts = layouts.flatMap(layout => (['sticky', 'fixed'] as StickyEndRowsMode[])
+const modeLayouts = layouts.flatMap(layout => (['flow', 'sticky', 'fixed'] as StickyEndRowsMode[])
     .map(mode => ({ ...layout, mode })));
 
 describe.each(modeLayouts)('sticky end rows ($mode; $dir, $boxSizing, virtual=$virtualTable)', (layout: Layout & { mode: StickyEndRowsMode }) => {
@@ -84,8 +84,8 @@ describe.each(modeLayouts)('sticky end rows ($mode; $dir, $boxSizing, virtual=$v
 
         expect(container).not.toBeNull();
         expect(container.previousElementSibling!.classList.contains('dgtable-body')).toBe(true);
-        expect(container.style.position).toBe('sticky');
-        expect(container.style.bottom).toBe('0px');
+        expect(container.style.position).toBe(layout.mode === 'flow' ? 'relative' : 'sticky');
+        expect(container.style.bottom).toBe(layout.mode === 'flow' ? '' : '0px');
 
         const rows = stickyEndRows(table);
         expect(rows).toHaveLength(2);
@@ -103,15 +103,22 @@ describe.each(modeLayouts)('sticky end rows ($mode; $dir, $boxSizing, virtual=$v
         checkInvariants(table);
     });
 
-    it('SER-02: stays pinned to the viewport bottom, and follows the last row at the scroll end', () => {
+    it('SER-02: flows or stays pinned while scrolling, and follows the last row at the scroll end', () => {
         const table = mount();
         const container = stickyEndRowsContainer(table)!;
         const rows = stickyEndRows(table);
 
-        expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table))).toBeLessThanOrEqual(1);
+        const initialTop = container.getBoundingClientRect().top;
+        if (layout.mode === 'flow')
+            expect(initialTop).toBeGreaterThan(viewportBottom(table));
+        else
+            expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table))).toBeLessThanOrEqual(1);
 
         scrollVertically(table, 200);
-        expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table))).toBeLessThanOrEqual(1);
+        if (layout.mode === 'flow')
+            expect(Math.abs(container.getBoundingClientRect().top - (initialTop - 200))).toBeLessThanOrEqual(1);
+        else
+            expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table))).toBeLessThanOrEqual(1);
 
         scrollVertically(table, 100_000);
         expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table))).toBeLessThanOrEqual(1);
@@ -351,23 +358,57 @@ describe.each(modeLayouts)('sticky end rows ($mode; $dir, $boxSizing, virtual=$v
         }
     });
 
-    it('SER-24: switching the mode at runtime moves the rows, and keeps them', () => {
-        const table = mount({}, 1);
+    it('SER-24: switching all modes at runtime keeps the rows, controls and focus', () => {
+        const table = mount({ stickyEndRowFormatter: () => '<input value="total">' }, 1);
         const container = stickyEndRowsContainer(table)!;
         const rowEl = stickyEndRows(table)[0];
-        const other: StickyEndRowsMode = layout.mode === 'fixed' ? 'sticky' : 'fixed';
+        const input = rowEl.querySelector('input')!;
+        input.focus();
+        input.value = 'edited';
+        input.setSelectionRange(1, 3);
+        const created = vi.fn(), destroyed = vi.fn();
+        table.on('stickyendrowcreate', created).on('stickyendrowdestroy', destroyed);
 
         expect(table.getStickyEndRowsMode()).toBe(layout.mode);
 
-        table.setStickyEndRowsMode(other);
-        expect(table.getStickyEndRowsMode()).toBe(other);
-        expect(stickyEndRows(table)[0]).toBe(rowEl);
+        for (const mode of ['fixed', 'flow', 'sticky', 'flow', layout.mode] as StickyEndRowsMode[]) {
+            expect(table.setStickyEndRowsMode(mode)).toBe(table);
+            expect(table.getStickyEndRowsMode()).toBe(mode);
+            expect(stickyEndRows(table)[0]).toBe(rowEl);
+            expect(container.style.position).toBe(mode === 'flow' ? 'relative' : 'sticky');
+            expect(container.style.bottom).toBe(mode === 'flow' ? '' : '0px');
 
-        const atBottom = Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table)) <= 1;
-        expect(atBottom).toBe(other === 'fixed');
+            const atBottom = Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table)) <= 1;
+            expect(atBottom).toBe(mode === 'fixed');
+            if (mode === 'flow')
+                expect((container.previousElementSibling as HTMLElement).style.minHeight).toBe('1px');
 
-        table.setStickyEndRowsMode(layout.mode);
-        expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table)) <= 1).toBe(layout.mode === 'fixed');
+            expect(document.activeElement).toBe(input);
+            expect(input.value).toBe('edited');
+            expect([input.selectionStart, input.selectionEnd]).toEqual([1, 3]);
+            expect(table.getRowCount()).toBe(1);
+            expect(table.getStickyEndRows()).toEqual(totals);
+            expectStickyEndRowsAligned(table);
+        }
+
+        expect(created).not.toHaveBeenCalled();
+        expect(destroyed).not.toHaveBeenCalled();
+    });
+
+    it('SER-37: switching between pinned and flowing rows updates placement in an overflowing table', () => {
+        const table = mount();
+        const container = stickyEndRowsContainer(table)!;
+        const rowEl = stickyEndRows(table)[0];
+
+        scrollVertically(table, 200);
+        for (const mode of ['fixed', 'flow', 'sticky', 'flow', 'fixed'] as StickyEndRowsMode[]) {
+            table.setStickyEndRowsMode(mode);
+            expect(stickyEndRows(table)[0]).toBe(rowEl);
+            if (mode === 'flow')
+                expect(container.getBoundingClientRect().top).toBeGreaterThan(viewportBottom(table));
+            else
+                expect(Math.abs(container.getBoundingClientRect().bottom - viewportBottom(table))).toBeLessThanOrEqual(1);
+        }
     });
 
     it('SER-28: adding, showing and removing columns re-creates the rows without errors', () => {
@@ -422,6 +463,19 @@ describe.each(modeLayouts)('sticky end rows ($mode; $dir, $boxSizing, virtual=$v
 });
 
 describe('sticky end rows', () => {
+    it('SER-38: flow mode set before the first render is applied by it', () => {
+        const { table } = mountTable({ columns: [{ name: 'a' }], stickyEndRows: [{ a: 'total' }] }, { render: false });
+        table.setStickyEndRowsMode('flow');
+        expect(stickyEndRowsContainer(table)).toBeNull();
+        table.render();
+
+        expect(table.getStickyEndRowsMode()).toBe('flow');
+        expect(stickyEndRowsContainer(table)!.style.position).toBe('relative');
+
+        table.setRows(makeRows(40, i => ({ a: i })));
+        expect(stickyEndRowsContainer(table)!.getBoundingClientRect().top).toBeGreaterThan(viewportBottom(table));
+    });
+
     it('SER-11: rows set before the first render are rendered by it', () => {
         const { table } = mountTable({ columns: [{ name: 'a' }] }, { render: false });
         table.setStickyEndRows([{ a: 'x' }]);

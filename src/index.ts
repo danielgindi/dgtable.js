@@ -224,7 +224,8 @@ class DGTable {
 
         this.setCellFormatter(options.cellFormatter);
         o.stickyEndRowFormatter = options.stickyEndRowFormatter || null;
-        o.stickyEndRowsMode = options.stickyEndRowsMode === 'fixed' ? 'fixed' : 'sticky';
+        o.stickyEndRowsMode = options.stickyEndRowsMode === 'flow' || options.stickyEndRowsMode === 'fixed'
+            ? options.stickyEndRowsMode : 'sticky';
         this.setHeaderCellFormatter(options.headerCellFormatter);
         this.setFilter(options.filter);
 
@@ -1605,13 +1606,13 @@ class DGTable {
     }
 
     /**
-     * Sets how the sticky end rows are placed: `'sticky'` (after the last body row, sticking to the
-     * bottom of the viewport), or `'fixed'` (always at the bottom of the viewport).
+     * Sets how the end rows are placed: `'flow'` (scrolling after the last body row), `'sticky'`
+     * (after the last body row, sticking to the viewport bottom), or `'fixed'` (at the viewport bottom).
      */
     setStickyEndRowsMode(mode: StickyEndRowsMode) {
         const o = this._o, p = this._p;
 
-        mode = mode === 'fixed' ? 'fixed' : 'sticky';
+        mode = mode === 'flow' || mode === 'fixed' ? mode : 'sticky';
         if (o.stickyEndRowsMode === mode)
             return this;
 
