@@ -100,7 +100,7 @@ import {
 // Private types
 import {
     DGTableInternalOptions,
-    DGTablePrivateState, InternalColumn, IsDestroyedSymbol,
+    DGTablePrivateState, IsDestroyedSymbol,
 } from './private_types';
 import {
     IsSafeSymbol,
@@ -111,7 +111,6 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
 
 const OnceOriginalHandlerSymbol = Symbol('once_original_handler');
 type OnceHandler = ((value: unknown) => void) & { [OnceOriginalHandlerSymbol]?: (value: unknown) => void };
-const createElement = document.createElement.bind(document);
 
 // noinspection JSUnusedGlobalSymbols
 class DGTable {
@@ -460,8 +459,13 @@ class DGTable {
             return this;
         }
 
+        let updatedNonVirtualRows = false;
+        let updatedVirtualRows = false;
+
         if (p.tableSkeletonNeedsRendering === true) {
             p.tableSkeletonNeedsRendering = false;
+            p.pendingRowRemovals = undefined;
+            p.virtualRowsNeedLayout = false;
 
             if (o.width === Width.AUTO) {
                 clearSortArrows(this);
@@ -510,6 +514,28 @@ class DGTable {
             updateStickyColumnPositions(this);
 
             this.emit('renderskeleton');
+        } else {
+            const pendingRemovals = p.pendingRowRemovals;
+            if (pendingRemovals?.length) {
+                p.pendingRowRemovals = undefined;
+                let refreshFrom = p.rows.length;
+
+                for (const removal of pendingRemovals) {
+                    p.virtualListHelper.removeItemsAt(removal.count, removal.rowIndex);
+                    refreshFrom = Math.min(refreshFrom, removal.rowIndex);
+                }
+                for (let i = refreshFrom, count = p.virtualListHelper.getCount(); i < count; i++)
+                    p.virtualListHelper.refreshItemAt(i);
+
+                updatedNonVirtualRows = true;
+            }
+
+            if (p.virtualRowsNeedLayout) {
+                p.virtualRowsNeedLayout = false;
+                updateVirtualHeight(this);
+                updateLastCellWidthFromScrollbar(this);
+                updatedVirtualRows = true;
+            }
         }
 
         p.virtualListHelper.render();
@@ -519,9 +545,10 @@ class DGTable {
         // Rendering rows may have made the vertical scrollbar appear or disappear
         const scrollbarWidth = p.scrollbarWidth;
         updateLastCellWidthFromScrollbar(this);
-        if (p.scrollbarWidth !== scrollbarWidth) {
+        if (updatedNonVirtualRows)
+            updateTableWidth(this, true);
+        else if (updatedVirtualRows || p.scrollbarWidth !== scrollbarWidth)
             updateTableWidth(this, false);
-        }
 
         this.emit('render');
         return this;
@@ -1377,7 +1404,7 @@ class DGTable {
         if (data) {
             p.rows.add(data, at);
 
-            if (p.filteredRows || (resort && p.rows.sortColumn.length)) {
+            if (p.filteredRows || p.pendingRowRemovals?.length || (resort && p.rows.sortColumn.length)) {
 
                 // Rebuild the filtered set first (it doesn't contain the new rows yet),
                 // so resort() re-orders the complete set
@@ -1432,7 +1459,8 @@ class DGTable {
 
         if (rowIndex < 0 || rowIndex > p.rows.length - 1) return this;
 
-        p.rows.splice(rowIndex, count);
+        const removedCount = Math.min(count, p.rows.length - rowIndex);
+        p.rows.splice(rowIndex, removedCount);
         render = (render === undefined) ? true : !!render;
 
         if (p.filteredRows) {
@@ -1445,28 +1473,21 @@ class DGTable {
                 this.render();
             }
 
-        } else if (render && p.virtualListHelper) {
-            p.virtualListHelper.removeItemsAt(count, rowIndex);
-
+        } else if (p.virtualListHelper && !p.tableSkeletonNeedsRendering) {
             if (this._o.virtualTable) {
-                updateVirtualHeight(this);
-                updateLastCellWidthFromScrollbar(this);
-                this.render();
-                updateTableWidth(this, false);
+                // This updates the count and defers re-rendering shifted rows.
+                p.virtualListHelper.removeItemsAt(removedCount, rowIndex);
+                p.virtualRowsNeedLayout = true;
             } else {
-                // The rows after the removed ones moved: re-render them so their index,
-                // alternating class and click payload match their new position
-                for (let i = rowIndex, count = p.virtualListHelper.getCount(); i < count; i++) {
-                    p.virtualListHelper.refreshItemAt(i);
-                }
-
-                this.render();
-                updateLastCellWidthFromScrollbar(this);
-                updateTableWidth(this, true);
+                // Non-virtual removeItemsAt changes the DOM immediately, so defer it.
+                (p.pendingRowRemovals ??= []).push({ rowIndex, count: removedCount });
             }
+            if (render)
+                this.render();
         } else {
-            // Not rendering now: let the next render() pick up the removal.
             p.tableSkeletonNeedsRendering = true;
+            if (render)
+                this.render();
         }
 
         return this;
@@ -1495,6 +1516,13 @@ class DGTable {
 
         if (!p.virtualListHelper)
             return this;
+
+        if (p.pendingRowRemovals?.length) {
+            p.tableSkeletonNeedsRendering = true;
+            if (render)
+                this.render();
+            return this;
+        }
 
         p.virtualListHelper.refreshItemAt(filteredRowIndex);
 
@@ -1526,6 +1554,10 @@ class DGTable {
     /** Refreshes all virtual rows */
     refreshAllVirtualRows() {
         const p = this._p;
+        if (p.pendingRowRemovals?.length) {
+            p.tableSkeletonNeedsRendering = true;
+            return this.render();
+        }
         p.virtualListHelper?.invalidate().render();
 
         updateStickyEndRows(this);

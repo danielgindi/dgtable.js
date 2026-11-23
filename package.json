@@ -51,7 +51,7 @@
   ],
   "dependencies": {
     "@danielgindi/dom-utils": "^1.0.11",
-    "@danielgindi/virtual-list-helper": "^1.0.19",
+    "@danielgindi/virtual-list-helper": "^2.0.0",
     "mitt": "^3.0.1"
   },
   "devDependencies": {

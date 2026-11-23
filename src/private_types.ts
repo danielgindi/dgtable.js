@@ -142,6 +142,8 @@ export interface DGTablePrivateState {
     eventsSink: DomEventsSink;
     mitt: Emitter<Record<string, unknown>>;
     tableSkeletonNeedsRendering: boolean;
+    pendingRowRemovals?: { rowIndex: number; count: number }[];
+    virtualRowsNeedLayout?: boolean;
     columns: ColumnCollection;
     visibleColumns: InternalColumn[];
     rows: RowCollection;

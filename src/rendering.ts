@@ -78,6 +78,8 @@ export function setupVirtualTable(table: DGTableInterface): void {
         itemsParent: p.tbody,
         autoVirtualWrapperWidth: false,
         virtual: o.virtualTable,
+        // Keep row indices and click handlers in sync with non-virtual removal.
+        rerenderVirtualItemsAfterRemoval: true,
         buffer: o.rowsBufferSize,
         estimatedItemHeight: o.estimatedRowHeight ? o.estimatedRowHeight : (p.virtualRowHeight || 40),
         itemElementCreatorFn: () => {

@@ -82,11 +82,48 @@ describe.each(layouts.filter(l => l.dir === 'ltr' && l.boxSizing === 'content-bo
     it('ROW-05 (D3): rows removed with render=false disappear after render()', () => {
         const { table } = mountLayout(layout, { columns });
         table.setRows(makeRows(6));
+        const firstRow = renderedRows(table)[0];
+        const header = table.getHeaderRowElement();
+        const skeletonRendered = vi.fn();
+        const rowCreated = vi.fn();
+        const rowDestroyed = vi.fn();
+        table.on('renderskeleton', skeletonRendered);
+        table.on('rowcreate', rowCreated);
+        table.on('rowdestroy', rowDestroyed);
 
-        table.removeRows(0, 2, false);
-        table.removeRow(0, false);
+        table.removeRows(1, 2, false);
+        table.removeRow(2, false);
+        expect(rowTexts(table, 'id')).toEqual(ids(6));
+        expect(rowCreated).not.toHaveBeenCalled();
+        expect(rowDestroyed).not.toHaveBeenCalled();
+
         table.render();
-        expect(rowTexts(table, 'id')).toEqual(['3', '4', '5']);
+        expect(rowTexts(table, 'id')).toEqual(['0', '3', '5']);
+        expect(renderedRows(table)[0]).toBe(firstRow);
+        expect(table.getHeaderRowElement()).toBe(header);
+        expect(skeletonRendered).not.toHaveBeenCalled();
+        checkInvariants(table);
+    });
+
+    it('ROW-05: a later rendered removal applies deferred removals', () => {
+        const { table } = mountLayout(layout, { columns });
+        table.setRows(makeRows(6));
+
+        table.removeRow(1, false);
+        table.removeRow(2);
+
+        expect(rowTexts(table, 'id')).toEqual(['0', '2', '4', '5']);
+        checkInvariants(table);
+    });
+
+    it('ROW-05: adding rows after a deferred removal keeps the final data aligned', () => {
+        const { table } = mountLayout(layout, { columns });
+        table.setRows(makeRows(6));
+
+        table.removeRow(1, false);
+        table.addRows({ id: 'x', name: 'x' }, 1);
+
+        expect(rowTexts(table, 'id')).toEqual(['0', 'x', '2', '3', '4', '5']);
         checkInvariants(table);
     });
 
@@ -156,6 +193,53 @@ describe.each(layouts.filter(l => l.dir === 'ltr' && l.boxSizing === 'content-bo
 });
 
 describe('rows', () => {
+    it.each([true, false])('ROW-05: removal has consistent row lifecycle (virtual=%s)', virtualTable => {
+        const { table } = mountTable({ columns, height: 300, virtualTable });
+        table.setRows(makeRows(5));
+
+        const created: number[] = [];
+        const destroyed: number[] = [];
+        table.on('rowcreate', event => created.push(event.rowIndex));
+        table.on('rowdestroy', row => destroyed.push((row as HTMLElement & { index: number }).index));
+
+        table.removeRow(1);
+
+        expect(created.sort((a, b) => a - b)).toEqual([1, 2, 3]);
+        expect(destroyed.sort((a, b) => a - b)).toEqual([1, 2, 3, 4]);
+        checkInvariants(table);
+    });
+
+    it.each([200, 490])('ROW-05: removing a row before virtual row %i updates rendered indices', scrollIndex => {
+        const { table } = mountTable({ columns, height: 300, virtualTable: true });
+        table.setRows(makeRows(500));
+        scrollVertically(table, scrollIndex * 29);
+        table.render();
+
+        const visible = renderedRows(table);
+        const before = visible[Math.floor(visible.length / 2)];
+        const oldIndex = before.index;
+        expect(oldIndex).toBeGreaterThan(0);
+        const rowData = table.getDataForRow(oldIndex);
+
+        table.removeRow(0);
+
+        expect(table.getIndexForRow(rowData!)).toBe(oldIndex - 1);
+        const after = renderedRows(table).find(
+            row => row.querySelector('[data-column="id"]')?.textContent === String(rowData?.id)
+        );
+        expect(after).toBeDefined();
+        expect(after!.index).toBe(oldIndex - 1);
+        expect(after!.vIndex).toBe(oldIndex - 1);
+        expect(table.getRowElement(oldIndex - 1)).toBe(after);
+
+        const clicks: RowClickEvent[] = [];
+        table.on('rowclick', event => clicks.push(event));
+        after!.click();
+        expect(clicks[0].rowIndex).toBe(after!.index);
+        expect(clicks[0].filteredRowIndex).toBe(after!.vIndex);
+        expect(clicks[0].rowData).toBe(rowData);
+    });
+
     it('ROW-01 (pin): setRows(null) throws', () => {
         const { table } = mountTable({ columns });
         // DECIDE: treat null as [] ?
