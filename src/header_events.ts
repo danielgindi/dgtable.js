@@ -5,7 +5,7 @@
 import { find } from './util';
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore - No type declarations available for this module
-import { getElementWidth, getElementHeight, getElementOffset } from '@danielgindi/dom-utils/lib/Css.js';
+import { getElementWidth, getElementHeight, getElementOffset } from '@danielgindi/dom-utils/lib/Css';
 import { isInputElementEvent } from './helpers';
 import {
     getColumnByResizePosition,

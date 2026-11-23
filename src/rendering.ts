@@ -6,9 +6,9 @@
 // @ts-ignore - No type declarations available for this module
 import VirtualListHelper from '@danielgindi/virtual-list-helper';
 // @ts-ignore - No type declarations available for this module
-import { getElementWidth, getElementHeight, setElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
+import { getElementWidth, getElementHeight, setElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css';
 // @ts-ignore - No type declarations available for this module
-import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
+import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat';
 import { ColumnWidthMode, Width } from './constants';
 import {
     relativizeElement,
