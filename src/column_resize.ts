@@ -4,7 +4,7 @@
 
 /* eslint-disable @typescript-eslint/ban-ts-comment */
 // @ts-ignore - No type declarations available for this module
-import { getElementWidth, getElementHeight, getElementOffset, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
+import { getElementWidth, getElementHeight, getElementOffset, setCssProps } from '@danielgindi/dom-utils/lib/Css';
 import { ColumnWidthMode } from './constants';
 import { isTableRtl, horizontalPadding } from './helpers';
 import type { DGTableInterface } from './private_types';

@@ -5,14 +5,14 @@ import { htmlEncode } from './util';
 import RowCollection from './row_collection';
 import ColumnCollection from './column_collection';
 // @ts-ignore - No type declarations available for this module
-import { getScrollHorz, setScrollHorz } from '@danielgindi/dom-utils/lib/ScrollHelper.js';
+import { getScrollHorz, setScrollHorz } from '@danielgindi/dom-utils/lib/ScrollHelper';
 // @ts-ignore - No type declarations available for this module
-import { getElementHeight, getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css.js';
+import { getElementHeight, getElementWidth, setCssProps } from '@danielgindi/dom-utils/lib/Css';
 // @ts-ignore - No type declarations available for this module
-import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat.js';
+import { scopedSelectorAll } from '@danielgindi/dom-utils/lib/DomCompat';
 import ByColumnFilter from './by_column_filter';
 // @ts-ignore - No type declarations available for this module
-import DomEventsSink from '@danielgindi/dom-utils/lib/DomEventsSink.js';
+import DomEventsSink from '@danielgindi/dom-utils/lib/DomEventsSink';
 import mitt from 'mitt';
 
 // Constants
